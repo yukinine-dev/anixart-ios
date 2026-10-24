@@ -5,7 +5,7 @@
 import Foundation
 
 public struct PopularComment: Codable, Hashable, Sendable, Identifiable {
-    public var id: Int?
+    public var id: Int
     public var message: String?
     public var profile: ProfileSlim?
     public var timestamp: Int?

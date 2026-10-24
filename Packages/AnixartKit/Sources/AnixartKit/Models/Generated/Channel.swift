@@ -20,7 +20,7 @@ public struct Channel: Codable, Hashable, Sendable, Identifiable {
     public var episodeChannelWidgetArticleCount: Int?
     public var episodeChannelWidgetPopularityPeriod: Int?
     public var episodeChannelWidgetSort: Int?
-    public var id: Int?
+    public var id: Int
     public var lastArticleDate: Int?
     public var lastUpdateDate: Int?
     public var permission: Int?

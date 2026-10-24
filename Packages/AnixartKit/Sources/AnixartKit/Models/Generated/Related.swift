@@ -6,7 +6,7 @@ import Foundation
 
 public struct Related: Codable, Hashable, Sendable, Identifiable {
     public var description: String?
-    public var id: Int?
+    public var id: Int
     public var image: String?
     public var images: [String]?
     public var nameRu: String?

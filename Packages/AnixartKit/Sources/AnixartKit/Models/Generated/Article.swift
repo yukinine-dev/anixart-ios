@@ -11,7 +11,7 @@ public struct Article: Codable, Hashable, Sendable, Identifiable {
     public var containsRepostArticle: Bool?
     public var creationDate: Int?
     public var hasDeleteEnforcement: Bool?
-    public var id: Int?
+    public var id: Int
     public var lastUpdateDate: Int?
     public var popularComment: PopularComment?
     public var repostCount: Int?

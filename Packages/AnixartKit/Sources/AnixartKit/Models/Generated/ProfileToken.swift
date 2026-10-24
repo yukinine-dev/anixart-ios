@@ -5,7 +5,7 @@
 import Foundation
 
 public struct ProfileToken: Codable, Hashable, Sendable, Identifiable {
-    public var id: Int?
+    public var id: Int
     public var token: String?
 
     public enum CodingKeys: String, CodingKey {

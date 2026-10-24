@@ -9,7 +9,7 @@ public struct Badge: Codable, Hashable, Sendable, Identifiable {
     public var badgeUrl: String?
     public var category: BadgeCategory?
     public var description: String?
-    public var id: Int?
+    public var id: Int
     public var imageMediumUrl: String?
     public var imageSmallUrl: String?
     public var name: String?

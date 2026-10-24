@@ -5,7 +5,7 @@
 import Foundation
 
 public struct BadgeCategory: Codable, Hashable, Sendable, Identifiable {
-    public var id: Int?
+    public var id: Int
     public var title: String?
 
     public enum CodingKeys: String, CodingKey {

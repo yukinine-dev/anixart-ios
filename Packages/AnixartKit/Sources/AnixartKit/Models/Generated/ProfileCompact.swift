@@ -12,7 +12,7 @@ public struct ProfileCompact: Codable, Hashable, Sendable, Identifiable {
     public var badgeUrl: String?
     public var banExpires: Int?
     public var banReason: String?
-    public var id: Int?
+    public var id: Int
     public var login: String?
     public var privilegeLevel: Int?
     public var isBanned: Bool?

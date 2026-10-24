@@ -6,7 +6,7 @@ import Foundation
 
 public struct ReleaseComment: Codable, Hashable, Sendable, Identifiable {
     public var canLike: Bool?
-    public var id: Int?
+    public var id: Int
     public var likesCount: Int?
     public var message: String?
     public var parentCommentId: Int?

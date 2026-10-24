@@ -17,7 +17,7 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertEqual(release.episodesReleased, 64)
         XCTAssertEqual(release.episodesTotal, 64)
         // `favorites_count` is the wire name; the Android field is favoriteCount.
-        XCTAssertEqual(release.favoritesCount, 90421)
+        XCTAssertEqual(release.favoriteCount, 90421)
         XCTAssertEqual(release.profileListStatus, 1)
         XCTAssertEqual(release.isFavorite, true)
         XCTAssertEqual(release.isAdult, false)

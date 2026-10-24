@@ -32,7 +32,7 @@ public struct Profile: Codable, Hashable, Sendable, Identifiable {
     public var friendsPreview: [Profile]?
     public var history: [Release]?
     public var holdOnCount: Int?
-    public var id: Int?
+    public var id: Int
     public var instPage: String?
     public var lastActivityTime: Int?
     public var login: String?

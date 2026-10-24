@@ -5,7 +5,7 @@
 import Foundation
 
 public struct ReleaseCompact: Codable, Hashable, Sendable, Identifiable {
-    public var id: Int?
+    public var id: Int
     public var image: String?
     public var titleRu: String?
 

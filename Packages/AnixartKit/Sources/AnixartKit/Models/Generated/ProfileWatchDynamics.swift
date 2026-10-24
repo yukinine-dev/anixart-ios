@@ -7,7 +7,7 @@ import Foundation
 public struct ProfileWatchDynamics: Codable, Hashable, Sendable, Identifiable {
     public var count: Int?
     public var day: Int?
-    public var id: Int?
+    public var id: Int
     public var timestamp: Int?
 
     public enum CodingKeys: String, CodingKey {

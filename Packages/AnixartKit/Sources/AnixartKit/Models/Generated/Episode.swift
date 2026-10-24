@@ -6,7 +6,7 @@ import Foundation
 
 public struct Episode: Codable, Hashable, Sendable, Identifiable {
     public var addedDate: Int?
-    public var id: Int?
+    public var id: Int
     public var iframe: Bool?
     public var name: String?
     public var playbackPosition: Int?

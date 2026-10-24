@@ -11,7 +11,7 @@ public struct ReleaseCollection: Codable, Hashable, Sendable, Identifiable {
     public var delete: Bool?
     public var description: String?
     public var favoriteCount: Int?
-    public var id: Int?
+    public var id: Int
     public var image: String?
     public var lastUpdateDate: Int?
     public var releases: [Release]?

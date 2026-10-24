@@ -9,7 +9,7 @@ public struct ReleaseVideo: Codable, Hashable, Sendable, Identifiable {
     public var delete: Bool?
     public var favoriteCount: Int?
     public var hosting: ReleaseVideoHosting?
-    public var id: Int?
+    public var id: Int
     public var image: String?
     public var playerUrl: String?
     public var profile: Profile?

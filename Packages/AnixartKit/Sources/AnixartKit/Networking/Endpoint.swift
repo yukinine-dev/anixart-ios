@@ -55,10 +55,3 @@ public struct Endpoint<Response: Decodable & Sendable>: Sendable {
         self.headers = headers
     }
 }
-
-extension Dictionary where Key == String, Value == String? {
-    /// Builds a query dictionary, dropping keys whose value is absent.
-    public static func items(_ pairs: (String, String?)...) -> [String: String?] {
-        Dictionary<String, String?>(uniqueKeysWithValues: pairs)
-    }
-}

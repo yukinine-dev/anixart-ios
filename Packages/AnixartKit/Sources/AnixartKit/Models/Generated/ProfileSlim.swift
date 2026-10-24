@@ -6,7 +6,7 @@ import Foundation
 
 public struct ProfileSlim: Codable, Hashable, Sendable, Identifiable {
     public var avatar: String?
-    public var id: Int?
+    public var id: Int
     public var login: String?
 
     public enum CodingKeys: String, CodingKey {

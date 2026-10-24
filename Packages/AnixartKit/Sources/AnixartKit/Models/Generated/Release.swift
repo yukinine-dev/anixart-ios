@@ -32,7 +32,7 @@ public struct Release: Codable, Hashable, Sendable, Identifiable {
     public var genres: String?
     public var grade: Double?
     public var holdOnCount: Int?
-    public var id: Int?
+    public var id: Int
     public var image: String?
     public var lastUpdateDate: Int?
     public var lastViewEpisode: Episode?

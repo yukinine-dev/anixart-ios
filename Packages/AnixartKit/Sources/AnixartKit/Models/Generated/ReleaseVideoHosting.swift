@@ -6,7 +6,7 @@ import Foundation
 
 public struct ReleaseVideoHosting: Codable, Hashable, Sendable, Identifiable {
     public var icon: String?
-    public var id: Int?
+    public var id: Int
     public var name: String?
 
     public enum CodingKeys: String, CodingKey {

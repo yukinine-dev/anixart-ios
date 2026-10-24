@@ -8,10 +8,7 @@ let package = Package(
         .library(name: "AnixartKit", targets: ["AnixartKit"])
     ],
     targets: [
-        .target(
-            name: "AnixartKit",
-            swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
-        ),
+        .target(name: "AnixartKit"),
         .testTarget(
             name: "AnixartKitTests",
             dependencies: ["AnixartKit"],

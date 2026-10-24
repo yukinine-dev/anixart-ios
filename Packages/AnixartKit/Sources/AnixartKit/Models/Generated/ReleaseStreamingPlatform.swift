@@ -6,7 +6,7 @@ import Foundation
 
 public struct ReleaseStreamingPlatform: Codable, Hashable, Sendable, Identifiable {
     public var icon: String?
-    public var id: Int?
+    public var id: Int
     public var name: String?
     public var url: String?
 

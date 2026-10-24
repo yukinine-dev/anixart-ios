@@ -7,7 +7,7 @@ import Foundation
 public struct Interesting: Codable, Hashable, Sendable, Identifiable {
     public var action: String?
     public var description: String?
-    public var id: Int?
+    public var id: Int
     public var image: String?
     public var title: String?
     public var type: Int?

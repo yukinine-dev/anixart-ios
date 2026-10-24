@@ -6,7 +6,7 @@ import Foundation
 
 public struct LastWatchedEpisode: Codable, Hashable, Sendable, Identifiable {
     public var episodeId: Int?
-    public var id: Int?
+    public var id: Int
     public var releaseId: Int?
     public var sourceId: Int?
     public var timestamp: Int?

@@ -6,7 +6,7 @@ import Foundation
 
 public struct EpisodeSource: Codable, Hashable, Sendable, Identifiable {
     public var episodesCount: Int?
-    public var id: Int?
+    public var id: Int
     public var name: String?
     public var quality: Int?
     public var type: EpisodeType?

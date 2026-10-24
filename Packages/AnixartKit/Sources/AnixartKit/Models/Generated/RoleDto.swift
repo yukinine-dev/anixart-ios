@@ -6,7 +6,7 @@ import Foundation
 
 public struct RoleDto: Codable, Hashable, Sendable, Identifiable {
     public var color: String?
-    public var id: Int?
+    public var id: Int
     public var name: String?
 
     public enum CodingKeys: String, CodingKey {

@@ -1,0 +1,7507 @@
+{
+ "CustomFilter": {
+  "file": "database/entity/CustomFilter.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "genresMatchingMode",
+    "json": "genresMatchingMode",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "selectedAgeRatings",
+    "json": "selectedAgeRatings",
+    "type": "List<String>",
+    "hasField": true
+   },
+   {
+    "prop": "selectedCategoryId",
+    "json": "selectedCategoryId",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "selectedCountry",
+    "json": "selectedCountry",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "selectedEndYear",
+    "json": "selectedEndYear",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "selectedEpisodeDuration",
+    "json": "selectedEpisodeDuration",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "selectedEpisodes",
+    "json": "selectedEpisodes",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "selectedGenres",
+    "json": "selectedGenres",
+    "type": "List<String>",
+    "hasField": true
+   },
+   {
+    "prop": "selectedProfileListExclusions",
+    "json": "selectedProfileListExclusions",
+    "type": "List<String>",
+    "hasField": true
+   },
+   {
+    "prop": "selectedSeason",
+    "json": "selectedSeason",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "selectedSort",
+    "json": "selectedSort",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "selectedSource",
+    "json": "selectedSource",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "selectedStartYear",
+    "json": "selectedStartYear",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "selectedStatusId",
+    "json": "selectedStatusId",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "selectedStudio",
+    "json": "selectedStudio",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "selectedTypes",
+    "json": "selectedTypes",
+    "type": "List<String>",
+    "hasField": true
+   },
+   {
+    "prop": "isGenresExcludeModeEnabled",
+    "json": "isGenresExcludeModeEnabled",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "User": {
+  "file": "database/entity/User.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "SuperMenu": {
+  "file": "database/entity/SuperMenu.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "backgroundColor",
+    "json": "backgroundColor",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "color",
+    "json": "color",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "icon",
+    "json": "icon",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "newDot",
+    "json": "newDot",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Vote": {
+  "file": "database/entity/Vote.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "ip",
+    "json": "ip",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "vote",
+    "json": "vote",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "Torlook": {
+  "file": "database/entity/Torlook.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "date",
+    "json": "date",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "leechCount",
+    "json": "leechCount",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "link",
+    "json": "link",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "magnetLink",
+    "json": "magnetLink",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "seedCount",
+    "json": "seedCount",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "size",
+    "json": "size",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "trackerDomain",
+    "json": "trackerDomain",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "trackerIcon",
+    "json": "trackerIcon",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Search": {
+  "file": "database/entity/Search.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "query",
+    "json": "query",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "tsLastRequest",
+    "json": "tsLastRequest",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Channel": {
+  "file": "database/entity/channel/Channel.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "articleCount",
+    "json": "article_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badgeId",
+    "json": "channel_badge_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "badgeName",
+    "json": "channel_badge_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badgeType",
+    "json": "channel_badge_type",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "badgeUrl",
+    "json": "channel_badge_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "blockExpireDate",
+    "json": "block_expire_date",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "blockReason",
+    "json": "block_reason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "blogOrChannelId",
+    "json": "blogOrChannelId",
+    "type": "long",
+    "hasField": false
+   },
+   {
+    "prop": "blogProfileId",
+    "json": "blog_profile_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "cover",
+    "json": "cover",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "creationDate",
+    "json": "creation_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "episodeChannelWidgetArticleCount",
+    "json": "episode_channel_widget_article_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "episodeChannelWidgetPopularityPeriod",
+    "json": "episode_channel_widget_popularity_period",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "episodeChannelWidgetSort",
+    "json": "episode_channel_widget_sort",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastArticleDate",
+    "json": "last_article_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastUpdateDate",
+    "json": "last_update_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "permission",
+    "json": "permission",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "recentArticleCount",
+    "json": "recent_article_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "subscriberCount",
+    "json": "subscriber_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isAdministratorOrHigher",
+    "json": "is_administrator_or_higher",
+    "type": "boolean",
+    "hasField": false
+   },
+   {
+    "prop": "isArticleSuggestionEnabled",
+    "json": "is_article_suggestion_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isBlocked",
+    "json": "is_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isBlog",
+    "json": "is_blog",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isCommentingEnabled",
+    "json": "is_commenting_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isCreator",
+    "json": "is_creator",
+    "type": "boolean",
+    "hasField": false
+   },
+   {
+    "prop": "isDeleted",
+    "json": "is_deleted",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isEpisodeChannelWidgetEnabled",
+    "json": "is_episode_channel_widget_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isLinkedToType",
+    "json": "is_linked_to_type",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isMuted",
+    "json": "is_muted",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isPermBlocked",
+    "json": "is_perm_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSubscribed",
+    "json": "is_subscribed",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isVerified",
+    "json": "is_verified",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelLastSeen": {
+  "file": "database/entity/channel/ChannelLastSeen.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channelId",
+    "json": "channelId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastSeenArticleDate",
+    "json": "lastSeenArticleDate",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "EditorChannel": {
+  "file": "database/entity/channel/EditorChannel.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "subscriberCount",
+    "json": "subscriber_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isBlog",
+    "json": "is_blog",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelBlock": {
+  "file": "database/entity/channel/ChannelBlock.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "addedDate",
+    "json": "added_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "expireDate",
+    "json": "expire_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "reason",
+    "json": "reason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isPermBlocked",
+    "json": "is_perm_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isReasonShowingEnabled",
+    "json": "is_reason_showing_enabled",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelCompact": {
+  "file": "database/entity/channel/ChannelCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "blogProfileId",
+    "json": "blog_profile_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "cover",
+    "json": "cover",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "permission",
+    "json": "permission",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isBlog",
+    "json": "is_blog",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isCommentingEnabled",
+    "json": "is_commenting_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isDeleted",
+    "json": "is_deleted",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "CollectionCompact": {
+  "file": "database/entity/collection/CollectionCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "image",
+    "json": "image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Collection": {
+  "file": "database/entity/collection/Collection.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "commentCount",
+    "json": "comment_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "creationDate",
+    "json": "creation_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "creator",
+    "json": "creator",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "delete",
+    "json": "delete",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "favoriteCount",
+    "json": "favorites_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "image",
+    "json": "image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastUpdateDate",
+    "json": "last_update_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "releases",
+    "json": "releases",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isFavorite",
+    "json": "is_favorite",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isPrivate",
+    "json": "is_private",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileMyCommentNotification": {
+  "file": "database/entity/notification/ProfileMyCommentNotification.java",
+  "parent": "ProfileNotification",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "comment",
+    "json": "comment",
+    "type": "abstract T",
+    "hasField": false
+   }
+  ]
+ },
+ "SilentPush": {
+  "file": "database/entity/notification/SilentPush.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileCommentNotification": {
+  "file": "database/entity/notification/ProfileCommentNotification.java",
+  "parent": "ProfileNotification",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "comment",
+    "json": "comment",
+    "type": "T",
+    "hasField": true
+   },
+   {
+    "prop": "parentComment",
+    "json": "parentComment",
+    "type": "T",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileNotification": {
+  "file": "database/entity/notification/ProfileNotification.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "isNew",
+    "json": "is_new",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isPushed",
+    "json": "is_pushed",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileMyCollectionCommentNotification": {
+  "file": "database/entity/notification/collection/ProfileMyCollectionCommentNotification.java",
+  "parent": "ProfileMyCommentNotification",
+  "parentArg": "CollectionCommentCompact",
+  "props": [
+   {
+    "prop": "comment",
+    "json": "collection_comment",
+    "type": "CollectionCommentCompact",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileFriendNotification": {
+  "file": "database/entity/notification/friend/ProfileFriendNotification.java",
+  "parent": "ProfileNotification",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "entries",
+    "json": "entries",
+    "type": "static EnumEntries<Status>",
+    "hasField": false
+   },
+   {
+    "prop": "value",
+    "json": "value",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "byProfile",
+    "json": "by_profile",
+    "type": "ProfileSlim",
+    "hasField": true
+   },
+   {
+    "prop": "status",
+    "json": "status",
+    "type": "Status",
+    "hasField": true
+   }
+  ]
+ },
+ "ApiSilentPush": {
+  "file": "database/entity/notification/silent/ApiSilentPush.java",
+  "parent": "SilentPush",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "apiUrl",
+    "json": "apiUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "shouldUseMirrorUrlsUrl",
+    "json": "shouldUseMirrorUrlsUrl",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileMyArticleCommentNotification": {
+  "file": "database/entity/notification/article/ProfileMyArticleCommentNotification.java",
+  "parent": "ProfileMyCommentNotification",
+  "parentArg": "ArticleCommentCompact",
+  "props": [
+   {
+    "prop": "comment",
+    "json": "article_comment",
+    "type": "ArticleCommentCompact",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileArticleNotification": {
+  "file": "database/entity/notification/article/ProfileArticleNotification.java",
+  "parent": "ProfileNotification",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "article",
+    "json": "article",
+    "type": "ArticleCompact",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileRelatedReleaseNotification": {
+  "file": "database/entity/notification/related/ProfileRelatedReleaseNotification.java",
+  "parent": "ProfileNotification",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "ReleaseCompact",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileEpisodeNotification": {
+  "file": "database/entity/notification/episode/ProfileEpisodeNotification.java",
+  "parent": "ProfileNotification",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "episode",
+    "json": "episode",
+    "type": "EpisodeCompact",
+    "hasField": true
+   }
+  ]
+ },
+ "BadgeSection": {
+  "file": "database/entity/profile/BadgeSection.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "content",
+    "json": "content",
+    "type": "List<Badge>",
+    "hasField": true
+   },
+   {
+    "prop": "count",
+    "json": "count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelProfile": {
+  "file": "database/entity/profile/ChannelProfile.java",
+  "parent": "ProfileCompact",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "blockExpireDate",
+    "json": "block_expire_date",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "blockReason",
+    "json": "block_reason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "channelId",
+    "json": "channel_id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "permission",
+    "json": "permission",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "permissionCreationDate",
+    "json": "permission_creation_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "isBlocked",
+    "json": "is_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isMember",
+    "json": "isMember",
+    "type": "boolean",
+    "hasField": false
+   },
+   {
+    "prop": "isPermBlocked",
+    "json": "is_perm_blocked",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "Badge": {
+  "file": "database/entity/profile/Badge.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "award",
+    "json": "award",
+    "type": "BadgeAward",
+    "hasField": true
+   },
+   {
+    "prop": "badgeUrl",
+    "json": "image_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "category",
+    "json": "category",
+    "type": "BadgeCategory",
+    "hasField": true
+   },
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "imageMediumUrl",
+    "json": "image_medium_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "imageSmallUrl",
+    "json": "image_small_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "mediumBadgeUrl",
+    "json": "mediumBadgeUrl",
+    "type": "String",
+    "hasField": false
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "ownershipPercentage",
+    "json": "ownership_percentage",
+    "type": "Double",
+    "hasField": true
+   },
+   {
+    "prop": "rarity",
+    "json": "rarity",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "smallBadgeUrl",
+    "json": "smallBadgeUrl",
+    "type": "String",
+    "hasField": false
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "isAvailable",
+    "json": "is_available",
+    "type": "Boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isOwned",
+    "json": "is_owned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSelected",
+    "json": "is_selected",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isShowcased",
+    "json": "is_showcased",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileSlim": {
+  "file": "database/entity/profile/ProfileSlim.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "login",
+    "json": "login",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileRole": {
+  "file": "database/entity/profile/ProfileRole.java",
+  "parent": "ProfileCompact",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "roles",
+    "json": "roles",
+    "type": "List<RoleDto>",
+    "hasField": true
+   },
+   {
+    "prop": "isOnline",
+    "json": "is_online",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileGenre": {
+  "file": "database/entity/profile/ProfileGenre.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "percentage",
+    "json": "percentage",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileToken": {
+  "file": "database/entity/profile/ProfileToken.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "token",
+    "json": "token",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Profile": {
+  "file": "database/entity/profile/Profile.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "entries",
+    "json": "entries",
+    "type": "static EnumEntries<FriendStatus>",
+    "hasField": false
+   },
+   {
+    "prop": "value",
+    "json": "value",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badge",
+    "json": "badge",
+    "type": "Badge",
+    "hasField": true
+   },
+   {
+    "prop": "badgeCount",
+    "json": "badge_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "badgeId",
+    "json": "badge_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "badgeName",
+    "json": "badge_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badgeType",
+    "json": "badge_type",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "badgeUrl",
+    "json": "badge_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badgesPreview",
+    "json": "badges_preview",
+    "type": "List<Badge>",
+    "hasField": true
+   },
+   {
+    "prop": "banExpires",
+    "json": "ban_expires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "banReason",
+    "json": "ban_reason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "blockListAddedDate",
+    "json": "added_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "collectionCount",
+    "json": "collection_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "collectionsPreview",
+    "json": "collections_preview",
+    "type": "List<Collection>",
+    "hasField": true
+   },
+   {
+    "prop": "commentCount",
+    "json": "comment_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "commentsPreview",
+    "json": "comments_preview",
+    "type": "List<? extends Comment<? extends ProfileCompact>>",
+    "hasField": true
+   },
+   {
+    "prop": "completedCount",
+    "json": "completed_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "deletionDeleteAt",
+    "json": "deletion_delete_at",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "deletionRequestedAt",
+    "json": "deletion_requested_at",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "discordPage",
+    "json": "discord_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "droppedCount",
+    "json": "dropped_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "favoriteCount",
+    "json": "favorite_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "friendCount",
+    "json": "friend_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "friendStatus",
+    "json": "friend_status",
+    "type": "FriendStatus",
+    "hasField": true
+   },
+   {
+    "prop": "friendsPreview",
+    "json": "friends_preview",
+    "type": "List<Profile>",
+    "hasField": true
+   },
+   {
+    "prop": "history",
+    "json": "history",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "holdOnCount",
+    "json": "hold_on_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "instPage",
+    "json": "inst_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastActivityTime",
+    "json": "last_activity_time",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "login",
+    "json": "login",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "password",
+    "json": "password",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "pinnedSectionId",
+    "json": "pinned_section_id",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "planCount",
+    "json": "plan_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "preferredAudiences",
+    "json": "preferred_audiences",
+    "type": "List<ProfileGenre>",
+    "hasField": true
+   },
+   {
+    "prop": "preferredGenres",
+    "json": "preferred_genres",
+    "type": "List<ProfileGenre>",
+    "hasField": true
+   },
+   {
+    "prop": "preferredThemes",
+    "json": "preferred_themes",
+    "type": "List<ProfileGenre>",
+    "hasField": true
+   },
+   {
+    "prop": "privilegeLevel",
+    "json": "privilege_level",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "ratingScore",
+    "json": "rating_score",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "registerDate",
+    "json": "register_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "releaseVideosPreview",
+    "json": "release_videos_preview",
+    "type": "List<ReleaseVideo>",
+    "hasField": true
+   },
+   {
+    "prop": "roles",
+    "json": "roles",
+    "type": "List<RoleDto>",
+    "hasField": true
+   },
+   {
+    "prop": "sponsorshipExpires",
+    "json": "sponsorshipExpires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "status",
+    "json": "status",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "tgPage",
+    "json": "tg_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeAnimationEnabled",
+    "json": "theme_animation_enabled",
+    "type": "Boolean",
+    "hasField": true
+   },
+   {
+    "prop": "themeAnimationSpeed",
+    "json": "theme_animation_speed",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeBackgroundAlpha",
+    "json": "theme_background_alpha",
+    "type": "Float",
+    "hasField": true
+   },
+   {
+    "prop": "themeBackgroundMode",
+    "json": "theme_background_mode",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeBackgroundUrl",
+    "json": "theme_background_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeEnabled",
+    "json": "theme_enabled",
+    "type": "Boolean",
+    "hasField": true
+   },
+   {
+    "prop": "themeGradientAngle",
+    "json": "theme_gradient_angle",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeGradientEndColor",
+    "json": "theme_gradient_end_color",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeGradientStartColor",
+    "json": "theme_gradient_start_color",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconAlpha",
+    "json": "theme_icon_alpha",
+    "type": "Float",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconColor",
+    "json": "theme_icon_color",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconDensity",
+    "json": "theme_icon_density",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconResName",
+    "json": "theme_icon_res_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconSize",
+    "json": "theme_icon_size",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconUrl",
+    "json": "theme_icon_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "ttPage",
+    "json": "tt_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "videoCount",
+    "json": "video_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "vkPage",
+    "json": "vk_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "vote",
+    "json": "vote",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "votes",
+    "json": "votes",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "watchDynamics",
+    "json": "watch_dynamics",
+    "type": "List<ProfileWatchDynamics>",
+    "hasField": true
+   },
+   {
+    "prop": "watchedEpisodeCount",
+    "json": "watched_episode_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "watchedTime",
+    "json": "watched_time",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "watchingCount",
+    "json": "watching_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "isBanned",
+    "json": "is_banned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isBlocked",
+    "json": "is_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isCommentNotificationsEnabled",
+    "json": "is_comment_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isCountsHidden",
+    "json": "is_counts_hidden",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isDeleted",
+    "json": "is_deleted",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isDeletionRequested",
+    "json": "is_deletion_requested",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isEpisodeNotificationsEnabled",
+    "json": "is_episode_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isFirstEpisodeNotificationEnabled",
+    "json": "is_first_episode_notification_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isFriendRequestsDisallowed",
+    "json": "is_friend_requests_disallowed",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isGoogleBound",
+    "json": "is_google_bound",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isIncognito",
+    "json": "is_incognito",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isLoginChanged",
+    "json": "is_login_changed",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isMeBlocked",
+    "json": "is_me_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isOnline",
+    "json": "is_online",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isPermBanned",
+    "json": "is_perm_banned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSocial",
+    "json": "is_social",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSocialHidden",
+    "json": "is_social_hidden",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSponsor",
+    "json": "is_sponsor",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isStatsHidden",
+    "json": "is_stats_hidden",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isTelegramBound",
+    "json": "is_telegram_bound",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isVerified",
+    "json": "is_verified",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isVkBound",
+    "json": "is_vk_bound",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isYandexBound",
+    "json": "is_yandex_bound",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "AvailableTheme": {
+  "file": "database/entity/profile/AvailableTheme.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "RoleDto": {
+  "file": "database/entity/profile/RoleDto.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "color",
+    "json": "color",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Theme": {
+  "file": "database/entity/profile/Theme.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeAnimationEnabled",
+    "json": "theme_animation_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "themeAnimationSpeed",
+    "json": "theme_animation_speed",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeBackgroundAlpha",
+    "json": "theme_background_alpha",
+    "type": "Float",
+    "hasField": true
+   },
+   {
+    "prop": "themeBackgroundMode",
+    "json": "theme_background_mode",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeBackgroundUrl",
+    "json": "theme_background_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeEnabled",
+    "json": "theme_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "themeGradientAngle",
+    "json": "theme_gradient_angle",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeGradientEndColor",
+    "json": "theme_gradient_end_color",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeGradientStartColor",
+    "json": "theme_gradient_start_color",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconAlpha",
+    "json": "theme_icon_alpha",
+    "type": "Float",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconColor",
+    "json": "theme_icon_color",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconDensity",
+    "json": "theme_icon_density",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconResName",
+    "json": "theme_icon_res_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconSize",
+    "json": "theme_icon_size",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "themeIconUrl",
+    "json": "theme_icon_url",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "BadgeCategory": {
+  "file": "database/entity/profile/BadgeCategory.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "BadgeAward": {
+  "file": "database/entity/profile/BadgeAward.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "episodeName",
+    "json": "episode_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profileListStatus",
+    "json": "profile_list_status",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "releaseId",
+    "json": "release_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "releaseImage",
+    "json": "release_image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "releaseTitle",
+    "json": "release_title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "trigger",
+    "json": "trigger",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ChangeLogin": {
+  "file": "database/entity/profile/ChangeLogin.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "newLogin",
+    "json": "newLogin",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileCompact": {
+  "file": "database/entity/profile/ProfileCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badgeId",
+    "json": "badgeId",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "badgeName",
+    "json": "badgeName",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badgeType",
+    "json": "badgeType",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "badgeUrl",
+    "json": "badgeUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "banExpires",
+    "json": "ban_expires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "banReason",
+    "json": "ban_reason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "login",
+    "json": "login",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "privilegeLevel",
+    "json": "privilege_level",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "isBanned",
+    "json": "is_banned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSponsor",
+    "json": "is_sponsor",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isVerified",
+    "json": "is_verified",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileWatchDynamics": {
+  "file": "database/entity/profile/ProfileWatchDynamics.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "count",
+    "json": "count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "day",
+    "json": "day",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "EditEnforcement": {
+  "file": "database/entity/profile/enforcement/EditEnforcement.java",
+  "parent": "ProfileEnforcement",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "changes",
+    "json": "changes",
+    "type": "List<? extends EditEnforcementChange>",
+    "hasField": true
+   },
+   {
+    "prop": "entity",
+    "json": "entity",
+    "type": "T",
+    "hasField": true
+   },
+   {
+    "prop": "entityId",
+    "json": "entity_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "isDeleted",
+    "json": "isDeleted",
+    "type": "boolean",
+    "hasField": false
+   },
+   {
+    "prop": "isRestored",
+    "json": "isRestored",
+    "type": "boolean",
+    "hasField": false
+   }
+  ]
+ },
+ "EditEnforcementChange": {
+  "file": "database/entity/profile/enforcement/EditEnforcementChange.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "newValue",
+    "json": "new_value",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileEnforcement": {
+  "file": "database/entity/profile/enforcement/ProfileEnforcement.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "entries",
+    "json": "entries",
+    "type": "static EnumEntries<AppealStatus>",
+    "hasField": false
+   },
+   {
+    "prop": "appealExpiresTimestamp",
+    "json": "appeal_expires_timestamp",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "appealProcessMessage",
+    "json": "appeal_process_message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "appealProcessTimestamp",
+    "json": "appeal_process_timestamp",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "appealStatus",
+    "json": "appeal_status",
+    "type": "AppealStatus",
+    "hasField": true
+   },
+   {
+    "prop": "appealSubmitTimestamp",
+    "json": "appeal_submit_timestamp",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "appealType",
+    "json": "appeal_type",
+    "type": "AppealType",
+    "hasField": true
+   },
+   {
+    "prop": "creationTimestamp",
+    "json": "creation_timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "entityType",
+    "json": "entityType",
+    "type": "EntityType",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "reason",
+    "json": "reason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "revocationTimestamp",
+    "json": "revocation_timestamp",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "targetEntityType",
+    "json": "targetEntityType",
+    "type": "TargetEntityType",
+    "hasField": true
+   },
+   {
+    "prop": "isRevoked",
+    "json": "is_revoked",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ExpiringEnforcement": {
+  "file": "database/entity/profile/enforcement/ExpiringEnforcement.java",
+  "parent": "ProfileEnforcement",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "expirationTimestamp",
+    "json": "expiration_timestamp",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ReportReason": {
+  "file": "database/entity/report/ReportReason.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Interesting": {
+  "file": "database/entity/release/Interesting.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "action",
+    "json": "action",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "image",
+    "json": "image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "isHidden",
+    "json": "isHidden",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseStatus": {
+  "file": "database/entity/release/ReleaseStatus.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseCompact": {
+  "file": "database/entity/release/ReleaseCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "image",
+    "json": "image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "titleRu",
+    "json": "title_ru",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseStreamingPlatform": {
+  "file": "database/entity/release/ReleaseStreamingPlatform.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "icon",
+    "json": "icon",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "Release",
+    "hasField": true
+   },
+   {
+    "prop": "url",
+    "json": "url",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseGenre": {
+  "file": "database/entity/release/ReleaseGenre.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "genre",
+    "json": "genre",
+    "type": "Genre",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "Release",
+    "hasField": true
+   }
+  ]
+ },
+ "Category": {
+  "file": "database/entity/release/Category.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Related": {
+  "file": "database/entity/release/Related.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "image",
+    "json": "image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "images",
+    "json": "images",
+    "type": "List<String>",
+    "hasField": true
+   },
+   {
+    "prop": "nameRu",
+    "json": "name_ru",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "releaseCount",
+    "json": "release_count",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "Release": {
+  "file": "database/entity/release/Release.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "ageRating",
+    "json": "age_rating",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "airedOnDate",
+    "json": "aired_on_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "author",
+    "json": "author",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badgeCount",
+    "json": "badge_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "badgesPreview",
+    "json": "badges_preview",
+    "type": "List<Badge>",
+    "hasField": true
+   },
+   {
+    "prop": "broadcast",
+    "json": "broadcast",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "canTorlookSearch",
+    "json": "can_torlook_search",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "canVideoAppeal",
+    "json": "can_video_appeal",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "category",
+    "json": "category",
+    "type": "Category",
+    "hasField": true
+   },
+   {
+    "prop": "collectionCount",
+    "json": "collection_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "commentCount",
+    "json": "comment_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "commentPerDayCount",
+    "json": "comment_per_day_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "comments",
+    "json": "comments",
+    "type": "List<ReleaseComment>",
+    "hasField": true
+   },
+   {
+    "prop": "completedCount",
+    "json": "completed_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "country",
+    "json": "country",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "creationDate",
+    "json": "creation_date",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "director",
+    "json": "director",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "droppedCount",
+    "json": "dropped_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "duration",
+    "json": "duration",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "episodeLastUpdate",
+    "json": "episode_last_update",
+    "type": "EpisodeUpdate",
+    "hasField": true
+   },
+   {
+    "prop": "episodesReleased",
+    "json": "episodes_released",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "episodesTotal",
+    "json": "episodes_total",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "favoriteCount",
+    "json": "favorites_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "genres",
+    "json": "genres",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "grade",
+    "json": "grade",
+    "type": "double",
+    "hasField": true
+   },
+   {
+    "prop": "holdOnCount",
+    "json": "hold_on_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "image",
+    "json": "image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastSetCompletedDate",
+    "json": "lastSetCompletedDate",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastSetDroppedDate",
+    "json": "lastSetDroppedDate",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastSetFavoriteDate",
+    "json": "lastSetFavoriteDate",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastSetHoldOnDate",
+    "json": "lastSetHoldOnDate",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastSetPlanDate",
+    "json": "lastSetPlanDate",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastSetViewedDate",
+    "json": "lastSetViewedDate",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastSetWatchingDate",
+    "json": "lastSetWatchingDate",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastUpdateDate",
+    "json": "last_update_date",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "lastViewEpisode",
+    "json": "last_view_episode",
+    "type": "Episode",
+    "hasField": true
+   },
+   {
+    "prop": "lastViewEpisodeName",
+    "json": "last_view_episode_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastViewEpisodeTypeName",
+    "json": "last_view_episode_type_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastViewTimestamp",
+    "json": "last_view_timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "myVote",
+    "json": "my_vote",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "note",
+    "json": "note",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "noteBackgroundColorDark",
+    "json": "note_background_color_dark",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "noteBackgroundColorLight",
+    "json": "note_background_color_light",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "noteTextColorDark",
+    "json": "note_text_color_dark",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "noteTextColorLight",
+    "json": "note_text_color_light",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "planCount",
+    "json": "plan_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "profileListStatus",
+    "json": "profile_list_status",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "profileReleaseTypeNotificationPreferenceCount",
+    "json": "profile_release_type_notification_preference_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "profileReleaseTypeNotificationPreferences",
+    "json": "profile_release_type_notification_preferences",
+    "type": "List<ProfileReleaseTypeNotificationPreference>",
+    "hasField": true
+   },
+   {
+    "prop": "rating",
+    "json": "rating",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "recommendedReleases",
+    "json": "recommended_releases",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "related",
+    "json": "related",
+    "type": "Related",
+    "hasField": true
+   },
+   {
+    "prop": "relatedCount",
+    "json": "related_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "relatedReleases",
+    "json": "related_releases",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "releaseDate",
+    "json": "release_date",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "screenshotImages",
+    "json": "screenshot_images",
+    "type": "List<String>",
+    "hasField": true
+   },
+   {
+    "prop": "season",
+    "json": "season",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "source",
+    "json": "source",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "status",
+    "json": "status",
+    "type": "ReleaseStatus",
+    "hasField": true
+   },
+   {
+    "prop": "statusId",
+    "json": "status_id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "studio",
+    "json": "studio",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "titleAlt",
+    "json": "title_alt",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "titleOriginal",
+    "json": "title_original",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "titleRu",
+    "json": "title_ru",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "translators",
+    "json": "translators",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "videoBanners",
+    "json": "video_banners",
+    "type": "List<ReleaseVideoBanner>",
+    "hasField": true
+   },
+   {
+    "prop": "vote1Count",
+    "json": "vote_1_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "vote2Count",
+    "json": "vote_2_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "vote3Count",
+    "json": "vote_3_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "vote4Count",
+    "json": "vote_4_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "vote5Count",
+    "json": "vote_5_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "voteCount",
+    "json": "vote_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "votedAt",
+    "json": "voted_at",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "watchingCount",
+    "json": "watching_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "year",
+    "json": "year",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "yourVote",
+    "json": "your_vote",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "isAdult",
+    "json": "is_adult",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isDeleted",
+    "json": "is_deleted",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isFavorite",
+    "json": "is_favorite",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isPlayDisabled",
+    "json": "is_play_disabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isReleaseTypeNotificationsEnabled",
+    "json": "is_release_type_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isRuBlocked",
+    "json": "is_ru_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isThirdPartyPlatformsDisabled",
+    "json": "is_tpp_disabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isViewBlocked",
+    "json": "is_view_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isViewed",
+    "json": "is_viewed",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "Genre": {
+  "file": "database/entity/release/Genre.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseVideoBlock": {
+  "file": "database/entity/release/video/ReleaseVideoBlock.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "category",
+    "json": "category",
+    "type": "ReleaseVideoCategory",
+    "hasField": true
+   },
+   {
+    "prop": "videos",
+    "json": "videos",
+    "type": "List<? extends ReleaseVideo>",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseVideoBanner": {
+  "file": "database/entity/release/video/ReleaseVideoBanner.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "actionId",
+    "json": "action_id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "image",
+    "json": "image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "value",
+    "json": "value",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isNew",
+    "json": "is_new",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseVideoCategory": {
+  "file": "database/entity/release/video/ReleaseVideoCategory.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseVideo": {
+  "file": "database/entity/release/video/ReleaseVideo.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "category",
+    "json": "category",
+    "type": "ReleaseVideoCategory",
+    "hasField": true
+   },
+   {
+    "prop": "delete",
+    "json": "delete",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "favoriteCount",
+    "json": "favorites_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "hosting",
+    "json": "hosting",
+    "type": "ReleaseVideoHosting",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "image",
+    "json": "image",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "playerUrl",
+    "json": "player_url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "Release",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "url",
+    "json": "url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isFavorite",
+    "json": "is_favorite",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseVideoHosting": {
+  "file": "database/entity/release/video/ReleaseVideoHosting.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "icon",
+    "json": "icon",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleCompact": {
+  "file": "database/entity/article/ArticleCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channel",
+    "json": "channel",
+    "type": "ChannelCompact",
+    "hasField": true
+   },
+   {
+    "prop": "creationDate",
+    "json": "creation_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastUpdateDate",
+    "json": "last_update_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "payload",
+    "json": "payload",
+    "type": "ArticlePayload",
+    "hasField": true
+   }
+  ]
+ },
+ "Article": {
+  "file": "database/entity/article/Article.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "author",
+    "json": "author",
+    "type": "ProfileSlim",
+    "hasField": true
+   },
+   {
+    "prop": "channel",
+    "json": "channel",
+    "type": "Channel",
+    "hasField": true
+   },
+   {
+    "prop": "commentCount",
+    "json": "comment_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "containsRepostArticle",
+    "json": "contains_repost_article",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "creationDate",
+    "json": "creation_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "hasDeleteEnforcement",
+    "json": "has_delete_enforcement",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastUpdateDate",
+    "json": "last_update_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "payload",
+    "json": "payload",
+    "type": "ArticlePayload",
+    "hasField": true
+   },
+   {
+    "prop": "popularComment",
+    "json": "popular_comment",
+    "type": "PopularComment",
+    "hasField": true
+   },
+   {
+    "prop": "repostArticle",
+    "json": "repost_article",
+    "type": "Article",
+    "hasField": true
+   },
+   {
+    "prop": "repostCount",
+    "json": "repost_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "vote",
+    "json": "vote",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "voteCount",
+    "json": "vote_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "isDeleted",
+    "json": "is_deleted",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isExpandAvailable",
+    "json": "isExpandAvailable",
+    "type": "boolean",
+    "hasField": false
+   },
+   {
+    "prop": "isMuted",
+    "json": "is_muted",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isPinned",
+    "json": "is_pinned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSigned",
+    "json": "is_signed",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "EpisodeUpdate": {
+  "file": "database/entity/episode/EpisodeUpdate.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "lastEpisodeSourceUpdateId",
+    "json": "last_episode_source_update_id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastEpisodeSourceUpdateName",
+    "json": "last_episode_source_update_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastEpisodeTypeUpdateId",
+    "json": "last_episode_type_update_id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastEpisodeTypeUpdateName",
+    "json": "lastEpisodeTypeUpdateName",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastEpisodeUpdateDate",
+    "json": "last_episode_update_date",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastEpisodeUpdateName",
+    "json": "last_episode_update_name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "LastWatchedEpisode": {
+  "file": "database/entity/episode/LastWatchedEpisode.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "episodeId",
+    "json": "episodeId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "releaseId",
+    "json": "releaseId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "sourceId",
+    "json": "sourceId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "typeId",
+    "json": "typeId",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "EpisodeCompact": {
+  "file": "database/entity/episode/EpisodeCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "ReleaseCompact",
+    "hasField": true
+   },
+   {
+    "prop": "source",
+    "json": "source",
+    "type": "SourceCompact",
+    "hasField": true
+   }
+  ]
+ },
+ "Episode": {
+  "file": "database/entity/episode/Episode.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "addedDate",
+    "json": "addedDate",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "iframe",
+    "json": "iframe",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "playbackPosition",
+    "json": "playbackPosition",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "position",
+    "json": "position",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "quality",
+    "json": "quality",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "Release",
+    "hasField": true
+   },
+   {
+    "prop": "releaseId",
+    "json": "releaseId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "source",
+    "json": "source",
+    "type": "Source",
+    "hasField": true
+   },
+   {
+    "prop": "sourceId",
+    "json": "sourceId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "url",
+    "json": "url",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isDownloadAvailable",
+    "json": "isDownloadAvailable",
+    "type": "boolean",
+    "hasField": false
+   },
+   {
+    "prop": "isFiller",
+    "json": "is_filler",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isWatched",
+    "json": "is_watched",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "SourceCompact": {
+  "file": "database/entity/episode/source/SourceCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "TypeCompact",
+    "hasField": true
+   }
+  ]
+ },
+ "Source": {
+  "file": "database/entity/episode/source/Source.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "episodesCount",
+    "json": "episodes_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "quality",
+    "json": "quality",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "Type",
+    "hasField": true
+   }
+  ]
+ },
+ "TypeCompact": {
+  "file": "database/entity/episode/type/TypeCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "Type": {
+  "file": "database/entity/episode/type/Type.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "episodesCount",
+    "json": "episodes_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "icon",
+    "json": "icon",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "pinned",
+    "json": "pinned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "quality",
+    "json": "quality",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "viewCount",
+    "json": "view_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "workers",
+    "json": "workers",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isSub",
+    "json": "is_sub",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "PopularComment": {
+  "file": "database/entity/comment/PopularComment.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "ProfileSlim",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "voteCount",
+    "json": "vote_count",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "CommentWeek": {
+  "file": "database/entity/comment/CommentWeek.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "Release",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "voteCount",
+    "json": "vote_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "isEdited",
+    "json": "is_edited",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSpoiler",
+    "json": "is_spoiler",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "Comment": {
+  "file": "database/entity/comment/Comment.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "canLike",
+    "json": "can_like",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableId",
+    "json": "embeddableId",
+    "type": "abstract long",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableImage",
+    "json": "embeddableImage",
+    "type": "abstract String",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableTitle",
+    "json": "embeddableTitle",
+    "type": "abstract String",
+    "hasField": false
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "likesCount",
+    "json": "likes_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "parentCommentId",
+    "json": "parent_comment_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "T",
+    "hasField": true
+   },
+   {
+    "prop": "replyCount",
+    "json": "reply_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "timestamp",
+    "json": "timestamp",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "vote",
+    "json": "vote",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "voteCount",
+    "json": "vote_count",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "isDeleted",
+    "json": "is_deleted",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isEdited",
+    "json": "is_edited",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isReply",
+    "json": "is_reply",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSpoiler",
+    "json": "is_spoiler",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "CommentCompact": {
+  "file": "database/entity/comment/CommentCompact.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "embeddableDescription",
+    "json": "embeddableDescription",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableId",
+    "json": "embeddableId",
+    "type": "abstract long",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableTitle",
+    "json": "embeddableTitle",
+    "type": "abstract String",
+    "hasField": false
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "ProfileSlim",
+    "hasField": true
+   },
+   {
+    "prop": "isSpoiler",
+    "json": "is_spoiler",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "CollectionCommentCompact": {
+  "file": "database/entity/comment/collection/CollectionCommentCompact.java",
+  "parent": "CommentCompact",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "collection",
+    "json": "collection",
+    "type": "CollectionCompact",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableId",
+    "json": "embeddableId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableTitle",
+    "json": "embeddableTitle",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "CollectionComment": {
+  "file": "database/entity/comment/collection/CollectionComment.java",
+  "parent": "Comment",
+  "parentArg": "ProfileCompact",
+  "props": [
+   {
+    "prop": "collection",
+    "json": "collection",
+    "type": "Collection",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableId",
+    "json": "embeddableId",
+    "type": "long",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableImage",
+    "json": "embeddableImage",
+    "type": "String",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableTitle",
+    "json": "embeddableTitle",
+    "type": "String",
+    "hasField": false
+   }
+  ]
+ },
+ "ReleaseComment": {
+  "file": "database/entity/comment/release/ReleaseComment.java",
+  "parent": "Comment",
+  "parentArg": "ProfileCompact",
+  "props": [
+   {
+    "prop": "embeddableId",
+    "json": "embeddableId",
+    "type": "long",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableImage",
+    "json": "embeddableImage",
+    "type": "String",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableTitle",
+    "json": "embeddableTitle",
+    "type": "String",
+    "hasField": false
+   },
+   {
+    "prop": "postedAtEpisode",
+    "json": "postedAtEpisode",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "Release",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseCommentCompact": {
+  "file": "database/entity/comment/release/ReleaseCommentCompact.java",
+  "parent": "CommentCompact",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "embeddableId",
+    "json": "embeddableId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableTitle",
+    "json": "embeddableTitle",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "ReleaseCompact",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleCommentCompact": {
+  "file": "database/entity/comment/article/ArticleCommentCompact.java",
+  "parent": "CommentCompact",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "article",
+    "json": "article",
+    "type": "ArticleCompact",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableDescription",
+    "json": "embeddableDescription",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableId",
+    "json": "embeddableId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableTitle",
+    "json": "embeddableTitle",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleComment": {
+  "file": "database/entity/comment/article/ArticleComment.java",
+  "parent": "Comment",
+  "parentArg": "ChannelProfile",
+  "props": [
+   {
+    "prop": "article",
+    "json": "article",
+    "type": "Article",
+    "hasField": true
+   },
+   {
+    "prop": "embeddableId",
+    "json": "embeddableId",
+    "type": "long",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableImage",
+    "json": "embeddableImage",
+    "type": "String",
+    "hasField": false
+   },
+   {
+    "prop": "embeddableTitle",
+    "json": "embeddableTitle",
+    "type": "String",
+    "hasField": false
+   }
+  ]
+ },
+ "ProfileReleaseTypeNotificationPreference": {
+  "file": "database/entity/preference/ProfileReleaseTypeNotificationPreference.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "Type",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileStatusNotificationPreference": {
+  "file": "database/entity/preference/ProfileStatusNotificationPreference.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "entries",
+    "json": "entries",
+    "type": "static EnumEntries<Status>",
+    "hasField": false
+   },
+   {
+    "prop": "value",
+    "json": "value",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "status",
+    "json": "status",
+    "type": "Status",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileTypeNotificationPreference": {
+  "file": "database/entity/preference/ProfileTypeNotificationPreference.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "Type",
+    "hasField": true
+   }
+  ]
+ },
+ "UserResponse": {
+  "file": "network/response/UserResponse.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isSponsor",
+    "json": "isSponsor",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "AchievementPreviewResponse": {
+  "file": "network/response/AchievementPreviewResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "achievement",
+    "json": "achievement",
+    "type": "AchievementPreview",
+    "hasField": true
+   }
+  ]
+ },
+ "AchievementPreview": {
+  "file": "network/response/AchievementPreview.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "badge",
+    "json": "badge",
+    "type": "Badge",
+    "hasField": true
+   },
+   {
+    "prop": "name",
+    "json": "name",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "TorlookPageableResponse": {
+  "file": "network/response/TorlookPageableResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "content",
+    "json": "content",
+    "type": "List<? extends T>",
+    "hasField": true
+   },
+   {
+    "prop": "currentPage",
+    "json": "current_page",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "needForce",
+    "json": "need_force",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "resultDate",
+    "json": "result_date",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "totalCount",
+    "json": "total_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "totalPageCount",
+    "json": "total_page_count",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "SignResponse": {
+  "file": "network/response/SignResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "sign",
+    "json": "sign",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileBadgePageableResponse": {
+  "file": "network/response/ProfileBadgePageableResponse.java",
+  "parent": "PageableResponse",
+  "parentArg": "T",
+  "props": [
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   }
+  ]
+ },
+ "PageableResponse": {
+  "file": "network/response/PageableResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "content",
+    "json": "content",
+    "type": "List<? extends T>",
+    "hasField": true
+   },
+   {
+    "prop": "currentPage",
+    "json": "current_page",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "totalCount",
+    "json": "total_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "totalPageCount",
+    "json": "total_page_count",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "ScheduleResponse": {
+  "file": "network/response/ScheduleResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "friday",
+    "json": "friday",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "monday",
+    "json": "monday",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "saturday",
+    "json": "saturday",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "sunday",
+    "json": "sunday",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "thursday",
+    "json": "thursday",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "tuesday",
+    "json": "tuesday",
+    "type": "List<Release>",
+    "hasField": true
+   },
+   {
+    "prop": "wednesday",
+    "json": "wednesday",
+    "type": "List<Release>",
+    "hasField": true
+   }
+  ]
+ },
+ "SponsorResponse": {
+  "file": "network/response/SponsorResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "isSponsor",
+    "json": "isSponsor",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileBadgeSectionsResponse": {
+  "file": "network/response/ProfileBadgeSectionsResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "recent",
+    "json": "recent",
+    "type": "List<Badge>",
+    "hasField": true
+   },
+   {
+    "prop": "sections",
+    "json": "sections",
+    "type": "List<BadgeSection>",
+    "hasField": true
+   },
+   {
+    "prop": "showcased",
+    "json": "showcased",
+    "type": "List<Badge>",
+    "hasField": true
+   },
+   {
+    "prop": "totalCount",
+    "json": "total_count",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "DirectLinksResponse": {
+  "file": "network/response/DirectLinksResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "default",
+    "json": "default",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "q1080p",
+    "json": "1080p",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "q360p",
+    "json": "360p",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "q480p",
+    "json": "480p",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "q720p",
+    "json": "720p",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileBadgeResponse": {
+  "file": "network/response/ProfileBadgeResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "badge",
+    "json": "badge",
+    "type": "Badge",
+    "hasField": true
+   }
+  ]
+ },
+ "CollectionCreateEditResponse": {
+  "file": "network/response/collection/CollectionCreateEditResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "collection",
+    "json": "collection",
+    "type": "Collection",
+    "hasField": true
+   }
+  ]
+ },
+ "CollectionResponse": {
+  "file": "network/response/collection/CollectionResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "collection",
+    "json": "collection",
+    "type": "Collection",
+    "hasField": true
+   },
+   {
+    "prop": "completedCount",
+    "json": "completed_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "droppedCount",
+    "json": "dropped_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "holdOnCount",
+    "json": "hold_on_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "planCount",
+    "json": "plan_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "watchingCount",
+    "json": "watching_count",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "CollectionEditImageResponse": {
+  "file": "network/response/collection/CollectionEditImageResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "url",
+    "json": "url",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "AnixPlayerConfigResponse": {
+  "file": "network/response/config/AnixPlayerConfigResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "downloadLinks",
+    "json": "download_links",
+    "type": "Map<String, String>",
+    "hasField": true
+   },
+   {
+    "prop": "lastVersionCode",
+    "json": "last_version_code",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "whatsNew",
+    "json": "whats_new",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ConfigUrlsResponse": {
+  "file": "network/response/config/ConfigUrlsResponse.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "apiUrls",
+    "json": "apiUrls",
+    "type": "LinkedHashSet<String>",
+    "hasField": true
+   },
+   {
+    "prop": "consentRequired",
+    "json": "consentRequired",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "editorUrl",
+    "json": "editorUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "googleAuthAvailable",
+    "json": "googleAuthAvailable",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "shouldUseMirrorUrls",
+    "json": "shouldUseMirrorUrls",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "staticDomain",
+    "json": "staticDomain",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "telegramAuthAvailable",
+    "json": "telegramAuthAvailable",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "vkAuthAvailable",
+    "json": "vkAuthAvailable",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "yandexAuthAvailable",
+    "json": "yandexAuthAvailable",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "TogglesResponse": {
+  "file": "network/response/config/TogglesResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "adBannerBlockId",
+    "json": "adBannerBlockId",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "adBannerDelay",
+    "json": "adBannerDelay",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "adBannerSizeType",
+    "json": "adBannerSizeType",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "adInterstitialBlockId",
+    "json": "adInterstitialBlockId",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "adInterstitialDelay",
+    "json": "adInterstitialDelay",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "baseUrl",
+    "json": "baseUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "codecProfile",
+    "json": "codecProfile",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "consentRequired",
+    "json": "consentRequired",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "downloadLink",
+    "json": "downloadLink",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "editorUrl",
+    "json": "editorUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "googleAuthAvailable",
+    "json": "googleAuthAvailable",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "gpDownloadLink",
+    "json": "gpDownloadLink",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "gpWhatsNew",
+    "json": "gpWhatsNew",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "iframeEmbedUrl",
+    "json": "iframeEmbedUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "impMessageBackgroundColor",
+    "json": "impMessageBackgroundColor",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "impMessageEnabled",
+    "json": "impMessageEnabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "impMessageLink",
+    "json": "impMessageLink",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "impMessageText",
+    "json": "impMessageText",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "impMessageTextColor",
+    "json": "impMessageTextColor",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "inAppUpdates",
+    "json": "inAppUpdates",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "inAppUpdatesFlexibleDelay",
+    "json": "inAppUpdatesFlexibleDelay",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "inAppUpdatesImmediate",
+    "json": "inAppUpdatesImmediate",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "kodikAdIframeUrl",
+    "json": "kodikAdIframeUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "kodikIframeAd",
+    "json": "kodikIframeAd",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "kodikVideoLinksUrl",
+    "json": "kodikVideoLinksUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastGPVersionCode",
+    "json": "lastGPVersionCode",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "lastVersionCode",
+    "json": "lastVersionCode",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "minBlogCreateRatingScore",
+    "json": "minBlogCreateRatingScore",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "minGPVersionCode",
+    "json": "minGPVersionCode",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "minVersionCode",
+    "json": "minVersionCode",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "overrideGPVersion",
+    "json": "overrideGPVersion",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "pageNoConnectionUrl",
+    "json": "pageNoConnectionUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "searchBarIconAction",
+    "json": "searchBarIconAction",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "searchBarIconTint",
+    "json": "searchBarIconTint",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "searchBarIconUrl",
+    "json": "searchBarIconUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "searchBarIconValue",
+    "json": "searchBarIconValue",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "sibnetRandUserAgent",
+    "json": "sibnetRandUserAgent",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "sibnetUserAgent",
+    "json": "sibnetUserAgent",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "snowfall",
+    "json": "snowfall",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "sponsorshipAvailable",
+    "json": "sponsorshipAvailable",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "sponsorshipPromotion",
+    "json": "sponsorshipPromotion",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "sponsorshipText",
+    "json": "sponsorshipText",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "staticDomain",
+    "json": "staticDomain",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "telegramAuthAvailable",
+    "json": "telegramAuthAvailable",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "torlookUrl",
+    "json": "torlookUrl",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "vkAuthAvailable",
+    "json": "vkAuthAvailable",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "whatsNew",
+    "json": "whatsNew",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "yandexAuthAvailable",
+    "json": "yandexAuthAvailable",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "FirebaseResponse": {
+  "file": "network/response/auth/FirebaseResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "topicName",
+    "json": "topicName",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "TelegramResponse": {
+  "file": "network/response/auth/TelegramResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "codeLength",
+    "json": "code_length",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimeLeft",
+    "json": "code_time_left",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimestampExpires",
+    "json": "codeTimestampExpires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "profileToken",
+    "json": "profileToken",
+    "type": "ProfileToken",
+    "hasField": true
+   },
+   {
+    "prop": "suggestedLogins",
+    "json": "suggested_logins",
+    "type": "List<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "ResendResponse": {
+  "file": "network/response/auth/ResendResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "codeLength",
+    "json": "code_length",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimeLeft",
+    "json": "code_time_left",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "timestampExpires",
+    "json": "timestampExpires",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "CheckLoginResponse": {
+  "file": "network/response/auth/CheckLoginResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "available",
+    "json": "available",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "suggestedLogins",
+    "json": "suggested_logins",
+    "type": "List<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "YandexResponse": {
+  "file": "network/response/auth/YandexResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "codeLength",
+    "json": "code_length",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimeLeft",
+    "json": "code_time_left",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimestampExpires",
+    "json": "codeTimestampExpires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "email",
+    "json": "email",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "profileToken",
+    "json": "profileToken",
+    "type": "ProfileToken",
+    "hasField": true
+   },
+   {
+    "prop": "suggestedLogins",
+    "json": "suggested_logins",
+    "type": "List<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "SignInResponse": {
+  "file": "network/response/auth/SignInResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "profileToken",
+    "json": "profileToken",
+    "type": "ProfileToken",
+    "hasField": true
+   }
+  ]
+ },
+ "RestoreResendResponse": {
+  "file": "network/response/auth/RestoreResendResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "codeLength",
+    "json": "code_length",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimeLeft",
+    "json": "code_time_left",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "timestampExpires",
+    "json": "timestampExpires",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "RestoreVerifyResponse": {
+  "file": "network/response/auth/RestoreVerifyResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "attemptsLeft",
+    "json": "attempts_left",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "profileToken",
+    "json": "profileToken",
+    "type": "ProfileToken",
+    "hasField": true
+   }
+  ]
+ },
+ "SignUpResponse": {
+  "file": "network/response/auth/SignUpResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "codeLength",
+    "json": "code_length",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimeLeft",
+    "json": "code_time_left",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimestampExpires",
+    "json": "codeTimestampExpires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "suggestedLogins",
+    "json": "suggested_logins",
+    "type": "List<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "VkResponse": {
+  "file": "network/response/auth/VkResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "codeLength",
+    "json": "code_length",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimeLeft",
+    "json": "code_time_left",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimestampExpires",
+    "json": "codeTimestampExpires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "profileToken",
+    "json": "profileToken",
+    "type": "ProfileToken",
+    "hasField": true
+   },
+   {
+    "prop": "suggestedLogins",
+    "json": "suggested_logins",
+    "type": "List<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "VerifyResponse": {
+  "file": "network/response/auth/VerifyResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "profileToken",
+    "json": "profileToken",
+    "type": "ProfileToken",
+    "hasField": true
+   },
+   {
+    "prop": "suggestedLogins",
+    "json": "suggested_logins",
+    "type": "List<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "GoogleResponse": {
+  "file": "network/response/auth/GoogleResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "codeLength",
+    "json": "code_length",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimeLeft",
+    "json": "code_time_left",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimestampExpires",
+    "json": "codeTimestampExpires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "profileToken",
+    "json": "profileToken",
+    "type": "ProfileToken",
+    "hasField": true
+   },
+   {
+    "prop": "suggestedLogins",
+    "json": "suggested_logins",
+    "type": "List<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "RestoreResponse": {
+  "file": "network/response/auth/RestoreResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "codeLength",
+    "json": "code_length",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimeLeft",
+    "json": "code_time_left",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "codeTimestampExpires",
+    "json": "codeTimestampExpires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "LatestArticleResponse": {
+  "file": "network/response/articles/LatestArticleResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "articleId",
+    "json": "articleId",
+    "type": "Long",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleCreateEditResponse": {
+  "file": "network/response/articles/ArticleCreateEditResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "article",
+    "json": "article",
+    "type": "Article",
+    "hasField": true
+   }
+  ]
+ },
+ "EditorAvailableResponse": {
+  "file": "network/response/articles/EditorAvailableResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "mediaUploadToken",
+    "json": "media_upload_token",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleResponse": {
+  "file": "network/response/articles/ArticleResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "article",
+    "json": "article",
+    "type": "Article",
+    "hasField": true
+   }
+  ]
+ },
+ "EditorChannelsResponse": {
+  "file": "network/response/articles/EditorChannelsResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channels",
+    "json": "channels",
+    "type": "List<EditorChannel>",
+    "hasField": true
+   }
+  ]
+ },
+ "ChangeEmailResponse": {
+  "file": "network/response/profile/ChangeEmailResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "timestampExpires",
+    "json": "timestamp_expires",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ChangePasswordResponse": {
+  "file": "network/response/profile/ChangePasswordResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "token",
+    "json": "token",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ChangeEmailResendResponse": {
+  "file": "network/response/profile/ChangeEmailResendResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "timestampExpires",
+    "json": "timestamp_expires",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfilePreferenceResponse": {
+  "file": "network/response/profile/ProfilePreferenceResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "availableThemes",
+    "json": "available_themes",
+    "type": "List<AvailableTheme>",
+    "hasField": true
+   },
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "badge",
+    "json": "badge",
+    "type": "Badge",
+    "hasField": true
+   },
+   {
+    "prop": "banChangeAvatarExpires",
+    "json": "ban_change_avatar_expires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "banChangeLoginExpires",
+    "json": "ban_change_login_expires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "channelId",
+    "json": "channel_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "emailHint",
+    "json": "email_hint",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "episodeChannelWidgetsHidden",
+    "json": "episode_channel_widgets_hidden",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "pinnedSectionId",
+    "json": "pinned_section_id",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "privacyCounts",
+    "json": "privacy_counts",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "privacyFriendRequests",
+    "json": "privacy_friend_requests",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "privacySocial",
+    "json": "privacy_social",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "privacyStats",
+    "json": "privacy_stats",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "selectedThemeId",
+    "json": "selected_theme_id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "status",
+    "json": "status",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "tgPage",
+    "json": "tgPage",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "vkPage",
+    "json": "vkPage",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isChangeAvatarBanned",
+    "json": "is_change_avatar_banned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isChangeLoginBanned",
+    "json": "is_change_login_banned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isGoogleBound",
+    "json": "is_google_bound",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isIncognito",
+    "json": "is_incognito",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isLoginChanged",
+    "json": "is_login_changed",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isTelegramBound",
+    "json": "is_telegram_bound",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isVkBound",
+    "json": "is_vk_bound",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isYandexBound",
+    "json": "is_yandex_bound",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "RemoveFriendRequestResponse": {
+  "file": "network/response/profile/RemoveFriendRequestResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "friendStatus",
+    "json": "friend_status",
+    "type": "Profile.FriendStatus",
+    "hasField": true
+   }
+  ]
+ },
+ "ChangeLoginResponse": {
+  "file": "network/response/profile/ChangeLoginResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "suggestedLogins",
+    "json": "suggested_logins",
+    "type": "List<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileInfoResponse": {
+  "file": "network/response/profile/ProfileInfoResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channelId",
+    "json": "channel_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "privilegeLevel",
+    "json": "privilege_level",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "ratingScore",
+    "json": "rating_score",
+    "type": "int",
+    "hasField": true
+   },
+   {
+    "prop": "sponsorshipExpires",
+    "json": "sponsorship_expires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "isPermBanned",
+    "json": "is_perm_banned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSponsor",
+    "json": "is_sponsor",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileDeletionResponse": {
+  "file": "network/response/profile/ProfileDeletionResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "deleteAt",
+    "json": "delete_at",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "requestedAt",
+    "json": "requested_at",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "SendFriendRequestResponse": {
+  "file": "network/response/profile/SendFriendRequestResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "friendStatus",
+    "json": "friend_status",
+    "type": "Profile.FriendStatus",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileSocialResponse": {
+  "file": "network/response/profile/ProfileSocialResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "discordPage",
+    "json": "discord_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "instPage",
+    "json": "inst_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "tgPage",
+    "json": "tg_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "ttPage",
+    "json": "tt_page",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "vkPage",
+    "json": "vk_page",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ChangeEmailConfirmResponse": {
+  "file": "network/response/profile/ChangeEmailConfirmResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "emailHint",
+    "json": "emailHint",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ChangeLoginInfoResponse": {
+  "file": "network/response/profile/ChangeLoginInfoResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "avatar",
+    "json": "avatar",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "lastChangeAt",
+    "json": "last_change_at",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "login",
+    "json": "login",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "nextChangeAvailableAt",
+    "json": "next_change_available_at",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "isChangeAvailable",
+    "json": "is_change_available",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileResponse": {
+  "file": "network/response/profile/ProfileResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profile",
+    "json": "profile",
+    "type": "Profile",
+    "hasField": true
+   },
+   {
+    "prop": "isMyProfile",
+    "json": "is_my_profile",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileEnforcementResponse": {
+  "file": "network/response/profile/enforcement/ProfileEnforcementResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "enforcement",
+    "json": "enforcement",
+    "type": "ProfileEnforcement",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileHealthStatusResponse": {
+  "file": "network/response/profile/enforcement/ProfileHealthStatusResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "banCount",
+    "json": "ban_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "banFor3MonthCount",
+    "json": "ban_for_3_month_count",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "blogMuteExpires",
+    "json": "blog_mute_expires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "blogSuspensionExpires",
+    "json": "blog_suspension_expires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastBanExpires",
+    "json": "last_ban_expires",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "lastBanTimestamp",
+    "json": "last_ban_timestamp",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelResponse": {
+  "file": "network/response/channels/ChannelResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channel",
+    "json": "channel",
+    "type": "Channel",
+    "hasField": true
+   },
+   {
+    "prop": "suggestionCount",
+    "json": "suggestion_count",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelCreateEditResponse": {
+  "file": "network/response/channels/ChannelCreateEditResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channel",
+    "json": "channel",
+    "type": "Channel",
+    "hasField": true
+   }
+  ]
+ },
+ "BlogCreateResponse": {
+  "file": "network/response/channels/BlogCreateResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channel",
+    "json": "channel",
+    "type": "Channel",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelUploadCoverAvatarResponse": {
+  "file": "network/response/channels/ChannelUploadCoverAvatarResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "url",
+    "json": "url",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelBlockResponse": {
+  "file": "network/response/channels/ChannelBlockResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channelBlock",
+    "json": "channel_block",
+    "type": "ChannelBlock",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseSearchResponse": {
+  "file": "network/response/search/ReleaseSearchResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "related",
+    "json": "related",
+    "type": "Related",
+    "hasField": true
+   },
+   {
+    "prop": "releases",
+    "json": "releases",
+    "type": "List<Release>",
+    "hasField": true
+   }
+  ]
+ },
+ "FeedSearchResponse": {
+  "file": "network/response/search/FeedSearchResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "articles",
+    "json": "articles",
+    "type": "PageableResponse<Article>",
+    "hasField": true
+   },
+   {
+    "prop": "blogs",
+    "json": "blogs",
+    "type": "PageableResponse<Channel>",
+    "hasField": true
+   },
+   {
+    "prop": "channels",
+    "json": "channels",
+    "type": "PageableResponse<Channel>",
+    "hasField": true
+   },
+   {
+    "prop": "tags",
+    "json": "tags",
+    "type": "PageableResponse<String>",
+    "hasField": true
+   }
+  ]
+ },
+ "BookmarksExportResponse": {
+  "file": "network/response/bookmarks/BookmarksExportResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "releases",
+    "json": "releases",
+    "type": "List<Release>",
+    "hasField": true
+   }
+  ]
+ },
+ "TypeResponse": {
+  "file": "network/response/common/TypeResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "popularTypeIds",
+    "json": "popular_type_ids",
+    "type": "List<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "types",
+    "json": "types",
+    "type": "List<Type>",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseResponse": {
+  "file": "network/response/release/ReleaseResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "Release",
+    "hasField": true
+   }
+  ]
+ },
+ "TypesResponse": {
+  "file": "network/response/release/episode/TypesResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "types",
+    "json": "types",
+    "type": "List<Type>",
+    "hasField": true
+   }
+  ]
+ },
+ "TypeChannelResponse": {
+  "file": "network/response/release/episode/TypeChannelResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "areWidgetsHiddenGlobally",
+    "json": "are_widgets_hidden_globally",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "articles",
+    "json": "articles",
+    "type": "List<Article>",
+    "hasField": true
+   },
+   {
+    "prop": "channel",
+    "json": "channel",
+    "type": "Channel",
+    "hasField": true
+   },
+   {
+    "prop": "isHiddenByUser",
+    "json": "is_hidden_by_user",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isWidgetEligible",
+    "json": "is_widget_eligible",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "EpisodeResponse": {
+  "file": "network/response/release/episode/EpisodeResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "episodes",
+    "json": "episodes",
+    "type": "List<Episode>",
+    "hasField": true
+   }
+  ]
+ },
+ "EpisodeTargetResponse": {
+  "file": "network/response/release/episode/EpisodeTargetResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "episode",
+    "json": "episode",
+    "type": "Episode",
+    "hasField": true
+   }
+  ]
+ },
+ "SourcesResponse": {
+  "file": "network/response/release/episode/SourcesResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "sources",
+    "json": "sources",
+    "type": "List<Source>",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseVideosResponse": {
+  "file": "network/response/release/video/ReleaseVideosResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "blocks",
+    "json": "blocks",
+    "type": "List<ReleaseVideoBlock>",
+    "hasField": true
+   },
+   {
+    "prop": "canAppeal",
+    "json": "can_appeal",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "lastVideos",
+    "json": "last_videos",
+    "type": "List<? extends ReleaseVideo>",
+    "hasField": true
+   },
+   {
+    "prop": "release",
+    "json": "release",
+    "type": "Release",
+    "hasField": true
+   },
+   {
+    "prop": "streamingPlatforms",
+    "json": "streaming_platforms",
+    "type": "List<ReleaseStreamingPlatform>",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseVideoCategoriesResponse": {
+  "file": "network/response/release/video/appeal/ReleaseVideoCategoriesResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "categories",
+    "json": "categories",
+    "type": "List<ReleaseVideoCategory>",
+    "hasField": true
+   }
+  ]
+ },
+ "NotificationCountResponse": {
+  "file": "network/response/notifications/NotificationCountResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "count",
+    "json": "count",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileSelectThemeResponse": {
+  "file": "network/response/preferences/ProfileSelectThemeResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "theme",
+    "json": "theme",
+    "type": "Theme",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileReleaseTypeNotificationPreferencesResponse": {
+  "file": "network/response/preferences/ProfileReleaseTypeNotificationPreferencesResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profileReleaseTypeNotificationPreferences",
+    "json": "profile_release_type_notification_preferences",
+    "type": "List<ProfileReleaseTypeNotificationPreference>",
+    "hasField": true
+   }
+  ]
+ },
+ "NotificationPreferenceResponse": {
+  "file": "network/response/preferences/NotificationPreferenceResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profileStatusNotificationPreferences",
+    "json": "profileStatusNotificationPreferences",
+    "type": "Set<ProfileStatusNotificationPreference>",
+    "hasField": true
+   },
+   {
+    "prop": "profileTypeNotificationPreferences",
+    "json": "profileTypeNotificationPreferences",
+    "type": "Set<ProfileTypeNotificationPreference>",
+    "hasField": true
+   },
+   {
+    "prop": "isArticleNotificationsEnabled",
+    "json": "is_article_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isCommentNotificationsEnabled",
+    "json": "is_comment_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isEpisodeNotificationsEnabled",
+    "json": "is_episode_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isFirstEpisodeNotificationEnabled",
+    "json": "is_first_episode_notification_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isMyArticleCommentNotificationsEnabled",
+    "json": "is_my_article_comment_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isMyCollectionCommentNotificationsEnabled",
+    "json": "is_my_collection_comment_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isRelatedReleaseNotificationsEnabled",
+    "json": "is_related_release_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isReleaseTypeNotificationsEnabled",
+    "json": "is_release_type_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isReportProcessNotificationsEnabled",
+    "json": "is_report_process_notifications_enabled",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "CommentAddResponse": {
+  "file": "network/response/comments/CommentAddResponse.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "comment",
+    "json": "comment",
+    "type": "T",
+    "hasField": true
+   }
+  ]
+ },
+ "SubscriptionCountResponse": {
+  "file": "network/response/feed/SubscriptionCountResponse.java",
+  "parent": "Response",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "subscriptionCount",
+    "json": "subscription_count",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "DirectLinksRequest": {
+  "file": "network/request/DirectLinksRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "url",
+    "json": "url",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "CollectionCreateEditRequest": {
+  "file": "network/request/collection/CollectionCreateEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "releases",
+    "json": "releases",
+    "type": "List<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isPrivate",
+    "json": "is_private",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "CollectionReportRequest": {
+  "file": "network/request/collection/CollectionReportRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "reason",
+    "json": "reason",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "RegisterRequest": {
+  "file": "network/request/auth/RegisterRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "email",
+    "json": "email",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "login",
+    "json": "login",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "password",
+    "json": "password",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "LoginRequest": {
+  "file": "network/request/auth/LoginRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "login",
+    "json": "login",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "password",
+    "json": "password",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ResendRequest": {
+  "file": "network/request/auth/ResendRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "email",
+    "json": "email",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "login",
+    "json": "login",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "password",
+    "json": "password",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ConfirmRequest": {
+  "file": "network/request/auth/ConfirmRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "code",
+    "json": "code",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "email",
+    "json": "email",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "hash",
+    "json": "hash",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "login",
+    "json": "login",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "password",
+    "json": "password",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleCreateEditRequest": {
+  "file": "network/request/articles/ArticleCreateEditRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "payload",
+    "json": "payload",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "repostArticleId",
+    "json": "repost_article_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "isSigned",
+    "json": "is_signed",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticlesFilterRequest": {
+  "file": "network/request/articles/ArticlesFilterRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channelId",
+    "json": "channel_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "date",
+    "json": "date",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleEventRequest": {
+  "file": "network/request/articles/ArticleEventRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "entries",
+    "json": "entries",
+    "type": "static EnumEntries<EntryPoint>",
+    "hasField": false
+   },
+   {
+    "prop": "articles",
+    "json": "articles",
+    "type": "Set<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "entryPoint",
+    "json": "entryPoint",
+    "type": "EntryPoint",
+    "hasField": true
+   },
+   {
+    "prop": "type",
+    "json": "type",
+    "type": "Type",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleSuggestionCreateEditRequest": {
+  "file": "network/request/articles/suggestions/ArticleSuggestionCreateEditRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "payload",
+    "json": "payload",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticleSuggestionsFilterRequest": {
+  "file": "network/request/articles/suggestions/ArticleSuggestionsFilterRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channelId",
+    "json": "channel_id",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "StatusEditRequest": {
+  "file": "network/request/profile/StatusEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "status",
+    "json": "status",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileEnforcementAppealRequest": {
+  "file": "network/request/profile/ProfileEnforcementAppealRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileProcessRequest": {
+  "file": "network/request/profile/ProfileProcessRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "banExpires",
+    "json": "banExpires",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "banReason",
+    "json": "banReason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isBanned",
+    "json": "is_banned",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "SocialPagesEditRequest": {
+  "file": "network/request/profile/SocialPagesEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "discordPage",
+    "json": "discordPage",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "instPage",
+    "json": "instPage",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "tgPage",
+    "json": "tgPage",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "ttPage",
+    "json": "ttPage",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "vkPage",
+    "json": "vkPage",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "PrivacyEditRequest": {
+  "file": "network/request/profile/PrivacyEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "permission",
+    "json": "permission",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "ReportRequest": {
+  "file": "network/request/report/ReportRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "entityId",
+    "json": "entity_id",
+    "type": "T",
+    "hasField": true
+   },
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "reasonId",
+    "json": "reason",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelPermissionsFilterRequest": {
+  "file": "network/request/channels/ChannelPermissionsFilterRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "permission",
+    "json": "permission",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelCreateEditRequest": {
+  "file": "network/request/channels/ChannelCreateEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "description",
+    "json": "description",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "episodeChannelWidgetArticleCount",
+    "json": "episode_channel_widget_article_count",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "episodeChannelWidgetPopularityPeriod",
+    "json": "episode_channel_widget_popularity_period",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "episodeChannelWidgetSort",
+    "json": "episode_channel_widget_sort",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isArticleSuggestionEnabled",
+    "json": "is_article_suggestion_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isCommentingEnabled",
+    "json": "is_commenting_enabled",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isEpisodeChannelWidgetEnabled",
+    "json": "is_episode_channel_widget_enabled",
+    "type": "Boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelsFilterRequest": {
+  "file": "network/request/channels/ChannelsFilterRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "permission",
+    "json": "permission",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "sort",
+    "json": "sort",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "isBlog",
+    "json": "is_blog",
+    "type": "Boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSubscribed",
+    "json": "is_subscribed",
+    "type": "Boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelBlockManageRequest": {
+  "file": "network/request/channels/ChannelBlockManageRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "expireDate",
+    "json": "expire_date",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "reason",
+    "json": "reason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "targetProfileId",
+    "json": "target_profile_id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "isBlocked",
+    "json": "is_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isPermBlocked",
+    "json": "is_perm_blocked",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isReasonShowingEnabled",
+    "json": "is_reason_showing_enabled",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelPermissionManageRequest": {
+  "file": "network/request/channels/ChannelPermissionManageRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "permission",
+    "json": "permission",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "targetProfileId",
+    "json": "target_profile_id",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ArticlesSearchRequest": {
+  "file": "network/request/search/ArticlesSearchRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "channelId",
+    "json": "channel_id",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "query",
+    "json": "query",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "ChannelsSearchRequest": {
+  "file": "network/request/search/ChannelsSearchRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "permission",
+    "json": "permission",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "query",
+    "json": "query",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isBlog",
+    "json": "is_blog",
+    "type": "Boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSubscribed",
+    "json": "is_subscribed",
+    "type": "Boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "SearchRequest": {
+  "file": "network/request/search/SearchRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "query",
+    "json": "query",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "searchBy",
+    "json": "searchBy",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "BookmarksExportRequest": {
+  "file": "network/request/bookmarks/BookmarksExportRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "bookmarksExportProfileLists",
+    "json": "bookmarksExportProfileLists",
+    "type": "List<Integer>",
+    "hasField": true
+   }
+  ]
+ },
+ "BookmarksImportRequest": {
+  "file": "network/request/bookmarks/BookmarksImportRequest.java",
+  "parent": "Request",
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "completed",
+    "json": "completed",
+    "type": "HashSet<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "dropped",
+    "json": "dropped",
+    "type": "HashSet<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "holdOn",
+    "json": "holdOn",
+    "type": "HashSet<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "plans",
+    "json": "plans",
+    "type": "HashSet<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "selectedImporterName",
+    "json": "selected_importer_name",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "watching",
+    "json": "watching",
+    "type": "HashSet<Long>",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseReportRequest": {
+  "file": "network/request/release/ReleaseReportRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "reason",
+    "json": "reason",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ReleaseVideoAppealRequest": {
+  "file": "network/request/release/video/ReleaseVideoAppealRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "categoryId",
+    "json": "categoryId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "releaseId",
+    "json": "releaseId",
+    "type": "long",
+    "hasField": true
+   },
+   {
+    "prop": "title",
+    "json": "title",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "url",
+    "json": "url",
+    "type": "String",
+    "hasField": true
+   }
+  ]
+ },
+ "SelectThemeRequest": {
+  "file": "network/request/preferences/SelectThemeRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileStatusNotificationPreferencesEditRequest": {
+  "file": "network/request/preferences/ProfileStatusNotificationPreferencesEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profileStatusNotificationPreferences",
+    "json": "profileStatusNotificationPreferences",
+    "type": "Set<Integer>",
+    "hasField": true
+   }
+  ]
+ },
+ "SelectPinnedSectionRequest": {
+  "file": "network/request/preferences/SelectPinnedSectionRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "id",
+    "json": "id",
+    "type": "int",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileReleaseTypeNotificationPreferencesEditRequest": {
+  "file": "network/request/preferences/ProfileReleaseTypeNotificationPreferencesEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profileReleaseTypeNotificationPreferences",
+    "json": "profile_release_type_notification_preferences",
+    "type": "Set<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "releaseId",
+    "json": "release_id",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "ReorderBadgeShowcaseRequest": {
+  "file": "network/request/preferences/ReorderBadgeShowcaseRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "ids",
+    "json": "ids",
+    "type": "List<Long>",
+    "hasField": true
+   }
+  ]
+ },
+ "ProfileTypeNotificationPreferencesEditRequest": {
+  "file": "network/request/preferences/ProfileTypeNotificationPreferencesEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "profileTypeNotificationPreferences",
+    "json": "profileTypeNotificationPreferences",
+    "type": "Set<Long>",
+    "hasField": true
+   }
+  ]
+ },
+ "CommentEditRequest": {
+  "file": "network/request/comments/CommentEditRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "spoiler",
+    "json": "spoiler",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "CommentAddRequest": {
+  "file": "network/request/comments/CommentAddRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "parentCommentId",
+    "json": "parentCommentId",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "replyToProfileId",
+    "json": "replyToProfileId",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "spoiler",
+    "json": "spoiler",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "CommentReportRequest": {
+  "file": "network/request/comments/CommentReportRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "reason",
+    "json": "reason",
+    "type": "long",
+    "hasField": true
+   }
+  ]
+ },
+ "CommentProcessRequest": {
+  "file": "network/request/comments/CommentProcessRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "banExpires",
+    "json": "banExpires",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "banReason",
+    "json": "banReason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "message",
+    "json": "message",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "reason",
+    "json": "reason",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "isBanned",
+    "json": "is_banned",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isDeleted",
+    "json": "is_deleted",
+    "type": "boolean",
+    "hasField": true
+   },
+   {
+    "prop": "isSpoiler",
+    "json": "is_spoiler",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ },
+ "FilterRequest": {
+  "file": "network/request/filter/FilterRequest.java",
+  "parent": null,
+  "parentArg": null,
+  "props": [
+   {
+    "prop": "ageRatings",
+    "json": "age_ratings",
+    "type": "List<Integer>",
+    "hasField": true
+   },
+   {
+    "prop": "categoryId",
+    "json": "category_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "country",
+    "json": "country",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "endYear",
+    "json": "end_year",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "episodeDurationFrom",
+    "json": "episode_duration_from",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "episodeDurationTo",
+    "json": "episode_duration_to",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "episodesFrom",
+    "json": "episodes_from",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "episodesTo",
+    "json": "episodes_to",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "genres",
+    "json": "genres",
+    "type": "List<String>",
+    "hasField": true
+   },
+   {
+    "prop": "genresMode",
+    "json": "genres_mode",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "profileListExclusions",
+    "json": "profile_list_exclusions",
+    "type": "List<Integer>",
+    "hasField": true
+   },
+   {
+    "prop": "season",
+    "json": "season",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "sort",
+    "json": "sort",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "source",
+    "json": "source",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "startYear",
+    "json": "start_year",
+    "type": "Integer",
+    "hasField": true
+   },
+   {
+    "prop": "statusId",
+    "json": "status_id",
+    "type": "Long",
+    "hasField": true
+   },
+   {
+    "prop": "studio",
+    "json": "studio",
+    "type": "String",
+    "hasField": true
+   },
+   {
+    "prop": "types",
+    "json": "types",
+    "type": "List<Long>",
+    "hasField": true
+   },
+   {
+    "prop": "isGenresExcludeModeEnabled",
+    "json": "is_genres_exclude_mode_enabled",
+    "type": "boolean",
+    "hasField": true
+   }
+  ]
+ }
+}

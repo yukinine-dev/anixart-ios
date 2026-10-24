@@ -5,7 +5,7 @@
 import Foundation
 
 public struct Search: Codable, Hashable, Sendable, Identifiable {
-    public var id: Int?
+    public var id: Int
     public var query: String?
     public var tsLastRequest: Int?
 

@@ -5,7 +5,7 @@
 import Foundation
 
 public struct ChangeLogin: Codable, Hashable, Sendable, Identifiable {
-    public var id: Int?
+    public var id: Int
     public var newLogin: String?
     public var timestamp: Int?
 

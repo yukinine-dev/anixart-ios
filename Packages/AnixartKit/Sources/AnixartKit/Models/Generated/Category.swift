@@ -5,7 +5,7 @@
 import Foundation
 
 public struct Category: Codable, Hashable, Sendable, Identifiable {
-    public var id: Int?
+    public var id: Int
     public var name: String?
 
     public enum CodingKeys: String, CodingKey {
