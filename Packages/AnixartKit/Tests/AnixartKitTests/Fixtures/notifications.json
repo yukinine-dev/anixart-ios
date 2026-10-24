@@ -1,0 +1,34 @@
+{
+  "code": 0,
+  "current_page": 0,
+  "total_count": 3,
+  "total_page_count": 1,
+  "content": [
+    {
+      "type": "episode",
+      "id": 51,
+      "timestamp": 1716200000,
+      "is_new": true,
+      "is_pushed": true,
+      "episode": {
+        "name": "Серия 12",
+        "release": { "id": 9243, "title_ru": "Стальной алхимик", "image": "https://static.anixart.tv/posters/9243.jpg" },
+        "source": { "name": "Sibnet", "type": { "name": "AniLibria.TV" } }
+      }
+    },
+    {
+      "type": "friend",
+      "id": 52,
+      "timestamp": 1716100000,
+      "is_new": false,
+      "value": 1,
+      "by_profile": { "id": 777, "login": "kenji", "avatar": "https://static.anixart.tv/avatars/777.jpg" }
+    },
+    {
+      "type": "someFutureKind",
+      "id": 53,
+      "timestamp": 1716000000,
+      "is_new": true
+    }
+  ]
+}

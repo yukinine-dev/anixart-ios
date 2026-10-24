@@ -1,0 +1,32 @@
+{
+  "code": 0,
+  "episodes": [
+    {
+      "id": 1,
+      "name": "Серия 1",
+      "position": 1,
+      "url": "https://video.sibnet.ru/shell.php?videoid=1",
+      "iframe": true,
+      "quality": 1080,
+      "addedDate": 1238889600,
+      "playbackPosition": 0,
+      "sourceId": 7,
+      "releaseId": 9243,
+      "is_filler": false,
+      "is_watched": true
+    },
+    {
+      "id": 2,
+      "name": "Серия 2",
+      "position": 2,
+      "url": "https://cdn.example.com/9243/2.mp4",
+      "iframe": false,
+      "quality": 720,
+      "playbackPosition": 435000,
+      "sourceId": 7,
+      "releaseId": 9243,
+      "is_filler": true,
+      "is_watched": false
+    }
+  ]
+}
