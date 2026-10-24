@@ -2,6 +2,7 @@ import SwiftUI
 import AnixartKit
 
 @main
+@MainActor
 struct AnixartApp: App {
     @State private var environment = AppEnvironment()
 

@@ -6,7 +6,7 @@ import AnixartKit
 @MainActor
 struct BookmarksView: View {
     @Environment(AppEnvironment.self) private var env
-    @State private var tab: BookmarkTab = .watching
+    @State private var tab: BookmarkTab = .list(.watching)
     @State private var sort: BookmarkSort = .addedDescending
 
     enum BookmarkTab: Hashable, CaseIterable {

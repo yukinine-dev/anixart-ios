@@ -56,7 +56,6 @@ struct EmbedPlayerView: UIViewRepresentable {
         return request
     }
 
-    @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate {
         /// Keeps the player page from navigating away to a store listing or an ad
         /// landing page, which several hostings try on first tap.
