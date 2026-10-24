@@ -90,32 +90,37 @@ jobs:
       - name: Install and launch
         run: |
           APP=$(find build-sim/Build/Products/Debug-iphonesimulator -maxdepth 1 -name 'Anixart.app' | head -1)
+          test -n "$APP" || { echo "::error::no .app produced"; exit 1; }
           echo "app bundle: $APP"
           xcrun simctl install "$UDID" "$APP"
-          # --console-pty would block; launch detached and inspect after.
-          xcrun simctl launch "$UDID" app.anixart.client
+
+          # `simctl launch` prints "<bundle id>: <pid>". A simulated app is a real
+          # process on the host, so that pid is what we check for survival later.
+          OUT=$(xcrun simctl launch "$UDID" app.anixart.client)
+          echo "$OUT"
+          PID=${OUT##*: }
+          echo "PID=$PID" >> "$GITHUB_ENV"
 
       - name: Fail on launch crash
         run: |
-          # Give the first frame, the config request and the restore task time to run.
+          # Long enough for the first frame, the config request and the restore task.
           sleep 25
 
           crashed=0
-          for dir in ~/Library/Logs/DiagnosticReports "$HOME/Library/Logs/CoreSimulator/$UDID"; do
+          for dir in "$HOME/Library/Logs/DiagnosticReports" "$HOME/Library/Logs/CoreSimulator/$UDID"; do
             [ -d "$dir" ] || continue
             found=$(find "$dir" -name '*Anixart*' -newermt '-10 minutes' 2>/dev/null || true)
             if [ -n "$found" ]; then
               echo "::error::crash report found"
-              for f in $found; do echo "--- $f"; head -60 "$f"; done
+              for f in $found; do echo "--- $f"; head -80 "$f"; done
               crashed=1
             fi
           done
 
-          # A launched app that is no longer running means it exited or crashed.
-          if xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q 'app.anixart.client'; then
-            echo "app is still running"
+          if ps -p "$PID" > /dev/null 2>&1; then
+            echo "pid $PID still alive 25s after launch"
           else
-            echo "::error::app.anixart.client is not running 25s after launch"
+            echo "::error::pid $PID is gone -- the app exited or crashed on launch"
             crashed=1
           fi
 
