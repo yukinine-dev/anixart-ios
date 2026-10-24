@@ -49,6 +49,31 @@ To run the core tests without Xcode:
 cd Packages/AnixartKit && swift test
 ```
 
+## Installing the IPA
+
+CI builds an **unsigned** `.ipa` on every push and uploads it as the
+`Anixart-unsigned-ipa` artifact (Actions → the run → Artifacts). No Apple Developer
+certificate exists in this repository, so the build has code signing switched off and
+**iOS will not install it as-is** — it has to be re-signed with a certificate you control.
+
+The usual routes, in order of how long the install lasts:
+
+| Tool | Needs | Install lasts |
+|---|---|---|
+| [Sideloadly](https://sideloadly.io) | any Apple ID | 7 days on a free account, a year on a paid one |
+| [AltStore](https://altstore.io) / SideStore | any Apple ID | same, but refreshes itself |
+| [TrollStore](https://github.com/opa334/TrollStore) | a device and iOS version it supports | permanent |
+| Xcode | the repo and a Mac | 7 days, or a year on a paid account |
+
+A free Apple ID also caps you at three sideloaded apps. The bundle identifier is
+`app.anixart.client`; change `PRODUCT_BUNDLE_IDENTIFIER` in `project.yml` if it collides
+with something you already have installed.
+
+**To get a directly installable build instead**, add an Apple Developer signing certificate
+(`.p12`) and a provisioning profile to the repository's Actions secrets and switch the `ipa`
+job to a signed `xcodebuild archive` / `-exportArchive`. Nothing in the port needs to change
+for that — only the signing settings, which are deliberately empty here.
+
 ## Layout
 
 ```

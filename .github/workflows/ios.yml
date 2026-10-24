@@ -1,9 +1,11 @@
 name: Build
 
 # The port was written in a Linux container with no Swift toolchain, so this
-# workflow is what actually type-checks it. Two jobs on purpose: AnixartKit runs
-# its unit tests on macOS without needing a simulator, and the app is built for
-# the iOS simulator.
+# workflow is where it actually gets compiled and run. Four jobs:
+#   kit       - AnixartKit unit tests, no simulator needed
+#   app       - type-check the app for the simulator (fastest signal)
+#   smoke     - boot a simulator, install, launch, and fail on a launch crash
+#   ipa       - unsigned .ipa for sideloading, uploaded as an artifact
 on:
   push:
     branches: ["**"]
@@ -45,3 +47,137 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
+
+  smoke:
+    name: Simulator launch test
+    runs-on: macos-15
+    needs: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      # Pick whatever iPhone this runner's Xcode actually ships, rather than
+      # hardcoding a model name that moves with each Xcode release.
+      - name: Pick and boot a simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | jq -r '
+            [ .devices | to_entries[]
+              | select(.key | test("iOS"))
+              | .value[]
+              | select(.name | startswith("iPhone"))
+              | .udid ] | last // empty')
+          test -n "$UDID" || { echo "::error::no available iPhone simulator"; exit 1; }
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID"
+          xcrun simctl list devices | grep "$UDID"
+
+      - name: Build for that simulator
+        run: |
+          xcodebuild build \
+            -project Anixart.xcodeproj \
+            -scheme Anixart \
+            -destination "id=$UDID" \
+            -configuration Debug \
+            -derivedDataPath build-sim \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Install and launch
+        run: |
+          APP=$(find build-sim/Build/Products/Debug-iphonesimulator -maxdepth 1 -name 'Anixart.app' | head -1)
+          echo "app bundle: $APP"
+          xcrun simctl install "$UDID" "$APP"
+          # --console-pty would block; launch detached and inspect after.
+          xcrun simctl launch "$UDID" app.anixart.client
+
+      - name: Fail on launch crash
+        run: |
+          # Give the first frame, the config request and the restore task time to run.
+          sleep 25
+
+          crashed=0
+          for dir in ~/Library/Logs/DiagnosticReports "$HOME/Library/Logs/CoreSimulator/$UDID"; do
+            [ -d "$dir" ] || continue
+            found=$(find "$dir" -name '*Anixart*' -newermt '-10 minutes' 2>/dev/null || true)
+            if [ -n "$found" ]; then
+              echo "::error::crash report found"
+              for f in $found; do echo "--- $f"; head -60 "$f"; done
+              crashed=1
+            fi
+          done
+
+          # A launched app that is no longer running means it exited or crashed.
+          if xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q 'app.anixart.client'; then
+            echo "app is still running"
+          else
+            echo "::error::app.anixart.client is not running 25s after launch"
+            crashed=1
+          fi
+
+          [ "$crashed" -eq 0 ]
+
+      - name: Screenshot
+        if: always()
+        run: xcrun simctl io "$UDID" screenshot launch.png || true
+
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-screenshot
+          path: launch.png
+          if-no-files-found: warn
+
+  ipa:
+    name: Unsigned IPA
+    runs-on: macos-15
+    needs: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      # No Apple Developer certificate is available here, so this builds for a real
+      # device with signing switched off. The result installs only after being
+      # re-signed -- see README, "Installing the IPA".
+      - name: Build for device, unsigned
+        run: |
+          xcodebuild build \
+            -project Anixart.xcodeproj \
+            -scheme Anixart \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build-device \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            EXPANDED_CODE_SIGN_IDENTITY=""
+
+      - name: Package Payload into an .ipa
+        run: |
+          APP=$(find build-device/Build/Products/Release-iphoneos -maxdepth 1 -name 'Anixart.app' | head -1)
+          test -n "$APP" || { echo "::error::no .app produced"; exit 1; }
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          # An .ipa is just a zip with the bundle under Payload/.
+          zip -qry Anixart-unsigned.ipa Payload
+          unzip -l Anixart-unsigned.ipa | head -5
+          ls -lh Anixart-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Anixart-unsigned-ipa
+          path: Anixart-unsigned.ipa
+          retention-days: 30
+          if-no-files-found: error
