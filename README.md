@@ -8,24 +8,30 @@ nothing that bypasses it — no ad removal, no premium unlocking, no scraping ar
 
 ---
 
-## Read this first
+## What is and is not verified
 
-**The Swift in this repository has never been through a compiler.** It was written in a Linux
-container with no Swift toolchain and no network access to the API host, so neither the build
-nor a single live request could be checked here. What *was* verified:
+CI builds this on macOS, and it is green: `AnixartKit` compiles and its **19 unit tests
+pass**, and the **iOS app target compiles** for the simulator on both arm64 and x86_64.
+That is a real compile of every file here, not a claim.
+
+What has *not* happened: **no request has ever been made to the live API**, and the app has
+**never been run** on a simulator or a device. The container this was written in has no Swift
+toolchain and no network route to the API host, so everything beyond "it compiles and the unit
+tests pass" is untested — runtime behaviour, layout, and playback above all.
+
+Alongside the compile, these were checked mechanically:
 
 - all 92 endpoint paths in `AnixartKit` were diffed against the 296 Retrofit annotations
   extracted from the APK — they match exactly;
-- the JSON key for every model field was taken mechanically from the APK's Jackson
-  `@JsonProperty` annotations, not hand-typed (`Tools/extract-models.py`,
-  `Tools/generate-models.py`);
-- the model graph was checked for Swift-illegal recursive value types and unresolved type
-  references;
-- every endpoint and type the app layer references was checked to exist.
+- the JSON key for every model field was taken from the APK's Jackson `@JsonProperty`
+  annotations rather than hand-typed, by a committed script that reproduces both the
+  extracted map and all 60 generated Swift files (`Tools/`);
+- the unit tests assert the wire shape directly: token as a query parameter, form encoding,
+  the filter body's snake_case keys with absent rather than null fields, `searchBy` staying
+  camelCase, mirror-host rewriting, and decoding of the mixed-casing payloads.
 
-Expect to spend a session fixing compiler diagnostics before it runs. `.github/workflows/ios.yml`
-builds the app and runs the `AnixartKit` tests on macOS, so **the first CI run is the real
-first compile** — start there rather than guessing.
+So the first thing to do is run it against the real API and see what the server actually
+returns.
 
 ## Getting started
 

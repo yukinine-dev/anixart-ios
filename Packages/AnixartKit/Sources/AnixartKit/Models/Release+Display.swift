@@ -133,9 +133,13 @@ extension Episode {
         return URL(string: url)
     }
 
+    /// Where to resume from, or `nil` when there is nothing to resume.
+    ///
+    /// `playbackPosition` is milliseconds -- `EpisodeModel` divides it by 1000 before
+    /// formatting it. `-1` is the Android client's sentinel for "finished", which the
+    /// `> 0` check also rules out.
     public var resumePosition: TimeInterval? {
         guard let playbackPosition, playbackPosition > 0 else { return nil }
-        // The Android player stores this in milliseconds.
         return TimeInterval(playbackPosition) / 1000
     }
 }
