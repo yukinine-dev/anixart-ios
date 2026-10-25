@@ -2,7 +2,7 @@ import Foundation
 
 /// The five watch lists, as used in `profile/list/all/{status}/{page}`.
 /// Values confirmed against `DataPreferenceFragment` in the APK.
-public enum ProfileListStatus: Int, CaseIterable, Sendable, Identifiable {
+public enum ProfileListStatus: Int, Codable, CaseIterable, Sendable, Identifiable {
     case watching = 1
     case plan = 2
     case completed = 3
@@ -35,7 +35,7 @@ public enum ProfileListStatus: Int, CaseIterable, Sendable, Identifiable {
 
 /// `sort` for `favorite/all` and `profile/list/all`.
 /// Values confirmed against `ExtraBookmarksModel` in the APK (1-based, 1 is the default).
-public enum BookmarkSort: Int, CaseIterable, Sendable, Identifiable {
+public enum BookmarkSort: Int, Codable, CaseIterable, Sendable, Identifiable {
     case addedDescending = 1
     case addedAscending = 2
     case releaseDateDescending = 3
@@ -62,7 +62,7 @@ public enum BookmarkSort: Int, CaseIterable, Sendable, Identifiable {
 }
 
 /// `sort` inside the catalogue filter body. Values from `FilterRequest` in the APK.
-public enum CatalogSort: Int, CaseIterable, Sendable, Identifiable {
+public enum CatalogSort: Int, Codable, CaseIterable, Sendable, Identifiable {
     case dateUpdateDescending = 0
     case gradeDescending = 1
     case yearDescending = 2
@@ -98,7 +98,7 @@ public enum CatalogSort: Int, CaseIterable, Sendable, Identifiable {
 }
 
 /// `genres_mode` in the filter body. Values from `FilterRequest`.
-public enum GenresMode: Int, CaseIterable, Sendable {
+public enum GenresMode: Int, Codable, CaseIterable, Sendable {
     case all = 0
     case any = 1
     case exclude = 2
@@ -117,7 +117,7 @@ public enum GenresMode: Int, CaseIterable, Sendable {
 /// The preset index is **not** what goes on the wire: `CustomFilterTabPresenter`
 /// resolves it into an explicit `episodes_from` / `episodes_to` pair, which is what
 /// `range` returns here. Labels and bounds are from `arrays.xml` (`episodes`).
-public enum EpisodeCountPreset: Int, CaseIterable, Sendable, Identifiable {
+public enum EpisodeCountPreset: Int, Codable, CaseIterable, Sendable, Identifiable {
     case from1to12 = 1
     case from13to25 = 2
     case from26to100 = 3
@@ -146,7 +146,7 @@ public enum EpisodeCountPreset: Int, CaseIterable, Sendable, Identifiable {
 }
 
 /// Episode-length presets. Same story: resolved into a minute range, not sent as an index.
-public enum EpisodeDurationPreset: Int, CaseIterable, Sendable, Identifiable {
+public enum EpisodeDurationPreset: Int, Codable, CaseIterable, Sendable, Identifiable {
     case upTo10 = 1
     case upTo30 = 2
     case over30 = 3
@@ -171,7 +171,7 @@ public enum EpisodeDurationPreset: Int, CaseIterable, Sendable, Identifiable {
 }
 
 /// `category_id`. Values and labels from `arrays.xml` (`categories`).
-public enum ReleaseCategory: Int, CaseIterable, Sendable, Identifiable {
+public enum ReleaseCategory: Int, Codable, CaseIterable, Sendable, Identifiable {
     case series = 1
     case movie = 2
     case ova = 3
@@ -192,7 +192,7 @@ public enum ReleaseCategory: Int, CaseIterable, Sendable, Identifiable {
 /// `status_id`. Values and labels from `arrays.xml` (`statuses`).
 ///
 /// Note the wording: "Вышел" means finished airing, "Выходит" means currently airing.
-public enum AiringStatus: Int, CaseIterable, Sendable, Identifiable {
+public enum AiringStatus: Int, Codable, CaseIterable, Sendable, Identifiable {
     case released = 1
     case ongoing = 2
     case announced = 3
@@ -210,7 +210,7 @@ public enum AiringStatus: Int, CaseIterable, Sendable, Identifiable {
 
 /// `source` in the filter body -- the work the release is adapted from. Sent as the
 /// label itself, not an id. List from `arrays.xml` (`sources`).
-public enum SourceMaterial: String, CaseIterable, Sendable, Identifiable {
+public enum SourceMaterial: String, Codable, CaseIterable, Sendable, Identifiable {
     case original = "Оригинал"
     case manga = "Манга"
     case webManga = "Веб-манга"
@@ -233,7 +233,7 @@ public enum SourceMaterial: String, CaseIterable, Sendable, Identifiable {
 }
 
 /// `season` in the filter body and on `Release`.
-public enum ReleaseSeason: Int, CaseIterable, Sendable, Identifiable {
+public enum ReleaseSeason: Int, Codable, CaseIterable, Sendable, Identifiable {
     case winter = 1
     case spring = 2
     case summer = 3
@@ -253,7 +253,7 @@ public enum ReleaseSeason: Int, CaseIterable, Sendable, Identifiable {
 
 /// `searchBy` in a `SearchRequest` body. `0` searches every title field, which is
 /// the default the Android client sends.
-public enum SearchScope: Int, CaseIterable, Sendable {
+public enum SearchScope: Int, Codable, CaseIterable, Sendable {
     case all = 0
     case titleRu = 1
     case titleOriginal = 2
@@ -270,7 +270,7 @@ public enum SearchScope: Int, CaseIterable, Sendable {
 }
 
 /// A user's score for a release, `release/vote/add/{id}/{vote}`.
-public enum ReleaseVote: Int, CaseIterable, Sendable, Identifiable {
+public enum ReleaseVote: Int, Codable, CaseIterable, Sendable, Identifiable {
     case one = 1, two = 2, three = 3, four = 4, five = 5
     public var id: Int { rawValue }
 }
