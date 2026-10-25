@@ -2,25 +2,26 @@ import SwiftUI
 import AnixartKit
 
 /// The wide row the Главная tabs use (`item_release` in the APK): poster on the left,
-/// then title, the episode counter and rating on one line, a description excerpt, and
-/// an overflow button.
+/// then title, the episode counter and rating on one line, and a description excerpt.
 ///
-/// Distinct from `ReleaseRow`, which is denser and carries list-membership chips; this
-/// one leads with the description because the Главная tabs are for browsing releases
-/// you have not seen before.
+/// Each row is its own card so the list reads as a stack of titles rather than one
+/// run of text, and the excerpt is capped at three lines so the text column stays
+/// about as tall as the poster instead of stretching the row.
 @MainActor
 struct ReleaseListRow: View {
     let release: Release
     var onOverflow: (() -> Void)?
 
-    var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.row) {
-            ReleasePoster(url: release.posterURL, width: 92)
+    private let posterWidth: CGFloat = 96
 
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(alignment: .top, spacing: 4) {
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ReleasePoster(url: release.posterURL, width: posterWidth)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(release.displayTitle)
-                        .font(.title3.weight(.medium))
+                        .font(.headline)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -31,7 +32,7 @@ struct ReleaseListRow: View {
                             Image(systemName: "ellipsis")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                                .frame(width: 28, height: 28)
+                                .frame(width: 26, height: 26)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -43,14 +44,17 @@ struct ReleaseListRow: View {
 
                 if let description = release.description, !description.isEmpty {
                     Text(description)
-                        .font(.subheadline)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .lineLimit(4)
+                        .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 6)
+        .padding(12)
+        .glassCard()
         .contentShape(Rectangle())
     }
 
@@ -61,12 +65,12 @@ struct ReleaseListRow: View {
         let rating = release.ratingText
 
         if episodes != nil || rating != nil {
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 if let episodes {
                     Text(episodes)
                 }
                 if episodes != nil && rating != nil {
-                    Text("•")
+                    Text("•").foregroundStyle(.tertiary)
                 }
                 if let rating {
                     HStack(spacing: 2) {
@@ -79,5 +83,47 @@ struct ReleaseListRow: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Card background for a release row.
+///
+/// Liquid Glass where the toolchain and the OS both have it, a material card
+/// otherwise. Two guards are needed, not one: `#available` handles the OS at runtime,
+/// but `glassEffect` only exists in the iOS 26 SDK, so without the `compiler` check
+/// this would not compile on an older Xcode at all.
+@MainActor
+struct GlassCard: ViewModifier {
+    var cornerRadius: CGFloat = 16
+
+    func body(content: Content) -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            material(content)
+        }
+        #else
+        material(content)
+        #endif
+    }
+
+    private func material(_ content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.thinMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    /// Glass on iOS 26 and up, a material card below it.
+    func glassCard(cornerRadius: CGFloat = 16) -> some View {
+        modifier(GlassCard(cornerRadius: cornerRadius))
     }
 }

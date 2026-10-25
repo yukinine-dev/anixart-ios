@@ -75,7 +75,8 @@ public enum CatalogSort: Int, Codable, CaseIterable, Sendable, Identifiable {
     public var id: Int { rawValue }
 
     /// Order the filter UI lists these in (`arrays.xml`, `sort`): paired by key rather
-    /// than by raw value, which is the order `allCases` would give.
+    /// than by raw value, which is the order `allCases` would give. The raw values are
+    /// what goes on the wire and are deliberately not in this order.
     public static let displayOrder: [CatalogSort] = [
         .dateUpdateDescending, .dateUpdateAscending,
         .gradeDescending, .gradeAscending,
@@ -83,10 +84,25 @@ public enum CatalogSort: Int, Codable, CaseIterable, Sendable, Identifiable {
         .popularDescending, .popularAscending
     ]
 
+    /// The label in the picker, arrow and all (`arrays.xml`, `sort`).
+    public var shortTitle: String {
+        switch self {
+        case .dateUpdateDescending: return "По дате добавления ▼"
+        case .dateUpdateAscending: return "По дате добавления ▲"
+        case .gradeDescending: return "По рейтингу ▼"
+        case .gradeAscending: return "По рейтингу ▲"
+        case .yearDescending: return "По годам ▼"
+        case .yearAscending: return "По годам ▲"
+        case .popularDescending: return "По популярности ▼"
+        case .popularAscending: return "По популярности ▲"
+        }
+    }
+
+    /// The line shown under the picker (`sort_hint_*` in the APK).
     public var title: String {
         switch self {
-        case .dateUpdateDescending: return "Сначала недавно обновлённое"
-        case .dateUpdateAscending: return "Сначала давно обновлённое"
+        case .dateUpdateDescending: return "Сначала недавно добавленное и обновлённое"
+        case .dateUpdateAscending: return "Сначала давно добавленное и обновлённое"
         case .gradeDescending: return "Сначала с высоким рейтингом"
         case .gradeAscending: return "Сначала с низким рейтингом"
         case .yearDescending: return "Сначала новые по году выхода"

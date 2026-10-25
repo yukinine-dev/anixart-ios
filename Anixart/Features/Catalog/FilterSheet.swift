@@ -27,7 +27,7 @@ struct FilterSheet: View {
                         set: { draft.sort = $0.rawValue }
                     )) {
                         ForEach(CatalogSort.displayOrder) { option in
-                            Text(option.title).tag(option)
+                            Text(option.shortTitle).tag(option)
                         }
                     }
                 }

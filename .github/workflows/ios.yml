@@ -41,6 +41,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # What SDKs this runner actually has decides whether Liquid Glass (iOS 26) can
+      # be compiled at all, so the build log says so explicitly.
+      - name: Available Xcode and SDKs
+        run: |
+          echo "--- installed Xcodes ---"
+          ls /Applications | grep -i '^Xcode' || true
+          echo "--- selected ---"
+          xcodebuild -version
+          echo "--- iOS SDKs ---"
+          xcodebuild -showsdks | grep -i ios || true
+
       - name: Install XcodeGen
         run: brew install xcodegen
 

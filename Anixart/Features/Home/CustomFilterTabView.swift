@@ -71,7 +71,11 @@ struct CustomFilterTabView: View {
                 ) { release in
                     ReleaseListRow(release: release) { listTarget = release }
                         .onTapGesture { opened = release }
+                        // The row draws its own card, so the list must not draw a
+                        // background or a separator behind it.
                         .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                 }
             }
         }

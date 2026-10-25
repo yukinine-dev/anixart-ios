@@ -1,12 +1,12 @@
 import SwiftUI
 import AnixartKit
 
-/// "Настройки вкладки" -- the whole filter behind Моя вкладка.
+/// "Настройки вкладки" -- the filter behind Моя вкладка.
 ///
-/// Field list mirrors the Android screen: country, category, genres with a match mode,
-/// bookmark exclusions, voice-over, studio, source material, years, season, episode
-/// count, status, episode length, age rating and sort. Options come from the APK's
-/// `arrays.xml`; voice-overs come from the server so they stay in step with it.
+/// Laid out as the Android screen is: a column of labelled boxes, each collapsed to
+/// its current value or «Неважно», with the options behind a tap rather than spread
+/// inline, and Сбросить / Применить pinned at the bottom. Option lists come from the
+/// APK's `arrays.xml` (`FilterOptions`), not from free text.
 @MainActor
 struct CustomTabSettingsView: View {
     @Environment(AppEnvironment.self) private var env
@@ -18,123 +18,28 @@ struct CustomTabSettingsView: View {
 
     @State private var draft = CustomTabFilter()
     @State private var availableTypes: [EpisodeType] = []
-    @State private var genreInput = ""
 
-    private let ageRatingLabels = ["0+", "6+", "12+", "16+", "18+"]
-    private let countries = ["Япония", "Китай", "Корея", "США"]
+    private static let ageRatingOptions = ["0+", "6+", "12+", "16+", "18+"]
+        .enumerated()
+        .map { FilterOption($0.offset, title: $0.element) }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Text("Выберите с помощью фильтров то, что хотите видеть на своей вкладке. "
-                         + "Изменения будут доступны только на этом устройстве.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    hint
+                    fields
                 }
-
-                Section {
-                    optionalPicker("Страна", selection: $draft.country, options: countries)
-
-                    Picker("Категория", selection: $draft.category) {
-                        Text("Неважно").tag(ReleaseCategory?.none)
-                        ForEach(ReleaseCategory.allCases) { value in
-                            Text(value.title).tag(ReleaseCategory?.some(value))
-                        }
-                    }
-
-                    Picker("Статус", selection: $draft.status) {
-                        Text("Неважно").tag(AiringStatus?.none)
-                        ForEach(AiringStatus.allCases) { value in
-                            Text(value.title).tag(AiringStatus?.some(value))
-                        }
-                    }
-                }
-
-                genresSection
-                exclusionsSection
-
-                if !availableTypes.isEmpty {
-                    Section("Варианты озвучек") {
-                        ForEach(availableTypes) { type in
-                            Toggle(type.displayName, isOn: typeBinding(type.id))
-                        }
-                    }
-                }
-
-                Section {
-                    TextField("Студия", text: $draft.studio)
-
-                    Picker("Первоисточник", selection: $draft.source) {
-                        Text("Неважно").tag(SourceMaterial?.none)
-                        ForEach(SourceMaterial.allCases) { value in
-                            Text(value.title).tag(SourceMaterial?.some(value))
-                        }
-                    }
-                }
-
-                Section {
-                    yearField("Год от", value: $draft.startYear)
-                    yearField("Год до", value: $draft.endYear)
-
-                    Picker("Сезон", selection: $draft.season) {
-                        Text("Неважно").tag(ReleaseSeason?.none)
-                        ForEach(ReleaseSeason.allCases) { value in
-                            Text(value.title.capitalized).tag(ReleaseSeason?.some(value))
-                        }
-                    }
-                }
-
-                Section {
-                    Picker("Эпизодов", selection: $draft.episodes) {
-                        Text("Неважно").tag(EpisodeCountPreset?.none)
-                        ForEach(EpisodeCountPreset.allCases) { value in
-                            Text(value.title).tag(EpisodeCountPreset?.some(value))
-                        }
-                    }
-
-                    Picker("Длительность эпизода", selection: $draft.episodeDuration) {
-                        Text("Неважно").tag(EpisodeDurationPreset?.none)
-                        ForEach(EpisodeDurationPreset.allCases) { value in
-                            Text(value.title).tag(EpisodeDurationPreset?.some(value))
-                        }
-                    }
-                }
-
-                Section("Возрастное ограничение") {
-                    ForEach(Array(ageRatingLabels.enumerated()), id: \.offset) { index, label in
-                        Toggle(label, isOn: ageRatingBinding(index))
-                    }
-                }
-
-                Section {
-                    Picker("Сортировка", selection: $draft.sort) {
-                        ForEach(CatalogSort.displayOrder) { option in
-                            Text(option.title).tag(option)
-                        }
-                    }
-                } header: {
-                    Text("Сортировка")
-                } footer: {
-                    Text(draft.sort.title)
-                }
+                .padding()
+                .padding(.bottom, 8)
             }
+            .background(Color(.systemGroupedBackground))
+            .safeAreaInset(edge: .bottom) { actions }
             .navigationTitle("Настройки вкладки")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Сбросить") {
-                        draft = CustomTabFilter()
-                        onReset()
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Применить") {
-                        onApply(draft)
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
+                    Button("Закрыть") { dismiss() }
                 }
             }
             .task {
@@ -147,123 +52,172 @@ struct CustomTabSettingsView: View {
         }
     }
 
-    // MARK: - Sections
-
-    private var genresSection: some View {
-        Section {
-            ForEach(draft.genres, id: \.self) { genre in
-                HStack {
-                    Text(genre)
-                    Spacer()
-                    Button {
-                        draft.genres.removeAll { $0 == genre }
-                    } label: {
-                        Image(systemName: "minus.circle.fill").foregroundStyle(.red)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            HStack {
-                TextField("Добавить жанр", text: $genreInput)
-                Button("Добавить") { addGenre() }
-                    .disabled(genreInput.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            Picker("Режим", selection: $draft.genresMode) {
-                ForEach(GenresMode.allCases, id: \.rawValue) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-        } header: {
-            Text("Жанры")
-        } footer: {
-            Text("Покажем релизы хотя бы с одним выбранным жанром.")
-        }
+    private var hint: some View {
+        Text("Выберите с помощью фильтров то, что хотите видеть на своей вкладке. "
+             + "Изменения будут доступны только на этом устройстве.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+            )
     }
 
-    private var exclusionsSection: some View {
-        Section {
-            ForEach(ProfileListStatus.allCases) { status in
-                Toggle("Скрыть «\(status.title)»", isOn: exclusionBinding(status))
-            }
-        } header: {
-            Text("Исключить закладки")
-        } footer: {
-            Text("Исключит из выдачи все релизы, содержащиеся в вышеуказанных списках закладок.")
+    @ViewBuilder
+    private var fields: some View {
+        SearchableChoiceField(
+            title: "Страна",
+            options: FilterOptions.countries.map { FilterOption($0) },
+            label: \.title,
+            selection: Binding(
+                get: { draft.country.isEmpty ? nil : FilterOption(draft.country) },
+                set: { draft.country = $0?.value ?? "" }
+            )
+        )
+
+        SingleChoiceField(
+            title: "Категория",
+            options: ReleaseCategory.allCases,
+            label: \.title,
+            selection: $draft.category
+        )
+
+        GroupedMultiChoiceField(
+            title: "Жанры",
+            footnote: "Покажем релизы хотя бы с одним выбранным жанром.",
+            groups: FilterOptions.genreGroups.map { (title: $0.title, options: $0.genres) },
+            selection: $draft.genres
+        )
+
+        if !draft.genres.isEmpty {
+            SingleChoiceField(
+                title: "Режим жанров",
+                options: GenresMode.allCases.map { FilterOption($0.rawValue, title: $0.title) },
+                label: \.title,
+                selection: Binding(
+                    get: { FilterOption(draft.genresMode.rawValue, title: draft.genresMode.title) },
+                    set: { draft.genresMode = $0.flatMap { GenresMode(rawValue: $0.value) } ?? .all }
+                )
+            )
         }
-    }
 
-    // MARK: - Fields
+        MultiChoiceField(
+            title: "Исключить закладки",
+            footnote: "Исключит из выдачи все релизы, содержащиеся в вышеуказанных списках закладок.",
+            options: ProfileListStatus.allCases,
+            label: \.title,
+            selection: $draft.profileListExclusions
+        )
 
-    private func optionalPicker(
-        _ title: String,
-        selection: Binding<String>,
-        options: [String]
-    ) -> some View {
-        Picker(title, selection: selection) {
-            Text("Неважно").tag("")
-            ForEach(options, id: \.self) { option in
-                Text(option).tag(option)
-            }
+        if !availableTypes.isEmpty {
+            MultiChoiceField(
+                title: "Варианты озвучек",
+                options: availableTypes.map { FilterOption($0.id, title: $0.displayName) },
+                label: \.title,
+                selection: Binding(
+                    get: {
+                        draft.types.compactMap { id in
+                            availableTypes.first { $0.id == id }
+                                .map { FilterOption($0.id, title: $0.displayName) }
+                        }
+                    },
+                    set: { draft.types = $0.map(\.value) }
+                )
+            )
         }
-    }
 
-    private func yearField(_ title: String, value: Binding<Int?>) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            TextField("—", text: Binding(
-                get: { value.wrappedValue.map { String($0) } ?? "" },
-                set: { value.wrappedValue = Int($0.filter(\.isNumber)) }
-            ))
-            .keyboardType(.numberPad)
-            .multilineTextAlignment(.trailing)
-            .frame(width: 80)
-        }
-    }
+        SearchableChoiceField(
+            title: "Студия",
+            options: FilterOptions.studios.map { FilterOption($0) },
+            label: \.title,
+            selection: Binding(
+                get: { draft.studio.isEmpty ? nil : FilterOption(draft.studio) },
+                set: { draft.studio = $0?.value ?? "" }
+            )
+        )
 
-    private func addGenre() {
-        let genre = genreInput.trimmingCharacters(in: .whitespaces)
-        guard !genre.isEmpty, !draft.genres.contains(genre) else {
-            genreInput = ""
-            return
-        }
-        draft.genres.append(genre)
-        genreInput = ""
-    }
+        SingleChoiceField(
+            title: "Первоисточник",
+            options: SourceMaterial.allCases,
+            label: \.title,
+            selection: $draft.source
+        )
 
-    private func ageRatingBinding(_ index: Int) -> Binding<Bool> {
-        Binding(
-            get: { draft.ageRatings.contains(index) },
-            set: { isOn in
-                if isOn {
-                    draft.ageRatings.append(index)
-                    draft.ageRatings.sort()
-                } else {
-                    draft.ageRatings.removeAll { $0 == index }
-                }
-            }
+        YearRangeField(startYear: $draft.startYear, endYear: $draft.endYear)
+
+        SingleChoiceField(
+            title: "Сезон",
+            options: ReleaseSeason.allCases,
+            label: { $0.title.capitalizedFirst },
+            selection: $draft.season
+        )
+
+        SingleChoiceField(
+            title: "Эпизодов",
+            options: EpisodeCountPreset.allCases,
+            label: \.title,
+            selection: $draft.episodes
+        )
+
+        SingleChoiceField(
+            title: "Статус",
+            options: AiringStatus.allCases,
+            label: \.title,
+            selection: $draft.status
+        )
+
+        SingleChoiceField(
+            title: "Длительность эпизода",
+            options: EpisodeDurationPreset.allCases,
+            label: \.title,
+            selection: $draft.episodeDuration
+        )
+
+        MultiChoiceField(
+            title: "Возрастное ограничение",
+            options: Self.ageRatingOptions,
+            label: \.title,
+            selection: Binding(
+                get: { draft.ageRatings.compactMap { value in Self.ageRatingOptions.first { $0.value == value } } },
+                set: { draft.ageRatings = $0.map(\.value).sorted() }
+            )
+        )
+
+        SingleChoiceField(
+            title: "Сортировка",
+            footnote: draft.sort.title,
+            options: CatalogSort.displayOrder,
+            label: \.shortTitle,
+            selection: Binding(
+                get: { draft.sort },
+                set: { draft.sort = $0 ?? .dateUpdateDescending }
+            )
         )
     }
 
-    private func typeBinding(_ id: Int) -> Binding<Bool> {
-        Binding(
-            get: { draft.types.contains(id) },
-            set: { isOn in
-                if isOn { draft.types.append(id) } else { draft.types.removeAll { $0 == id } }
+    private var actions: some View {
+        HStack(spacing: 12) {
+            Button("Сбросить") {
+                draft = CustomTabFilter()
+                onReset()
+                dismiss()
             }
-        )
-    }
+            .buttonStyle(.bordered)
+            .frame(maxWidth: .infinity)
 
-    private func exclusionBinding(_ status: ProfileListStatus) -> Binding<Bool> {
-        Binding(
-            get: { draft.profileListExclusions.contains(status) },
-            set: { isOn in
-                if isOn {
-                    draft.profileListExclusions.append(status)
-                } else {
-                    draft.profileListExclusions.removeAll { $0 == status }
-                }
+            Button("Применить") {
+                onApply(draft)
+                dismiss()
             }
-        )
+            .buttonStyle(.borderedProminent)
+            .tint(Theme.accent)
+            .frame(maxWidth: .infinity)
+        }
+        .controlSize(.large)
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(.bar)
     }
 }
