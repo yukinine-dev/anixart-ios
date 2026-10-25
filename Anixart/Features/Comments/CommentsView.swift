@@ -229,7 +229,7 @@ struct CommentRow: View {
 
                 // `discover/comments` inlines the release the comment belongs to, which is
                 // what makes a comment legible outside its own release page.
-                if showsRelease, let release = comment.release {
+                if showsRelease, let release = comment.release?.value {
                     Text(release.displayTitle).font(.ax(.caption)).foregroundStyle(Theme.accent)
                 }
 

@@ -182,3 +182,43 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertEqual(unknown.friendStatus, .unknown("WHAT"))
     }
 }
+
+/// `ReleaseComment.release` arrives in two shapes depending on the endpoint.
+/// Decoding only the object shape made the release page fail against live data,
+/// so both are locked in here.
+final class EmbeddedReleaseTests: XCTestCase {
+    private struct Wrapper: Codable {
+        var release: EmbeddedRelease?
+    }
+
+    func testDecodesABareReleaseID() throws {
+        let json = Data(#"{"release": 9243}"#.utf8)
+        let wrapper = try JSONDecoder().decode(Wrapper.self, from: json)
+
+        XCTAssertEqual(wrapper.release?.id, 9243)
+        XCTAssertNil(wrapper.release?.value)
+    }
+
+    func testDecodesAWholeRelease() throws {
+        let json = Data(#"{"release": {"id": 9243, "title_ru": "Стальной алхимик"}}"#.utf8)
+        let wrapper = try JSONDecoder().decode(Wrapper.self, from: json)
+
+        XCTAssertEqual(wrapper.release?.id, 9243)
+        XCTAssertEqual(wrapper.release?.value?.titleRu, "Стальной алхимик")
+    }
+
+    func testDecodesAMissingRelease() throws {
+        let json = Data(#"{"release": null}"#.utf8)
+        let wrapper = try JSONDecoder().decode(Wrapper.self, from: json)
+
+        // `release: null` decodes the key as absent, which is what Optional means here.
+        XCTAssertNil(wrapper.release?.id)
+        XCTAssertNil(wrapper.release?.value)
+    }
+
+    func testRoundTripsBothShapes() throws {
+        let byID = EmbeddedRelease(value: nil, id: 7)
+        let encoded = try JSONEncoder().encode(Wrapper(release: byID))
+        XCTAssertEqual(try JSONDecoder().decode(Wrapper.self, from: encoded).release?.id, 7)
+    }
+}

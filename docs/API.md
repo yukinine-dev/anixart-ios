@@ -28,6 +28,15 @@ sends `searchBy`. A blanket `.convertFromSnakeCase` strategy therefore drops fie
 which is why `AnixartKit` spells every `CodingKey` out; the mapping was extracted from the
 `@JsonProperty` annotations rather than guessed (see `Tools/anixart-10.5-model-map.json`).
 
+### Relations that change shape
+
+Some fields are Room relations in the Android client and the server sends them either as
+the whole object or as the bare row id, depending on which endpoint you asked. The one
+that matters is `ReleaseComment.release`: `discover/comments` sends the release object,
+while the comments inlined into `release/{id}?extended_mode=true` send its id as a number.
+A model that expects one shape fails the whole response, so `EmbeddedRelease` decodes
+both. Expect other relations to behave the same way if you start using them.
+
 ### Enum values read out of the APK
 
 | Meaning | Values | Source |

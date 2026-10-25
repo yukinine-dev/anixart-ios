@@ -35,6 +35,10 @@ TYPE_OVERRIDE = {
     # decodes both. See Models/FriendStatusCode.swift.
     ("Profile", "friendStatus"): "FriendStatusCode",
     ("ReleaseComment", "profile"): "ProfileCompact",
+    # The server sends this as the whole release on discover/comments and as the
+    # bare release id on the comments inlined into a release page. See
+    # Models/EmbeddedRelease.swift.
+    ("ReleaseComment", "release"): "EmbeddedRelease",
     ("CollectionComment", "profile"): "ProfileCompact",
 }
 

@@ -195,14 +195,36 @@ jobs:
             shoot "$screen"
           done
 
-      # Anything the app logged -- a decode failure against the real API shows up
-      # here, which is the failure this port is most exposed to.
-      - name: App log
+      # A decode failure against the real API is the failure this port is most
+      # exposed to, so the app's own diagnostics are shown in full and the
+      # framework noise is tailed separately -- one `tail` over both once cut a
+      # decode error off the top.
+      - name: App diagnostics
         if: always()
         run: |
           xcrun simctl spawn "$UDID" log show \
-            --predicate 'subsystem == "app.anixart.client" OR process == "Anixart"' \
-            --last 5m --style compact 2>/dev/null | tail -120 || echo "(no log entries)"
+            --predicate 'subsystem == "app.anixart.client"' \
+            --last 10m --style compact 2>/dev/null || echo "(no entries)"
+
+      # A screen that renders its error state still leaves the process alive, so
+      # the launch check alone would call a decode failure a pass.
+      - name: Fail on a decode failure
+        if: always()
+        run: |
+          if xcrun simctl spawn "$UDID" log show \
+              --predicate 'subsystem == "app.anixart.client"' \
+              --last 10m --style compact 2>/dev/null | grep -q 'decode failed'; then
+            echo "::error::the app failed to decode a live API response"
+            exit 1
+          fi
+          echo "no decode failures"
+
+      - name: System log for the app
+        if: always()
+        run: |
+          xcrun simctl spawn "$UDID" log show \
+            --predicate 'process == "Anixart" AND subsystem != "app.anixart.client"' \
+            --last 10m --style compact 2>/dev/null | tail -60 || echo "(no entries)"
 
       - name: Upload screenshot
         if: always()
