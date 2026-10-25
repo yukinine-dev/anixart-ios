@@ -136,7 +136,7 @@ struct RelatedReleasesView: View {
                     NavigationLink {
                         ReleaseDetailView(releaseID: release.id, preloaded: release)
                     } label: {
-                        ReleaseRow(release: release)
+                        RelatedReleaseRow(release: release)
                     }
                 }
             }

@@ -285,13 +285,21 @@ struct ReleaseDetailView: View {
                     .buttonStyle(.plain)
 
                     Menu {
-                        NavigationLink("Выбрать озвучку", systemImage: "waveform") {
+                        NavigationLink {
                             EpisodePickerView(release: release)
+                        } label: {
+                            Label("Выбрать озвучку", systemImage: "waveform")
                         }
-                        NavigationLink("Онлайн просмотр", systemImage: "play.rectangle.on.rectangle") {
+                        NavigationLink {
                             StreamingPlatformsView(release: release)
+                        } label: {
+                            Label("Онлайн просмотр", systemImage: "play.rectangle.on.rectangle")
                         }
-                        Button("Оценить", systemImage: "star") { isShowingRating = true }
+                        Button {
+                            isShowingRating = true
+                        } label: {
+                            Label("Оценить", systemImage: "star")
+                        }
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.ax(.title3))
@@ -550,7 +558,7 @@ struct ReleaseDetailView: View {
             SectionHeader(title: "Связанные релизы") {
                 if let related = release.related {
                     NavigationLink("Показать все") {
-                        RelatedReleasesView(relatedID: related.id, title: release.displayTitle)
+                        RelatedReleasesView(related: related)
                     }
                     .font(.ax(.subheadline))
                 }

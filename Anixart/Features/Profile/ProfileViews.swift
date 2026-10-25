@@ -217,13 +217,23 @@ struct ProfileView: View {
 
                 Menu {
                     if isOwnProfile {
-                        Button("Настройки", systemImage: "gearshape") { isShowingSettings = true }
-                        Button("Выйти", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                        Button {
+                            isShowingSettings = true
+                        } label: {
+                            Label("Настройки", systemImage: "gearshape")
+                        }
+                        Button(role: .destructive) {
                             isConfirmingSignOut = true
+                        } label: {
+                            Label("Выйти", systemImage: "rectangle.portrait.and.arrow.right")
                         }
                     } else {
-                        Button("Пожаловаться", systemImage: "flag") {}
-                            .disabled(true)
+                        Button {
+                            // Reporting a profile is not part of the port yet.
+                        } label: {
+                            Label("Пожаловаться", systemImage: "flag")
+                        }
+                        .disabled(true)
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -817,6 +827,10 @@ enum Plural {
 
     static func votes(_ count: Int) -> String {
         forms(count, one: "голос", few: "голоса", many: "голосов")
+    }
+
+    static func replies(_ count: Int) -> String {
+        forms(count, one: "ответ", few: "ответа", many: "ответов")
     }
 
     static func episodes(_ count: Int) -> String {

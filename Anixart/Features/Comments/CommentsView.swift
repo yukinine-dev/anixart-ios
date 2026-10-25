@@ -126,72 +126,130 @@ struct CommentsView: View {
     }
 }
 
-/// One comment. Spoilers stay hidden until tapped, as in the Android app.
+/// One comment, laid out as the Android list lays it out: avatar beside the
+/// author and time, the message, the episode it was written at, then the reply
+/// action and the vote arrows. Spoilers stay hidden until tapped.
 @MainActor
 struct CommentRow: View {
     let comment: ReleaseComment
     var showsRelease = false
+    var onReply: (() -> Void)?
+    var onVote: ((Int) -> Void)?
 
     @State private var isSpoilerRevealed = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                AsyncImage(url: comment.authorAvatarURL) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Circle().fill(.quaternary)
-                }
-                .frame(width: 28, height: 28)
-                .clipShape(Circle())
+        HStack(alignment: .top, spacing: 12) {
+            Avatar(url: comment.authorAvatarURL, size: 40)
 
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(comment.authorLogin).font(.ax(.caption, .medium))
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
+                    Text(comment.authorLogin).font(.ax(.subheadline, .medium))
                     if let date = Format.relativeDate(comment.postedAt) {
-                        Text(date).font(.ax(.caption2)).foregroundStyle(.secondary)
+                        Text(date).font(.ax(.subheadline)).foregroundStyle(.secondary)
                     }
+                    Spacer(minLength: 0)
                 }
 
-                Spacer()
-
-                if let votes = comment.voteCount, votes != 0 {
-                    Label(Format.count(votes), systemImage: votes > 0 ? "arrow.up" : "arrow.down")
-                        .labelStyle(.compact)
-                        .font(.ax(.caption2))
-                        .foregroundStyle(.secondary)
+                // `discover/comments` inlines the release the comment belongs to, which is
+                // what makes a comment legible outside its own release page.
+                if showsRelease, let release = comment.release {
+                    Text(release.displayTitle).font(.ax(.caption)).foregroundStyle(Theme.accent)
                 }
-            }
 
-            // `discover/comments` inlines the release the comment belongs to, which is
-            // what makes a comment legible outside its own release page.
-            if showsRelease, let release = comment.release {
-                Text(release.displayTitle).font(.ax(.caption2)).foregroundStyle(Theme.accent)
-            }
+                if comment.containsSpoiler && !isSpoilerRevealed {
+                    Button {
+                        withAnimation { isSpoilerRevealed = true }
+                    } label: {
+                        Label("Содержит спойлер — нажмите, чтобы прочитать", systemImage: "eye.slash")
+                            .font(.ax(.caption))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text(comment.message ?? "")
+                        .font(.ax(.subheadline))
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
-            if comment.containsSpoiler && !isSpoilerRevealed {
-                Button {
-                    withAnimation { isSpoilerRevealed = true }
-                } label: {
-                    Label("Содержит спойлер — нажмите, чтобы прочитать", systemImage: "eye.slash")
+                if let episode = comment.postedAtEpisode, episode > 0 {
+                    Text("На момент выхода \(episode) серии")
                         .font(.ax(.caption))
                         .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                 }
-                .buttonStyle(.plain)
-            } else {
-                Text(comment.message ?? "")
-                    .font(.ax(.subheadline))
-                    .textSelection(.enabled)
-            }
 
-            if let replies = comment.replyCount, replies > 0 {
-                Text("Ответов: \(Format.count(replies))")
-                    .font(.ax(.caption2))
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 16) {
+                    if let onReply {
+                        Button("Ответить", action: onReply)
+                            .font(.ax(.subheadline))
+                            .foregroundStyle(.secondary)
+                            .buttonStyle(.plain)
+                    }
+                    Spacer(minLength: 0)
+                    voteControls
+                }
+                .padding(.top, 2)
+
+                if let replies = comment.replyCount, replies > 0 {
+                    Label("Показать \(Plural.replies(replies))", systemImage: "chevron.right")
+                        .labelStyle(.trailingIcon)
+                        .font(.ax(.subheadline, .medium))
+                }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
     }
+
+    /// The down / score / up triple. The score takes the colour of the viewer's
+    /// own vote, which is how the Android row shows what you pressed.
+    private var voteControls: some View {
+        HStack(spacing: 14) {
+            Button {
+                onVote?(-1)
+            } label: {
+                Image(systemName: "chevron.down").foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(onVote == nil)
+
+            Text(Format.count(comment.voteCount))
+                .font(.ax(.subheadline, .medium))
+                .monospacedDigit()
+                .foregroundStyle(voteColor)
+
+            Button {
+                onVote?(1)
+            } label: {
+                Image(systemName: "chevron.up").foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(onVote == nil)
+        }
+    }
+
+    private var voteColor: Color {
+        switch comment.vote ?? 0 {
+        case 1...: return Theme.listColor(.watching)
+        case ..<0: return Theme.newBadge
+        default: return (comment.voteCount ?? 0) > 0 ? Theme.listColor(.watching) : .secondary
+        }
+    }
+}
+
+/// Label with the icon after the text, for "Показать N ответов".
+struct TrailingIconLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.title
+            configuration.icon.font(.ax(.caption))
+        }
+    }
+}
+
+extension LabelStyle where Self == TrailingIconLabelStyle {
+    static var trailingIcon: TrailingIconLabelStyle { TrailingIconLabelStyle() }
 }

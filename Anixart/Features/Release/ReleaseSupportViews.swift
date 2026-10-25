@@ -31,43 +31,6 @@ struct ReleaseTitlesView: View {
     }
 }
 
-/// Releases sharing one franchise, behind "Связанные релизы → Показать все".
-@MainActor
-struct RelatedReleasesView: View {
-    @Environment(AppEnvironment.self) private var env
-
-    let relatedID: Int
-    let title: String
-    @State private var paginator: Paginator<Release>?
-
-    var body: some View {
-        List {
-            if let paginator {
-                PaginatedContent(paginator: paginator, emptyTitle: "Связанных релизов нет") { release in
-                    NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release)
-                    } label: {
-                        RelatedReleaseRow(release: release)
-                    }
-                }
-            }
-        }
-        .listStyle(.plain)
-        .navigationTitle("Связанные релизы")
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            if paginator == nil {
-                let client = env.client
-                let id = relatedID
-                paginator = Paginator { page in
-                    try await client.send(ReleaseEndpoints.related(relatedID: id, page: page))
-                }
-            }
-            await paginator?.loadFirstPageIfNeeded()
-        }
-    }
-}
-
 /// Public collections that contain this release.
 @MainActor
 struct ReleaseCollectionsView: View {
