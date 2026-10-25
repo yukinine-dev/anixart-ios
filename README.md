@@ -10,44 +10,41 @@ nothing that bypasses it — no ad removal, no premium unlocking, no scraping ar
 
 ## What is and is not verified
 
-CI builds this on macOS, and it is green: `AnixartKit` compiles and its **19 unit tests
-pass**, and the **iOS app target compiles** for the simulator on both arm64 and x86_64.
-That is a real compile of every file here, not a claim.
+CI builds and runs this on macOS, and it is green. What that covers:
 
-What has *not* happened: **no request has ever been made to the live API**, and the app has
-**never been run** on a simulator or a device. The container this was written in has no Swift
-toolchain and no network route to the API host, so everything beyond "it compiles and the unit
-tests pass" is untested — runtime behaviour, layout, and playback above all.
+- **It compiles.** `AnixartKit` and the iOS app target both build, and the kit's
+  **19 unit tests pass**.
+- **It launches.** A simulator boots the app, and the job fails if a crash report
+  appears or the process is gone 25 seconds later. It survives.
+- **It talks to the real API, correctly.** The launch screenshot shows the discover
+  feed populated with live Anixart content — banners, "Сейчас обсуждают", posters,
+  episode counts. Every request came back `200` with payloads of 70–255 KB, and the
+  client logged **no decode failure, no transport failure and no API error code**.
+  That is the end-to-end check on the reverse-engineered wire format: the JSON keys
+  taken out of the APK match what the server actually sends.
 
-Alongside the compile, these were checked mechanically:
+What that does **not** cover:
 
-- all 92 endpoint paths in `AnixartKit` were diffed against the 296 Retrofit annotations
-  extracted from the APK — they match exactly;
-- the JSON key for every model field was taken from the APK's Jackson `@JsonProperty`
-  annotations rather than hand-typed, by a committed script that reproduces both the
+- **Only the launch path and the discover feed were exercised.** Catalogue, filter,
+  search, release detail, the episode drill-down, bookmarks, comments and the profile
+  compile and are wired to verified endpoints, but nothing navigated to them.
+- **Playback is untested.** Both players are the least certain part of the port — see
+  "Known risks" in `docs/PORTING.md`.
+- **It has never run on a physical device**, only in the simulator.
+
+Alongside the run, these were checked mechanically:
+
+- all 92 endpoint paths were diffed against the 296 Retrofit annotations extracted
+  from the APK — they match exactly;
+- the JSON key for every model field came from the APK's Jackson `@JsonProperty`
+  annotations rather than hand-typing, via a committed script that reproduces both the
   extracted map and all 60 generated Swift files (`Tools/`);
-- the unit tests assert the wire shape directly: token as a query parameter, form encoding,
-  the filter body's snake_case keys with absent rather than null fields, `searchBy` staying
-  camelCase, mirror-host rewriting, and decoding of the mixed-casing payloads.
+- the unit tests assert the wire shape directly: token as a query parameter, form
+  encoding, the filter body's snake_case keys with absent rather than null fields,
+  `searchBy` staying camelCase, mirror-host rewriting, and the mixed-casing payloads.
 
-So the first thing to do is run it against the real API and see what the server actually
-returns.
-
-## Getting started
-
-```bash
-brew install xcodegen
-./Scripts/bootstrap.sh          # generates Anixart.xcodeproj and opens it
-```
-
-The Xcode project is generated from [`project.yml`](project.yml) rather than committed, so the
-project file cannot silently drift from the source tree.
-
-To run the core tests without Xcode:
-
-```bash
-cd Packages/AnixartKit && swift test
-```
+The `smoke` job also prints the first frame into its log as a base64 JPEG, so the
+rendered screen can be inspected without downloading the artifact.
 
 ## Installing the IPA
 
