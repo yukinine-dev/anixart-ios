@@ -219,5 +219,6 @@ struct CustomTabSettingsView: View {
         .padding(.horizontal)
         .padding(.vertical, 10)
         .background(.bar)
+        .overlay(alignment: .top) { Divider() }
     }
 }

@@ -53,6 +53,14 @@ struct HomeView: View {
     // MARK: - Header
 
     private var header: some View {
+        GlassGroup(spacing: 12) {
+            headerContent
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+    }
+
+    private var headerContent: some View {
         HStack(spacing: 12) {
             Button {
                 isShowingSearch = true
@@ -65,7 +73,7 @@ struct HomeView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
-                .background(Color.primary.opacity(0.07), in: Capsule())
+                .glassPill()
             }
             .buttonStyle(.plain)
 
@@ -93,8 +101,6 @@ struct HomeView: View {
                     }
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
 
     // MARK: - Tabs

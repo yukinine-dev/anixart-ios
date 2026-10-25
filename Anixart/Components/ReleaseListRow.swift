@@ -121,9 +121,50 @@ struct GlassCard: ViewModifier {
     }
 }
 
+/// Glass for a control rather than a card: a pill, for the search field and buttons.
+@MainActor
+struct GlassPill: ViewModifier {
+    func body(content: Content) -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: .capsule)
+        } else {
+            content.background(.thinMaterial, in: Capsule())
+        }
+        #else
+        content.background(.thinMaterial, in: Capsule())
+        #endif
+    }
+}
+
+/// Wraps adjacent glass elements so the system can blend them into one surface
+/// instead of stacking separate panes. Does nothing before iOS 26.
+@MainActor
+struct GlassGroup<Content: View>: View {
+    var spacing: CGFloat = 8
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: spacing) { content }
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
 extension View {
     /// Glass on iOS 26 and up, a material card below it.
     func glassCard(cornerRadius: CGFloat = 16) -> some View {
         modifier(GlassCard(cornerRadius: cornerRadius))
+    }
+
+    /// Glass pill, for search fields and buttons.
+    func glassPill() -> some View {
+        modifier(GlassPill())
     }
 }

@@ -31,6 +31,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The runner ships several Xcodes and defaults to a 16.x one, whose SDK has no
+      # Liquid Glass. Pick the newest 26.x so the iOS 26 SDK is what we build against;
+      # the deployment target stays 17.0, so older systems get the compatibility look.
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          test -n "$XCODE" || { echo "::error::no Xcode 26 on this runner"; exit 1; }
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
       - name: Build and test AnixartKit
         working-directory: Packages/AnixartKit
         run: swift test --enable-code-coverage
@@ -41,16 +51,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # What SDKs this runner actually has decides whether Liquid Glass (iOS 26) can
-      # be compiled at all, so the build log says so explicitly.
-      - name: Available Xcode and SDKs
+      # The runner ships several Xcodes and defaults to a 16.x one, whose SDK has no
+      # Liquid Glass. Pick the newest 26.x so the iOS 26 SDK is what we build against;
+      # the deployment target stays 17.0, so older systems get the compatibility look.
+      - name: Select Xcode 26
         run: |
-          echo "--- installed Xcodes ---"
-          ls /Applications | grep -i '^Xcode' || true
-          echo "--- selected ---"
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          test -n "$XCODE" || { echo "::error::no Xcode 26 on this runner"; exit 1; }
+          sudo xcode-select -s "$XCODE"
           xcodebuild -version
-          echo "--- iOS SDKs ---"
-          xcodebuild -showsdks | grep -i ios || true
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -73,6 +82,16 @@ jobs:
     needs: app
     steps:
       - uses: actions/checkout@v4
+
+      # The runner ships several Xcodes and defaults to a 16.x one, whose SDK has no
+      # Liquid Glass. Pick the newest 26.x so the iOS 26 SDK is what we build against;
+      # the deployment target stays 17.0, so older systems get the compatibility look.
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          test -n "$XCODE" || { echo "::error::no Xcode 26 on this runner"; exit 1; }
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -184,6 +203,16 @@ jobs:
     needs: app
     steps:
       - uses: actions/checkout@v4
+
+      # The runner ships several Xcodes and defaults to a 16.x one, whose SDK has no
+      # Liquid Glass. Pick the newest 26.x so the iOS 26 SDK is what we build against;
+      # the deployment target stays 17.0, so older systems get the compatibility look.
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          test -n "$XCODE" || { echo "::error::no Xcode 26 on this runner"; exit 1; }
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
