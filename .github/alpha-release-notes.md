@@ -16,12 +16,12 @@ Bundle id is `app.anixart.client`. A free Apple ID caps you at three sideloaded 
 ## What this build is checked against
 
 CI compiled it, ran the AnixartKit unit tests, booted a simulator, launched the app and
-confirmed the process survives with no crash report. The discover feed loads live data
-from the Anixart API with no decode failures.
+confirmed the process survives with no crash report. It then relaunches the app straight
+onto a profile and onto a release page and photographs both, so those two screens are
+checked to render against live data with no decode failures.
 
-Only the launch path and the discover feed are exercised by that check. Catalogue,
-search, release detail, the episode drill-down, bookmarks, comments and the profile are
-built and wired to verified endpoints but are not clicked through. **Playback is not
+Everything else — catalogue, search, the episode drill-down, bookmarks and comments — is
+built and wired to verified endpoints but is not clicked through. **Playback is not
 tested at all.** This has only ever run in a simulator, never on a physical device.
 
 See [`docs/PORTING.md`](../blob/__SHA__/docs/PORTING.md) for what is not implemented yet.

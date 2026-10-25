@@ -165,20 +165,35 @@ jobs:
           [ "$crashed" -eq 0 ]
 
       # "the process is alive" does not mean "the UI rendered", and the screenshot
-      # artifact cannot be read from every environment, so the first frame is also
+      # artifact cannot be read from every environment, so each frame is also
       # emitted into the log as a base64 thumbnail.
-      - name: Screenshot and first-frame thumbnail
+      #
+      # There is no UI automation here, so the app takes `-anixart-screen` and
+      # opens that screen on launch; relaunching with it is how the profile and a
+      # release page get photographed at all.
+      - name: Screenshot every screen
         if: always()
         run: |
-          xcrun simctl io "$UDID" screenshot launch.png || true
-          if [ -f launch.png ]; then
-            sips -g pixelWidth -g pixelHeight launch.png
-            sips -Z 320 --setProperty format jpeg launch.png --out thumb.jpg >/dev/null
-            echo "--- BEGIN FIRST FRAME (base64 jpeg) ---"
-            base64 -i thumb.jpg | tr -d '\n' | fold -w 180
+          shoot() {
+            name=$1
+            xcrun simctl io "$UDID" screenshot "$name.png" || return 0
+            sips -Z 320 --setProperty format jpeg "$name.png" --out "$name.jpg" >/dev/null
+            echo "--- BEGIN FRAME $name (base64 jpeg) ---"
+            base64 -i "$name.jpg" | tr -d '\n' | fold -w 180
             echo
-            echo "--- END FIRST FRAME ---"
-          fi
+            echo "--- END FRAME $name ---"
+          }
+
+          shoot launch
+
+          # `release` opens whatever release/random returns, since this job has no
+          # live release id of its own.
+          for screen in profile release; do
+            xcrun simctl terminate "$UDID" app.anixart.client >/dev/null 2>&1 || true
+            xcrun simctl launch "$UDID" app.anixart.client -anixart-screen "$screen" || continue
+            sleep 18
+            shoot "$screen"
+          done
 
       # Anything the app logged -- a decode failure against the real API shows up
       # here, which is the failure this port is most exposed to.
@@ -194,7 +209,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: simulator-screenshot
-          path: launch.png
+          path: "*.png"
           if-no-files-found: warn
 
   ipa:

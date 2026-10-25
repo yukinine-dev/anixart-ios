@@ -58,12 +58,12 @@ user's place.
 | Главная | tab strip, nine tabs | Моя вкладка (device-local filter, with its full settings screen) plus the eight presets, each mapped to the exact `filter/{page}` query `HomeFragment` sends; long-press sets the default tab |
 | Discover | обзор feed | banners, discussing, continue watching, recommendations, comments of the week; blocks load concurrently and a failed block is omitted rather than taking the screen down |
 | Catalogue | browse, filter, search | full `FilterRequest`: sort, category, status, season, years, episode count, age rating, genres with all three match modes, voice-over, "hide what's already in my lists" |
-| Release | detail | header, actions, description, metadata, screenshots, related, recommended, comment preview |
-| Playback | voice-over/source/episode picker, player | `AVPlayer` for direct URLs; `WKWebView` for `iframe` episodes; watched marks, resume, progress reporting |
+| Release | detail, titles, videos, streaming platforms, collections | poster over its own blurred backdrop, the list/bookmark/comments row, Воспроизвести with the last added episode under it, the icon fact lines, genre links, description with Подробнее, Видео banners, rating histogram with star voting, В списках у людей, Кадры, Связанные релизы, the collection links, Рекомендуем также and the comment preview |
+| Playback | "Выберите вариант", episode list, player | the voice-over list with the Все/Озвучки/Субтитры filter, episode and view counts, and the СУБТИТРЫ and НОВИНКА badges; then the hosting picker and episodes. `AVPlayer` for direct URLs, `WKWebView` for `iframe` episodes; watched marks, resume, progress reporting |
 | Bookmarks | 8 tabs | collections, history, favourites and the five watch lists, with the sort order the Android app offers |
 | Collections | favourites list, detail | bookmark/unbookmark, paginated releases |
-| Comments | list, composer | sorting, spoiler reveal, posting with the spoiler flag |
-| Profile | own and others, lists, friends | stats, watch-list counts, sign out |
+| Comments | list, thread, composer | sorting, spoiler reveal, replies, up/down voting, posting with the spoiler flag |
+| Profile | own and others, lists, votes, friends, user search | the Android layout: avatar with the online dot, login with the sponsor crown, status, rating score, join date, the action row, the friends row, and the Статистика / Оценки релизов / Коллекции chips over the watch-list legend and donut |
 | Schedule | weekly | one request for the week, defaults to today |
 | Notifications | feed | episode, friend, related-release and unknown kinds; marks read on open |
 | Auth | sign in, register, password reset | email/password; registration and reset both run the emailed-code step |
@@ -81,6 +81,18 @@ user's place.
 | Downloads / offline | Android uses `DownloadManager` plus a local Room cache; the port has no persistence layer |
 | Torlook torrent search | points at a third-party service configured through `config/toggles` |
 | Bookmark import/export | file pickers plus a server-side job (`import/bookmarks`, `export/bookmarks`) |
+
+## Typography
+
+The Android app styles nearly every text appearance as `sans-serif-medium`, which stock
+Android renders in Roboto. The port therefore ships Roboto (Apache-2.0) in
+`Anixart/Resources/Fonts/` and routes every `.font(...)` through `Font.ax(_:_:)` in
+`Anixart/Support/Typography.swift`, which keeps Apple's text-style sizes and `relativeTo:`
+so Dynamic Type still works. The navigation and tab bars are UIKit-drawn and do not see
+SwiftUI's font modifiers, so they are set through the appearance proxies in `AppFont`.
+
+The APK also bundles `product_sans_medium.ttf` for a single style. Product Sans is Google
+proprietary and is deliberately **not** shipped here.
 
 ## Known risks
 
