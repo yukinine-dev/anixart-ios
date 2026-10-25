@@ -25,6 +25,23 @@ final class EpisodePickerViewModel {
     /// stored property that declares a `didSet`.
     private(set) var sortDescending = false
 
+    /// The Все / Озвучки / Субтитры filter above the voice-over list.
+    private(set) var kind: Kind = .all
+
+    enum Kind: String, CaseIterable, Identifiable {
+        case all, dubs, subtitles
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .all: return "Все"
+            case .dubs: return "Озвучки"
+            case .subtitles: return "Субтитры"
+            }
+        }
+    }
+
     private let release: Release
     private let client: AnixartClient
     private let session: SessionController
@@ -33,6 +50,25 @@ final class EpisodePickerViewModel {
         self.release = release
         self.client = client
         self.session = session
+    }
+
+    /// The voice-overs the current chip leaves visible.
+    var visibleTypes: [EpisodeType] {
+        switch kind {
+        case .all: return types
+        case .dubs: return types.filter { !$0.isSubtitles }
+        case .subtitles: return types.filter(\.isSubtitles)
+        }
+    }
+
+    func select(kind: Kind) {
+        self.kind = kind
+    }
+
+    /// Re-fetches the voice-over list, for the toolbar's refresh.
+    func reload() async {
+        types = []
+        await loadTypes()
     }
 
     var releaseID: Int { release.id }
@@ -51,9 +87,6 @@ final class EpisodePickerViewModel {
                 let lhsPinned = lhs.pinned ?? false
                 let rhsPinned = rhs.pinned ?? false
                 return lhsPinned && !rhsPinned
-            }
-            if let first = types.first {
-                await select(type: first)
             }
         } catch {
             errorMessage = Paginator<Release>.message(for: error)

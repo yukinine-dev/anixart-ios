@@ -1,4 +1,5 @@
 import SwiftUI
+import AnixartKit
 
 /// Visual constants, kept in one place so screens stay consistent.
 enum Theme {
@@ -17,6 +18,27 @@ enum Theme {
         static let section: CGFloat = 24
         static let row: CGFloat = 12
         static let inline: CGFloat = 6
+        /// Gap between labels in the Главная tab strip. The Android strip leaves
+        /// roughly 30dp between labels; 18 read as cramped next to it.
+        static let tabGap: CGFloat = 28
+    }
+
+    /// The outline of the НОВИНКА badge in the voice-over picker (`colors.xml`: red).
+    static let newBadge = Color(red: 0xff / 255, green: 0x60 / 255, blue: 0x5b / 255)
+
+    /// The crown next to a sponsor's login.
+    static let sponsorGold = Color(red: 0.97, green: 0.79, blue: 0.16)
+
+    /// The five watch-list colours, taken from `colors.xml` in the APK, which the
+    /// profile donut and its legend both use.
+    static func listColor(_ status: ProfileListStatus) -> Color {
+        switch status {
+        case .watching: return Color(red: 0x73 / 255, green: 0xc9 / 255, blue: 0x78 / 255)
+        case .plan: return Color(red: 0xc3 / 255, green: 0x73 / 255, blue: 0xc9 / 255)
+        case .completed: return Color(red: 0x69 / 255, green: 0x79 / 255, blue: 0xce / 255)
+        case .holdOn: return Color(red: 0xff / 255, green: 0xd4 / 255, blue: 0x68 / 255)
+        case .dropped: return Color(red: 0xff / 255, green: 0x60 / 255, blue: 0x5b / 255)
+        }
     }
 
     /// Colour for a rating out of 5, so a score reads at a glance.

@@ -55,7 +55,7 @@ struct CustomTabSettingsView: View {
     private var hint: some View {
         Text("Выберите с помощью фильтров то, что хотите видеть на своей вкладке. "
              + "Изменения будут доступны только на этом устройстве.")
-            .font(.footnote)
+            .font(.ax(.footnote))
             .foregroundStyle(.secondary)
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)

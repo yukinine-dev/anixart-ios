@@ -53,10 +53,10 @@ struct CollectionRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(collection.displayTitle)
-                    .font(.subheadline.weight(.medium))
+                    .font(.ax(.subheadline, .medium))
                     .lineLimit(2)
                 if let creator = collection.creator?.login {
-                    Text(creator).font(.caption).foregroundStyle(.secondary)
+                    Text(creator).font(.ax(.caption)).foregroundStyle(.secondary)
                 }
                 HStack(spacing: 10) {
                     Label(Format.count(collection.favoriteCount), systemImage: "bookmark")
@@ -67,7 +67,7 @@ struct CollectionRow: View {
                         Label("Приватная", systemImage: "lock").labelStyle(.compact)
                     }
                 }
-                .font(.caption2)
+                .font(.ax(.caption2))
                 .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -88,7 +88,7 @@ struct CollectionDetailView: View {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     if let description = collection.description, !description.isEmpty {
-                        Text(description).font(.subheadline)
+                        Text(description).font(.ax(.subheadline))
                     }
                     Button {
                         Task { await toggleFavorite() }

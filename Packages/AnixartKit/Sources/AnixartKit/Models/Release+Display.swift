@@ -201,3 +201,131 @@ extension ScheduleResponse {
         ]
     }
 }
+
+// MARK: - Release detail lines
+//
+// The Android release page is a column of one-line facts, each with its own icon,
+// assembled from `strings.xml` format strings. These rebuild the same lines.
+
+extension Release {
+    /// "Япония, весна 2023 г." -- `format_year_short` after the country and season.
+    public var countryAndSeasonLine: String? {
+        var parts: [String] = []
+        if let country, !country.isEmpty { parts.append(country) }
+        let seasonName = season.flatMap { ReleaseSeason(rawValue: $0)?.title }
+        switch (seasonName, year) {
+        case (let s?, let y?) where !y.isEmpty: parts.append("\(s) \(y) г.")
+        case (nil, let y?) where !y.isEmpty: parts.append("\(y) г.")
+        case (let s?, _): parts.append(s)
+        default: break
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    /// "154 из ? эп. по ~23 мин." -- the dotted counter plus `format_duration_minutes`.
+    public var episodesAndDurationLine: String? {
+        guard var line = episodeProgressText else {
+            guard let minutes = duration, minutes > 0 else { return nil }
+            return "~\(minutes) мин."
+        }
+        line += "."
+        if let minutes = duration, minutes > 0 {
+            line += " по ~\(minutes) мин."
+        }
+        return line
+    }
+
+    /// "Сериал, выходит каждую пятницу" -- the category, the airing status and,
+    /// while it is still airing, the weekday new episodes land on.
+    public var broadcastLine: String? {
+        var parts: [String] = []
+        if let category = category?.name, !category.isEmpty { parts.append(category) }
+        if let status = status?.name, !status.isEmpty {
+            var phrase = status.lowercased()
+            if statusId == AiringStatus.ongoing.rawValue, let weekday = broadcastWeekday {
+                phrase += " \(weekday)"
+            }
+            parts.append(phrase)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    /// `broadcast` is a weekday, Monday first, and `0` means "not on a schedule".
+    private var broadcastWeekday: String? {
+        let names = [
+            "каждый понедельник", "каждый вторник", "каждую среду", "каждый четверг",
+            "каждую пятницу", "каждую субботу", "каждое воскресенье"
+        ]
+        guard let broadcast, (1...7).contains(broadcast) else { return nil }
+        return names[broadcast - 1]
+    }
+
+    /// "Студия OLM, режиссёр Саори Дэн" -- `format_studio` and `format_director`.
+    public var studioAndDirectorLine: String? {
+        var parts: [String] = []
+        if let studio, !studio.isEmpty { parts.append("Студия \(studio)") }
+        if let director, !director.isEmpty { parts.append("режиссёр \(director)") }
+        if let author, !author.isEmpty { parts.append("автор \(author)") }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    /// "Добавлено: 153 серия | Субтитры | Pokefans Community" -- `format_episode_added`.
+    public var lastEpisodeAddedLine: String? {
+        guard let update = episodeLastUpdate else { return nil }
+        let parts = [
+            update.lastEpisodeUpdateName,
+            update.lastEpisodeTypeUpdateName,
+            update.lastEpisodeSourceUpdateName
+        ].compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : "Добавлено: " + parts.joined(separator: " | ")
+    }
+
+    /// Votes per score, 5 first, as the rating histogram draws them.
+    public var voteDistribution: [(score: Int, count: Int)] {
+        [
+            (5, vote5Count ?? 0),
+            (4, vote4Count ?? 0),
+            (3, vote3Count ?? 0),
+            (2, vote2Count ?? 0),
+            (1, vote1Count ?? 0)
+        ]
+    }
+
+    /// How many people hold the release in each list, for the "В списках у людей" bar.
+    public var listDistribution: [(status: ProfileListStatus, count: Int)] {
+        [
+            (.watching, watchingCount ?? 0),
+            (.plan, planCount ?? 0),
+            (.completed, completedCount ?? 0),
+            (.holdOn, holdOnCount ?? 0),
+            (.dropped, droppedCount ?? 0)
+        ]
+    }
+
+    /// The source material, which the Android page renders as a tappable link.
+    public var sourceMaterialName: String? {
+        guard let source, !source.isEmpty else { return nil }
+        return source
+    }
+}
+
+extension EpisodeType {
+    /// "152 эпизода" -- the count the voice-over picker shows under each name.
+    public var episodeCountLine: String? {
+        guard let episodesCount, episodesCount > 0 else { return nil }
+        let mod100 = episodesCount % 100
+        let word: String
+        if (11...14).contains(mod100) {
+            word = "эпизодов"
+        } else {
+            switch episodesCount % 10 {
+            case 1: word = "эпизод"
+            case 2...4: word = "эпизода"
+            default: word = "эпизодов"
+            }
+        }
+        return "\(episodesCount) \(word)"
+    }
+
+    public var isSubtitles: Bool { isSub ?? false }
+}

@@ -76,7 +76,7 @@ struct BookmarksView: View {
                             tab = candidate
                         } label: {
                             Text(candidate.title)
-                                .font(.subheadline.weight(tab == candidate ? .semibold : .regular))
+                                .font(.ax(.subheadline, tab == candidate ? .medium : .regular))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
                                 .background(
@@ -211,9 +211,9 @@ struct SignInPromptView: View {
             Image(systemName: "person.crop.circle.badge.questionmark")
                 .font(.system(size: 42))
                 .foregroundStyle(.tertiary)
-            Text("Нужен аккаунт").font(.headline)
+            Text("Нужен аккаунт").font(.ax(.headline))
             Text(message)
-                .font(.subheadline)
+                .font(.ax(.subheadline))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Войти") { env.session.promptSignIn() }

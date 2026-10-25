@@ -50,7 +50,7 @@ struct PlayerScreen: View {
             dismiss()
         } label: {
             Image(systemName: "xmark")
-                .font(.headline)
+                .font(.ax(.headline))
                 .foregroundStyle(.white)
                 .padding(12)
                 .background(.black.opacity(0.5), in: Circle())

@@ -43,10 +43,10 @@ struct AuthView: View {
                 }
 
                 if let errorMessage {
-                    Text(errorMessage).font(.footnote).foregroundStyle(.red)
+                    Text(errorMessage).font(.ax(.footnote)).foregroundStyle(.red)
                 }
                 if let infoMessage {
-                    Text(infoMessage).font(.footnote).foregroundStyle(.secondary)
+                    Text(infoMessage).font(.ax(.footnote)).foregroundStyle(.secondary)
                 }
 
                 Section {
@@ -68,7 +68,7 @@ struct AuthView: View {
                         + "Вход через VK, Google, Telegram и Яндекс требует SDK этих сервисов "
                         + "и пока не подключён — используйте никнейм и пароль."
                     )
-                    .font(.caption)
+                    .font(.ax(.caption))
                     .foregroundStyle(.secondary)
                 }
             }

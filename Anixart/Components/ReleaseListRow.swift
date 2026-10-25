@@ -21,7 +21,7 @@ struct ReleaseListRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(release.displayTitle)
-                        .font(.headline)
+                        .font(.ax(.headline))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -30,7 +30,7 @@ struct ReleaseListRow: View {
                     if let onOverflow {
                         Button(action: onOverflow) {
                             Image(systemName: "ellipsis")
-                                .font(.subheadline)
+                                .font(.ax(.subheadline))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 26, height: 26)
                                 .contentShape(Rectangle())
@@ -44,7 +44,7 @@ struct ReleaseListRow: View {
 
                 if let description = release.description, !description.isEmpty {
                     Text(description)
-                        .font(.footnote)
+                        .font(.ax(.footnote))
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -80,7 +80,7 @@ struct ReleaseListRow: View {
                     .foregroundStyle(Theme.ratingColor(release.ratingValue ?? 0))
                 }
             }
-            .font(.subheadline)
+            .font(.ax(.subheadline))
             .foregroundStyle(.secondary)
         }
     }

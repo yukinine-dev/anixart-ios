@@ -25,14 +25,14 @@ struct ReleaseCard: View {
             }
 
             Text(release.displayTitle)
-                .font(.caption)
+                .font(.ax(.caption))
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
                 .frame(width: width, alignment: .leading)
 
             if let detail = release.episodeProgressText ?? release.seasonAndYear {
                 Text(detail)
-                    .font(.caption2)
+                    .font(.ax(.caption2))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .frame(width: width, alignment: .leading)
@@ -54,12 +54,12 @@ struct ReleaseRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(release.displayTitle)
-                    .font(.subheadline.weight(.medium))
+                    .font(.ax(.subheadline, .medium))
                     .lineLimit(2)
 
                 if let subtitle = release.displaySubtitle {
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.ax(.caption))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -74,20 +74,20 @@ struct ReleaseRow: View {
                         Text(seasonYear)
                     }
                 }
-                .font(.caption)
+                .font(.ax(.caption))
                 .foregroundStyle(.secondary)
 
                 if showContinueWatching, let text = release.continueWatchingText {
                     Label(text, systemImage: "play.circle.fill")
                         .labelStyle(.compact)
-                        .font(.caption)
+                        .font(.ax(.caption))
                         .foregroundStyle(Theme.accent)
                         .lineLimit(1)
                 }
 
                 if let status = release.listStatus {
                     Text(status.title)
-                        .font(.caption2.weight(.medium))
+                        .font(.ax(.caption2, .medium))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Theme.accent.opacity(0.15), in: Capsule())

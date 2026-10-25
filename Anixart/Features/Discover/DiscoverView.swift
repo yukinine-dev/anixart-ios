@@ -130,12 +130,12 @@ struct BannerCarousel: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(banner.title ?? "")
-                    .font(.headline)
+                    .font(.ax(.headline))
                     .foregroundStyle(.white)
                     .lineLimit(2)
                 if let description = banner.description, !description.isEmpty {
                     Text(description)
-                        .font(.caption)
+                        .font(.ax(.caption))
                         .foregroundStyle(.white.opacity(0.85))
                         .lineLimit(2)
                 }

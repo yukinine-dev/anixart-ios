@@ -14,6 +14,16 @@ enum Format {
         }
     }
 
+    /// "118K", "10K", "910" -- the short view counts the voice-over picker shows.
+    static func compactCount(_ value: Int?) -> String {
+        guard let value else { return "0" }
+        switch value {
+        case ..<1_000: return "\(value)"
+        case ..<1_000_000: return "\(value / 1_000)K"
+        default: return "\(value / 1_000_000)M"
+        }
+    }
+
     static func relativeDate(_ date: Date?) -> String? {
         guard let date else { return nil }
         return relative.localizedString(for: date, relativeTo: .now)

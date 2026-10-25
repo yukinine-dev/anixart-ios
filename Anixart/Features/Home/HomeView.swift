@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var selection: HomeTab?
     @State private var isShowingSettings = false
     @State private var isShowingSearch = false
+    @State private var isShowingTabSettings = false
     @State private var listTarget: Release?
 
     var body: some View {
@@ -81,7 +82,7 @@ struct HomeView: View {
                 isShowingSettings = true
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.title3)
+                    .font(.ax(.title3))
                     .foregroundStyle(.secondary)
             }
 
@@ -89,7 +90,7 @@ struct HomeView: View {
                 NotificationsView()
             } label: {
                 Image(systemName: "bell")
-                    .font(.title3)
+                    .font(.ax(.title3))
                     .foregroundStyle(.secondary)
                     .overlay(alignment: .topTrailing) {
                         if env.session.unreadNotifications > 0 {
@@ -106,19 +107,47 @@ struct HomeView: View {
     // MARK: - Tabs
 
     private var tabStrip: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 18) {
-                    ForEach(HomeTab.allCases) { tab in
-                        tabButton(tab)
-                            .id(tab)
+        HStack(spacing: 0) {
+            // The Android strip pins the filter button to the left of the scrolling
+            // tabs rather than scrolling it away with them.
+            Button {
+                isShowingTabSettings = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.ax(.title3))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.Spacing.tabGap) {
+                        ForEach(HomeTab.allCases) { tab in
+                            tabButton(tab)
+                                .id(tab)
+                        }
                     }
+                    .padding(.horizontal, Theme.Spacing.tabGap / 2)
                 }
-                .padding(.horizontal)
+                .onAppear {
+                    proxy.scrollTo(selection ?? preferences.defaultTab, anchor: .center)
+                }
+                .onChange(of: selection) { _, new in
+                    guard let new else { return }
+                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(new, anchor: .center) }
+                }
             }
-            .onAppear {
-                proxy.scrollTo(selection ?? preferences.defaultTab, anchor: .center)
-            }
+        }
+        .sheet(isPresented: $isShowingTabSettings) {
+            CustomTabSettingsView(
+                current: preferences.customFilter ?? CustomTabFilter(),
+                onApply: {
+                    preferences.save(customFilter: $0)
+                    selection = .custom
+                },
+                onReset: { preferences.save(customFilter: nil) }
+            )
         }
     }
 
@@ -129,16 +158,18 @@ struct HomeView: View {
         return Button {
             withAnimation(.easeOut(duration: 0.15)) { selection = tab }
         } label: {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text(title)
-                    .font(.title3.weight(isSelected ? .semibold : .regular))
+                    .font(.ax(.title3, isSelected ? .medium : .regular))
                     .foregroundStyle(isSelected ? .primary : .secondary)
-                // The Android strip marks the active tab with a short underline.
+                // The Android strip marks the active tab with a short rounded
+                // underline the width of the label.
                 Capsule()
-                    .fill(isSelected ? Theme.accent : .clear)
-                    .frame(height: 3)
+                    .fill(isSelected ? Color.primary : .clear)
+                    .frame(height: 4)
             }
             .fixedSize()
+            .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
         .contextMenu {

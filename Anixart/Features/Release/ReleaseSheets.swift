@@ -93,7 +93,7 @@ struct RatingSheet: View {
                     ForEach(Array(counts.enumerated()).reversed(), id: \.offset) { index, count in
                         HStack(spacing: 8) {
                             Text("\(index + 1)")
-                                .font(.caption.monospacedDigit())
+                                .font(.ax(.caption).monospacedDigit())
                                 .frame(width: 14)
                             GeometryReader { geometry in
                                 ZStack(alignment: .leading) {
@@ -105,7 +105,7 @@ struct RatingSheet: View {
                             }
                             .frame(height: 8)
                             Text(Format.count(count))
-                                .font(.caption2.monospacedDigit())
+                                .font(.ax(.caption2).monospacedDigit())
                                 .foregroundStyle(.secondary)
                                 .frame(width: 52, alignment: .trailing)
                         }

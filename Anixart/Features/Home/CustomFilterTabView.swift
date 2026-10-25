@@ -48,9 +48,9 @@ struct CustomFilterTabView: View {
                 .font(.system(size: 44))
                 .foregroundStyle(.tertiary)
             Text("Это ваша вкладка")
-                .font(.headline)
+                .font(.ax(.headline))
             Text("Настройте её под себя и укажите,\nчто хотели бы здесь видеть")
-                .font(.subheadline)
+                .font(.ax(.subheadline))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Настроить") { isShowingSettings = true }
@@ -89,7 +89,7 @@ struct CustomFilterTabView: View {
                     filter.activeCount > 0 ? "Фильтры: \(filter.activeCount)" : "Настроить вкладку",
                     systemImage: "slider.horizontal.3"
                 )
-                .font(.subheadline)
+                .font(.ax(.subheadline))
             }
             .buttonStyle(.bordered)
             .tint(Theme.accent)

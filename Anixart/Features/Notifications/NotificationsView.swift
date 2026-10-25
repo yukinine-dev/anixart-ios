@@ -124,12 +124,12 @@ struct NotificationsView: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.subheadline.weight(.medium)).lineLimit(2)
+                Text(title).font(.ax(.subheadline, .medium)).lineLimit(2)
                 if !subtitle.isEmpty {
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    Text(subtitle).font(.ax(.caption)).foregroundStyle(.secondary).lineLimit(2)
                 }
                 if let relative = Format.relativeDate(date) {
-                    Text(relative).font(.caption2).foregroundStyle(.tertiary)
+                    Text(relative).font(.ax(.caption2)).foregroundStyle(.tertiary)
                 }
             }
 

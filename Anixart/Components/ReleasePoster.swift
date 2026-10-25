@@ -37,7 +37,7 @@ struct ReleasePoster: View {
             Rectangle().fill(.quaternary)
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.title3)
+                    .font(.ax(.title3))
                     .foregroundStyle(.tertiary)
             }
         }

@@ -16,14 +16,14 @@ struct FilterFieldBox<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.subheadline)
+                .font(.ax(.subheadline))
                 .foregroundStyle(.secondary)
 
             content
 
             if let footnote {
                 Text(footnote)
-                    .font(.caption)
+                    .font(.ax(.caption))
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -44,7 +44,7 @@ struct FilterValueLabel: View {
                 .lineLimit(1)
             Spacer(minLength: 8)
             Image(systemName: "chevron.down")
-                .font(.caption2.weight(.semibold))
+                .font(.ax(.caption2, .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 14)

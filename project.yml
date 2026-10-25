@@ -57,6 +57,12 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInWebContent: true
         ITSAppUsesNonExemptEncryption: false
+        # Roboto (Apache-2.0) matches the Android app, which styles almost every
+        # text appearance as sans-serif-medium.
+        UIAppFonts:
+          - Roboto-Regular.ttf
+          - Roboto-Medium.ttf
+          - Roboto-Bold.ttf
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.anixart.client

@@ -15,11 +15,11 @@ struct StatusMessageView: View {
                 .font(.system(size: 38))
                 .foregroundStyle(.tertiary)
             Text(title)
-                .font(.headline)
+                .font(.ax(.headline))
                 .multilineTextAlignment(.center)
             if let message {
                 Text(message)
-                    .font(.subheadline)
+                    .font(.ax(.subheadline))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -80,7 +80,7 @@ struct SectionHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title).font(.title3.weight(.semibold))
+            Text(title).font(.ax(.title3, .semibold))
             Spacer()
             trailing
         }

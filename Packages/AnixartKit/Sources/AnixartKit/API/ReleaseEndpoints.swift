@@ -68,3 +68,18 @@ public enum ReleaseEndpoints {
         Endpoint(path: "type/unpin/\(releaseID)/\(typeID)", auth: .required)
     }
 }
+
+/// `video/release/*` -- the trailers and previews behind the "Видео" section.
+public enum ReleaseVideoEndpoints {
+    public static func videos(releaseID: Int, page: Int) -> Endpoint<PageableResponse<ReleaseVideo>> {
+        Endpoint(path: "video/release/\(releaseID)/\(page)")
+    }
+
+    public static func videos(
+        releaseID: Int,
+        categoryID: Int,
+        page: Int
+    ) -> Endpoint<PageableResponse<ReleaseVideo>> {
+        Endpoint(path: "video/release/\(releaseID)/category/\(categoryID)/\(page)")
+    }
+}

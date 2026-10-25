@@ -76,7 +76,7 @@ struct CommentsView: View {
                         TextField("Поделитесь впечатлениями", text: $draft, axis: .vertical)
                             .lineLimit(1...4)
                         Toggle("Содержит спойлер", isOn: $isSpoiler)
-                            .font(.caption)
+                            .font(.ax(.caption))
                             .toggleStyle(.button)
                             .buttonStyle(.bordered)
                             .controlSize(.mini)
@@ -98,7 +98,7 @@ struct CommentsView: View {
                 .padding(.bottom, 8)
             } else {
                 Button("Войдите, чтобы комментировать") { env.session.promptSignIn() }
-                    .font(.subheadline)
+                    .font(.ax(.subheadline))
                     .padding(.vertical, 10)
             }
         }
@@ -146,9 +146,9 @@ struct CommentRow: View {
                 .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(comment.authorLogin).font(.caption.weight(.medium))
+                    Text(comment.authorLogin).font(.ax(.caption, .medium))
                     if let date = Format.relativeDate(comment.postedAt) {
-                        Text(date).font(.caption2).foregroundStyle(.secondary)
+                        Text(date).font(.ax(.caption2)).foregroundStyle(.secondary)
                     }
                 }
 
@@ -157,7 +157,7 @@ struct CommentRow: View {
                 if let votes = comment.voteCount, votes != 0 {
                     Label(Format.count(votes), systemImage: votes > 0 ? "arrow.up" : "arrow.down")
                         .labelStyle(.compact)
-                        .font(.caption2)
+                        .font(.ax(.caption2))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -165,7 +165,7 @@ struct CommentRow: View {
             // `discover/comments` inlines the release the comment belongs to, which is
             // what makes a comment legible outside its own release page.
             if showsRelease, let release = comment.release {
-                Text(release.displayTitle).font(.caption2).foregroundStyle(Theme.accent)
+                Text(release.displayTitle).font(.ax(.caption2)).foregroundStyle(Theme.accent)
             }
 
             if comment.containsSpoiler && !isSpoilerRevealed {
@@ -173,7 +173,7 @@ struct CommentRow: View {
                     withAnimation { isSpoilerRevealed = true }
                 } label: {
                     Label("Содержит спойлер — нажмите, чтобы прочитать", systemImage: "eye.slash")
-                        .font(.caption)
+                        .font(.ax(.caption))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(8)
@@ -182,13 +182,13 @@ struct CommentRow: View {
                 .buttonStyle(.plain)
             } else {
                 Text(comment.message ?? "")
-                    .font(.subheadline)
+                    .font(.ax(.subheadline))
                     .textSelection(.enabled)
             }
 
             if let replies = comment.replyCount, replies > 0 {
                 Text("Ответов: \(Format.count(replies))")
-                    .font(.caption2)
+                    .font(.ax(.caption2))
                     .foregroundStyle(.secondary)
             }
         }
