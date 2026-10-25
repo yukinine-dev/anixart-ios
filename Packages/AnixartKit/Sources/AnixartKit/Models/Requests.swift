@@ -48,20 +48,20 @@ public struct FilterRequest: Codable, Hashable, Sendable {
         case profileListExclusions = "profile_list_exclusions"
     }
 
+    /// Builds a filter the way the Android client does, resolving the UI's presets into
+    /// the explicit ranges the server expects (`CustomFilterTabPresenter`).
     public init(
         sort: CatalogSort? = .dateUpdateDescending,
-        categoryId: Int? = nil,
-        statusId: Int? = nil,
+        category: ReleaseCategory? = nil,
+        status: AiringStatus? = nil,
         season: ReleaseSeason? = nil,
         startYear: Int? = nil,
         endYear: Int? = nil,
-        episodesFrom: Int? = nil,
-        episodesTo: Int? = nil,
-        episodeDurationFrom: Int? = nil,
-        episodeDurationTo: Int? = nil,
+        episodes: EpisodeCountPreset? = nil,
+        episodeDuration: EpisodeDurationPreset? = nil,
         country: String? = nil,
         studio: String? = nil,
-        source: String? = nil,
+        source: SourceMaterial? = nil,
         genres: [String]? = nil,
         genresMode: GenresMode? = nil,
         types: [Int]? = nil,
@@ -69,18 +69,19 @@ public struct FilterRequest: Codable, Hashable, Sendable {
         profileListExclusions: [ProfileListStatus]? = nil
     ) {
         self.sort = sort?.rawValue
-        self.categoryId = categoryId
-        self.statusId = statusId
+        self.categoryId = category?.rawValue
+        self.statusId = status?.rawValue
         self.season = season?.rawValue
         self.startYear = startYear
         self.endYear = endYear
-        self.episodesFrom = episodesFrom
-        self.episodesTo = episodesTo
-        self.episodeDurationFrom = episodeDurationFrom
-        self.episodeDurationTo = episodeDurationTo
-        self.country = country
-        self.studio = studio
-        self.source = source
+        self.episodesFrom = episodes?.range.from
+        self.episodesTo = episodes?.range.to
+        self.episodeDurationFrom = episodeDuration?.range.from
+        self.episodeDurationTo = episodeDuration?.range.to
+        // Empty strings are omitted rather than sent, as the Android client does.
+        self.country = (country?.isEmpty ?? true) ? nil : country
+        self.studio = (studio?.isEmpty ?? true) ? nil : studio
+        self.source = source?.rawValue
         self.genres = genres
         self.genresMode = genresMode?.rawValue
         self.isGenresExcludeModeEnabled = genresMode == .exclude ? true : nil

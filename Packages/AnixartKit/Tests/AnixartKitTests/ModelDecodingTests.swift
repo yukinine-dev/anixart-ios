@@ -35,7 +35,8 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertEqual(release.displayTitle, "Стальной алхимик: Братство")
         XCTAssertEqual(release.displaySubtitle, "Fullmetal Alchemist: Brotherhood")
         XCTAssertEqual(release.genreList, ["Боевик", "Драма", "Приключения", "Фэнтези"])
-        XCTAssertEqual(release.episodeProgressText, "64 из 64")
+        // 64 of 64 is a finished run, so the APK prints the total alone.
+        XCTAssertEqual(release.episodeProgressText, "64 эп")
         XCTAssertEqual(release.seasonAndYear, "весна 2009")
         XCTAssertEqual(release.ageRatingText, "16+")
         XCTAssertEqual(release.ratingText, "4.9")
@@ -91,6 +92,52 @@ final class ModelDecodingTests: XCTestCase {
         }
         XCTAssertEqual(unknown.type, "someFutureKind")
         XCTAssertEqual(unknown.id, 53)
+    }
+
+    func testEpisodeCounterMatchesTheAndroidWording() throws {
+        func text(released: Int?, total: Int?, statusId: Int? = nil) throws -> String? {
+            var fields: [String] = []
+            if let released { fields.append("\"episodes_released\":\(released)") }
+            if let total { fields.append("\"episodes_total\":\(total)") }
+            if let statusId { fields.append("\"status_id\":\(statusId)") }
+            let json = "{\"id\":1\(fields.isEmpty ? "" : "," + fields.joined(separator: ","))}"
+            return try JSONDecoder()
+                .decode(Release.self, from: XCTUnwrap(json.data(using: .utf8)))
+                .episodeProgressText
+        }
+
+        XCTAssertEqual(try text(released: 5, total: 12), "5 из 12 эп")
+        XCTAssertEqual(try text(released: 154, total: nil), "154 из ? эп")
+        XCTAssertEqual(try text(released: nil, total: 24), "? из 24 эп")
+        // Finished run: the total alone, not "24 из 24".
+        XCTAssertEqual(try text(released: 24, total: 24), "24 эп")
+        // An announcement shows the planned total however far along it claims to be.
+        XCTAssertEqual(try text(released: 0, total: 13, statusId: 3), "13 эп")
+        XCTAssertEqual(try text(released: nil, total: nil, statusId: 3), "? эп")
+        // Nothing known at all: the label is hidden.
+        XCTAssertNil(try text(released: nil, total: nil))
+    }
+
+    func testFilterPresetsResolveIntoRanges() {
+        // The preset index must not reach the wire; the server wants explicit bounds.
+        XCTAssertEqual(FilterRequest(episodes: .from1to12).episodesFrom, 1)
+        XCTAssertEqual(FilterRequest(episodes: .from1to12).episodesTo, 12)
+        XCTAssertEqual(FilterRequest(episodes: .from13to25).episodesFrom, 13)
+        XCTAssertEqual(FilterRequest(episodes: .from26to100).episodesTo, 100)
+        // Open-ended preset sends no upper bound.
+        XCTAssertEqual(FilterRequest(episodes: .over100).episodesFrom, 100)
+        XCTAssertNil(FilterRequest(episodes: .over100).episodesTo)
+
+        XCTAssertEqual(FilterRequest(episodeDuration: .upTo10).episodeDurationFrom, 1)
+        XCTAssertEqual(FilterRequest(episodeDuration: .upTo10).episodeDurationTo, 10)
+        XCTAssertEqual(FilterRequest(episodeDuration: .upTo30).episodeDurationFrom, 11)
+        XCTAssertEqual(FilterRequest(episodeDuration: .over30).episodeDurationFrom, 31)
+        XCTAssertNil(FilterRequest(episodeDuration: .over30).episodeDurationTo)
+
+        // Empty strings are omitted rather than sent.
+        XCTAssertNil(FilterRequest(country: "", studio: "").country)
+        XCTAssertNil(FilterRequest(country: "", studio: "").studio)
+        XCTAssertEqual(FilterRequest(source: .manga).source, "Манга")
     }
 
     func testPagingArithmetic() {

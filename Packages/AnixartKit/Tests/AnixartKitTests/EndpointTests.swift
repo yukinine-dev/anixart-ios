@@ -54,9 +54,10 @@ final class EndpointTests: XCTestCase {
     func testCatalogueFilterIsAPostWithAJSONBody() async throws {
         let filter = FilterRequest(
             sort: .gradeDescending,
-            categoryId: 1,
+            category: .series,
             season: .winter,
             startYear: 2015,
+            episodes: .from13to25,
             genres: ["Драма"],
             genresMode: .exclude,
             profileListExclusions: [.completed, .dropped]
@@ -75,6 +76,9 @@ final class EndpointTests: XCTestCase {
         XCTAssertEqual(json["category_id"] as? Int, 1)
         XCTAssertEqual(json["season"] as? Int, 1)
         XCTAssertEqual(json["start_year"] as? Int, 2015)
+        // A preset becomes a range, never its own index.
+        XCTAssertEqual(json["episodes_from"] as? Int, 13)
+        XCTAssertEqual(json["episodes_to"] as? Int, 25)
         XCTAssertEqual(json["genres"] as? [String], ["Драма"])
         XCTAssertEqual(json["genres_mode"] as? Int, 2)
         XCTAssertEqual(json["is_genres_exclude_mode_enabled"] as? Bool, true)

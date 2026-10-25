@@ -121,7 +121,8 @@ are confirmed versus inferred.
 
 ## Feature coverage
 
-Implemented: discover feed, catalogue with the full filter, search, release detail,
+Implemented: the Главная tabs (Моя вкладка plus the eight catalogue presets),
+discover feed, catalogue with the full filter, search, release detail,
 voice-over/source/episode drill-down, playback (native and embedded), watch lists, favourites,
 history, collections, comments, profiles, friends, schedule, notifications, email sign-in and
 registration.

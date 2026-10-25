@@ -1,0 +1,92 @@
+import SwiftUI
+import AnixartKit
+
+/// Settings, reached from the gear on Главная.
+///
+/// Deliberately shorter than the Android screen. That one also offers playback,
+/// appearance, data and ad preferences, all of which need endpoints or subsystems this
+/// port does not have yet; a row that does nothing is worse than an absent one, so
+/// only what works is listed here.
+@MainActor
+struct SettingsView: View {
+    @Environment(AppEnvironment.self) private var env
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var isConfirmingSignOut = false
+
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "\(short) (\(build))"
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Аккаунт") {
+                    if let profile = env.session.profile {
+                        HStack {
+                            Text("Вы вошли как")
+                            Spacer()
+                            Text(profile.displayLogin).foregroundStyle(.secondary)
+                        }
+                        Button("Выйти", role: .destructive) { isConfirmingSignOut = true }
+                    } else {
+                        Button("Войти") {
+                            dismiss()
+                            env.session.promptSignIn()
+                        }
+                    }
+                }
+
+                Section("Уведомления") {
+                    NavigationLink {
+                        NotificationsView()
+                    } label: {
+                        Label("Уведомления", systemImage: "bell")
+                    }
+                }
+
+                Section("Правовая информация") {
+                    Link(destination: AnixartEnvironment.webBaseURL.appendingPathComponent("rules")) {
+                        Label("Правила сообщества", systemImage: "shield")
+                    }
+                    Link(destination: AnixartEnvironment.webBaseURL.appendingPathComponent("terms")) {
+                        Label("Пользовательское соглашение", systemImage: "doc.text")
+                    }
+                }
+
+                Section {
+                    HStack {
+                        Text("Версия")
+                        Spacer()
+                        Text(appVersion).foregroundStyle(.secondary).monospacedDigit()
+                    }
+                } footer: {
+                    Text("Неофициальный клиент Anixart для iOS. Приложение не связано с "
+                         + "командой Anixart и использует её общедоступный API.")
+                }
+            }
+            .navigationTitle("Настройки")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Готово") { dismiss() }
+                }
+            }
+            .confirmationDialog(
+                "Выйти из аккаунта?",
+                isPresented: $isConfirmingSignOut,
+                titleVisibility: .visible
+            ) {
+                Button("Выйти", role: .destructive) {
+                    Task {
+                        await env.session.signOut()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}

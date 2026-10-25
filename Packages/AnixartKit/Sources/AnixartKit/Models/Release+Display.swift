@@ -37,17 +37,26 @@ extension Release {
         ratingValue.map { String(format: "%.1f", $0) }
     }
 
-    /// `3 из 12` style episode counter, or just the released count when the total is unknown.
+    /// Episode counter, worded exactly as `ReleaseModel` in the APK does it.
+    ///
+    /// The branch order matters. A finished run, or an announcement, shows the total
+    /// alone rather than `N из N`; otherwise either side can be unknown and is printed
+    /// as `?`. `nil` means the Android app hides the label entirely.
     public var episodeProgressText: String? {
-        switch (episodesReleased, episodesTotal) {
-        case (let released?, let total?) where total > 0:
-            return "\(released) из \(total)"
-        case (let released?, _) where released > 0:
-            return "\(released) эп."
-        case (_, let total?) where total > 0:
-            return "\(total) эп."
-        default:
-            return nil
+        let released = episodesReleased
+        let total = episodesTotal
+        let isAnnouncement = statusId == AiringStatus.announced.rawValue
+
+        if (released != nil && released == total) || isAnnouncement {
+            guard let total else { return "? эп" }
+            return "\(total) эп"
+        }
+
+        switch (released, total) {
+        case (let released?, let total?): return "\(released) из \(total) эп"
+        case (let released?, nil): return "\(released) из ? эп"
+        case (nil, let total?): return "? из \(total) эп"
+        case (nil, nil): return nil
         }
     }
 

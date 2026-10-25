@@ -55,7 +55,8 @@ user's place.
 
 | Area | Screens | Notes |
 |---|---|---|
-| Discover | home feed | banners, discussing, continue watching, recommendations, comments of the week; blocks load concurrently and a failed block is omitted rather than taking the screen down |
+| Главная | tab strip, nine tabs | Моя вкладка (device-local filter, with its full settings screen) plus the eight presets, each mapped to the exact `filter/{page}` query `HomeFragment` sends; long-press sets the default tab |
+| Discover | обзор feed | banners, discussing, continue watching, recommendations, comments of the week; blocks load concurrently and a failed block is omitted rather than taking the screen down |
 | Catalogue | browse, filter, search | full `FilterRequest`: sort, category, status, season, years, episode count, age rating, genres with all three match modes, voice-over, "hide what's already in my lists" |
 | Release | detail | header, actions, description, metadata, screenshots, related, recommended, comment preview |
 | Playback | voice-over/source/episode picker, player | `AVPlayer` for direct URLs; `WKWebView` for `iframe` episodes; watched marks, resume, progress reporting |

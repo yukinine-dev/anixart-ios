@@ -74,6 +74,15 @@ public enum CatalogSort: Int, CaseIterable, Sendable, Identifiable {
 
     public var id: Int { rawValue }
 
+    /// Order the filter UI lists these in (`arrays.xml`, `sort`): paired by key rather
+    /// than by raw value, which is the order `allCases` would give.
+    public static let displayOrder: [CatalogSort] = [
+        .dateUpdateDescending, .dateUpdateAscending,
+        .gradeDescending, .gradeAscending,
+        .yearDescending, .yearAscending,
+        .popularDescending, .popularAscending
+    ]
+
     public var title: String {
         switch self {
         case .dateUpdateDescending: return "Сначала недавно обновлённое"
@@ -103,21 +112,124 @@ public enum GenresMode: Int, CaseIterable, Sendable {
     }
 }
 
-/// `episodes_from` / `episodes_to` presets from `FilterRequest`.
-public enum EpisodeCountPreset: Int, CaseIterable, Sendable {
-    case lessThan13 = 1
-    case moreThan13 = 2
-    case moreThan26 = 3
-    case moreThan100 = 4
+/// Episode-count presets, as the filter UI offers them.
+///
+/// The preset index is **not** what goes on the wire: `CustomFilterTabPresenter`
+/// resolves it into an explicit `episodes_from` / `episodes_to` pair, which is what
+/// `range` returns here. Labels and bounds are from `arrays.xml` (`episodes`).
+public enum EpisodeCountPreset: Int, CaseIterable, Sendable, Identifiable {
+    case from1to12 = 1
+    case from13to25 = 2
+    case from26to100 = 3
+    case over100 = 4
+
+    public var id: Int { rawValue }
 
     public var title: String {
         switch self {
-        case .lessThan13: return "менее 13"
-        case .moreThan13: return "от 13"
-        case .moreThan26: return "от 26"
-        case .moreThan100: return "от 100"
+        case .from1to12: return "От 1 до 12"
+        case .from13to25: return "От 13 до 25"
+        case .from26to100: return "От 26 до 100"
+        case .over100: return "Больше 100"
         }
     }
+
+    /// `to` is absent for the open-ended preset, matching the Android client.
+    public var range: (from: Int?, to: Int?) {
+        switch self {
+        case .from1to12: return (1, 12)
+        case .from13to25: return (13, 25)
+        case .from26to100: return (26, 100)
+        case .over100: return (100, nil)
+        }
+    }
+}
+
+/// Episode-length presets. Same story: resolved into a minute range, not sent as an index.
+public enum EpisodeDurationPreset: Int, CaseIterable, Sendable, Identifiable {
+    case upTo10 = 1
+    case upTo30 = 2
+    case over30 = 3
+
+    public var id: Int { rawValue }
+
+    public var title: String {
+        switch self {
+        case .upTo10: return "До 10 минут"
+        case .upTo30: return "До 30 минут"
+        case .over30: return "Более 30 минут"
+        }
+    }
+
+    public var range: (from: Int?, to: Int?) {
+        switch self {
+        case .upTo10: return (1, 10)
+        case .upTo30: return (11, 30)
+        case .over30: return (31, nil)
+        }
+    }
+}
+
+/// `category_id`. Values and labels from `arrays.xml` (`categories`).
+public enum ReleaseCategory: Int, CaseIterable, Sendable, Identifiable {
+    case series = 1
+    case movie = 2
+    case ova = 3
+    case dorama = 4
+
+    public var id: Int { rawValue }
+
+    public var title: String {
+        switch self {
+        case .series: return "Сериал"
+        case .movie: return "Полнометражный фильм"
+        case .ova: return "OVA"
+        case .dorama: return "Дорама"
+        }
+    }
+}
+
+/// `status_id`. Values and labels from `arrays.xml` (`statuses`).
+///
+/// Note the wording: "Вышел" means finished airing, "Выходит" means currently airing.
+public enum AiringStatus: Int, CaseIterable, Sendable, Identifiable {
+    case released = 1
+    case ongoing = 2
+    case announced = 3
+
+    public var id: Int { rawValue }
+
+    public var title: String {
+        switch self {
+        case .released: return "Вышел"
+        case .ongoing: return "Выходит"
+        case .announced: return "Анонс"
+        }
+    }
+}
+
+/// `source` in the filter body -- the work the release is adapted from. Sent as the
+/// label itself, not an id. List from `arrays.xml` (`sources`).
+public enum SourceMaterial: String, CaseIterable, Sendable, Identifiable {
+    case original = "Оригинал"
+    case manga = "Манга"
+    case webManga = "Веб-манга"
+    case yonkoma = "Енкома"
+    case ranobe = "Ранобэ"
+    case novel = "Новелла"
+    case webNovel = "Веб-новелла"
+    case game = "Игра"
+    case visualNovel = "Визуальная новелла"
+    case cardGame = "Карточная игра"
+    case book = "Книга"
+    case pictureBook = "Книга с картинками"
+    case music = "Музыка"
+    case radio = "Радио"
+    case moreThanOne = "Более одного"
+    case other = "Другое"
+
+    public var id: String { rawValue }
+    public var title: String { rawValue }
 }
 
 /// `season` in the filter body and on `Release`.

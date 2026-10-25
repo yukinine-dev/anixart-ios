@@ -26,7 +26,7 @@ struct FilterSheet: View {
                         get: { CatalogSort(rawValue: draft.sort ?? 0) ?? .dateUpdateDescending },
                         set: { draft.sort = $0.rawValue }
                     )) {
-                        ForEach(CatalogSort.allCases) { option in
+                        ForEach(CatalogSort.displayOrder) { option in
                             Text(option.title).tag(option)
                         }
                     }
@@ -48,13 +48,72 @@ struct FilterSheet: View {
                 }
 
                 Section("Количество эпизодов") {
+                    // The preset resolves into an explicit from/to range; its index is
+                    // a UI position and must not reach the request.
                     Picker("Эпизодов", selection: Binding(
-                        get: { draft.episodesFrom.flatMap(EpisodeCountPreset.init(rawValue:)) },
-                        set: { draft.episodesFrom = $0?.rawValue }
+                        get: {
+                            EpisodeCountPreset.allCases.first {
+                                $0.range.from == draft.episodesFrom && $0.range.to == draft.episodesTo
+                            }
+                        },
+                        set: { preset in
+                            draft.episodesFrom = preset?.range.from
+                            draft.episodesTo = preset?.range.to
+                        }
                     )) {
                         Text("Любое").tag(EpisodeCountPreset?.none)
-                        ForEach(EpisodeCountPreset.allCases, id: \.rawValue) { preset in
+                        ForEach(EpisodeCountPreset.allCases) { preset in
                             Text(preset.title).tag(EpisodeCountPreset?.some(preset))
+                        }
+                    }
+
+                    Picker("Длительность эпизода", selection: Binding(
+                        get: {
+                            EpisodeDurationPreset.allCases.first {
+                                $0.range.from == draft.episodeDurationFrom
+                                    && $0.range.to == draft.episodeDurationTo
+                            }
+                        },
+                        set: { preset in
+                            draft.episodeDurationFrom = preset?.range.from
+                            draft.episodeDurationTo = preset?.range.to
+                        }
+                    )) {
+                        Text("Любая").tag(EpisodeDurationPreset?.none)
+                        ForEach(EpisodeDurationPreset.allCases) { preset in
+                            Text(preset.title).tag(EpisodeDurationPreset?.some(preset))
+                        }
+                    }
+                }
+
+                Section("Категория и статус") {
+                    Picker("Категория", selection: Binding(
+                        get: { draft.categoryId.flatMap(ReleaseCategory.init(rawValue:)) },
+                        set: { draft.categoryId = $0?.rawValue }
+                    )) {
+                        Text("Неважно").tag(ReleaseCategory?.none)
+                        ForEach(ReleaseCategory.allCases) { value in
+                            Text(value.title).tag(ReleaseCategory?.some(value))
+                        }
+                    }
+
+                    Picker("Статус", selection: Binding(
+                        get: { draft.statusId.flatMap(AiringStatus.init(rawValue:)) },
+                        set: { draft.statusId = $0?.rawValue }
+                    )) {
+                        Text("Неважно").tag(AiringStatus?.none)
+                        ForEach(AiringStatus.allCases) { value in
+                            Text(value.title).tag(AiringStatus?.some(value))
+                        }
+                    }
+
+                    Picker("Первоисточник", selection: Binding(
+                        get: { draft.source.flatMap(SourceMaterial.init(rawValue:)) },
+                        set: { draft.source = $0?.rawValue }
+                    )) {
+                        Text("Неважно").tag(SourceMaterial?.none)
+                        ForEach(SourceMaterial.allCases) { value in
+                            Text(value.title).tag(SourceMaterial?.some(value))
                         }
                     }
                 }

@@ -4,14 +4,18 @@ import AnixartKit
 @MainActor
 struct RootView: View {
     @Environment(AppEnvironment.self) private var env
-    @State private var selection: Tab = .discover
+    @State private var selection: Tab = .home
 
     enum Tab: Hashable {
-        case discover, catalog, bookmarks, profile
+        case home, discover, catalog, bookmarks, profile
     }
 
     var body: some View {
         TabView(selection: $selection) {
+            HomeView()
+                .tabItem { Label("Главная", systemImage: "house") }
+                .tag(Tab.home)
+
             DiscoverView()
                 .tabItem { Label("Обзор", systemImage: "square.grid.2x2") }
                 .tag(Tab.discover)
