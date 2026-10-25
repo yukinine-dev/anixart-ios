@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Talks to the Anixart backend.
 ///
@@ -30,6 +31,10 @@ public actor AnixartClient {
             self.useMirrorHosts = useMirrorHosts
         }
     }
+
+    /// Failed calls are logged rather than swallowed: the app surfaces a message to
+    /// the user, but the path and status that caused it are only useful in a log.
+    private static let log = Logger(subsystem: "app.anixart.client", category: "api")
 
     private var configuration: Configuration
     private let tokenStore: any TokenStore
@@ -87,10 +92,12 @@ public actor AnixartClient {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            Self.log.error("transport failure for \(endpoint.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             throw AnixartError.wrapping(transportError: error)
         }
 
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            Self.log.error("HTTP \(http.statusCode, privacy: .public) for \(endpoint.path, privacy: .public)")
             throw AnixartError.http(statusCode: http.statusCode, path: endpoint.path)
         }
 
@@ -98,6 +105,9 @@ public actor AnixartClient {
         do {
             decoded = try decoder.decode(Response.self, from: data)
         } catch {
+            // The single most likely failure in this port: a JSON key that does not
+            // match what the server actually sends. Worth the log line.
+            Self.log.error("decode failed for \(endpoint.path, privacy: .public): \(String(describing: error), privacy: .public)")
             throw AnixartError.decoding(message: String(describing: error), path: endpoint.path)
         }
 
@@ -105,6 +115,7 @@ public actor AnixartClient {
         if let envelope = decoded as? any AnixartResponse,
            let code = envelope.code,
            code != AnixartStatus.successful {
+            Self.log.error("API code \(code, privacy: .public) for \(endpoint.path, privacy: .public)")
             throw AnixartError.api(code: code, path: endpoint.path)
         }
 

@@ -126,9 +126,30 @@ jobs:
 
           [ "$crashed" -eq 0 ]
 
-      - name: Screenshot
+      # "the process is alive" does not mean "the UI rendered", and the screenshot
+      # artifact cannot be read from every environment, so the first frame is also
+      # emitted into the log as a base64 thumbnail.
+      - name: Screenshot and first-frame thumbnail
         if: always()
-        run: xcrun simctl io "$UDID" screenshot launch.png || true
+        run: |
+          xcrun simctl io "$UDID" screenshot launch.png || true
+          if [ -f launch.png ]; then
+            sips -g pixelWidth -g pixelHeight launch.png
+            sips -Z 320 --setProperty format jpeg launch.png --out thumb.jpg >/dev/null
+            echo "--- BEGIN FIRST FRAME (base64 jpeg) ---"
+            base64 -i thumb.jpg | tr -d '\n' | fold -w 180
+            echo
+            echo "--- END FIRST FRAME ---"
+          fi
+
+      # Anything the app logged -- a decode failure against the real API shows up
+      # here, which is the failure this port is most exposed to.
+      - name: App log
+        if: always()
+        run: |
+          xcrun simctl spawn "$UDID" log show \
+            --predicate 'subsystem == "app.anixart.client" OR process == "Anixart"' \
+            --last 5m --style compact 2>/dev/null | tail -120 || echo "(no log entries)"
 
       - name: Upload screenshot
         if: always()
