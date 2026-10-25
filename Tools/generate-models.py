@@ -40,10 +40,10 @@ TYPE_OVERRIDE = {
     # decodes both. See Models/FriendStatusCode.swift.
     ("Profile", "friendStatus"): "FriendStatusCode",
     ("ReleaseComment", "profile"): "ProfileCompact",
-    # The server sends this as the whole release on discover/comments and as the
-    # bare release id on the comments inlined into a release page. See
-    # Models/EmbeddedRelease.swift.
-    ("ReleaseComment", "release"): "EmbeddedRelease",
+    # Relations the server sends either as the whole object or as a bare row id,
+    # depending on the endpoint. See Models/Embedded.swift.
+    ("ReleaseComment", "release"): "Embedded<Release>",
+    ("Source", "type"): "Embedded<EpisodeType>",   # Source is renamed to EpisodeSource
     ("CollectionComment", "profile"): "ProfileCompact",
 }
 

@@ -9,7 +9,7 @@ public struct EpisodeSource: Codable, Hashable, Sendable, Identifiable {
     public var id: Int
     public var name: String?
     public var quality: Int?
-    public var type: EpisodeType?
+    public var type: Embedded<EpisodeType>?
 
     public enum CodingKeys: String, CodingKey {
         case episodesCount = "episodes_count"

@@ -32,10 +32,13 @@ which is why `AnixartKit` spells every `CodingKey` out; the mapping was extracte
 
 Some fields are Room relations in the Android client and the server sends them either as
 the whole object or as the bare row id, depending on which endpoint you asked. The one
-that matters is `ReleaseComment.release`: `discover/comments` sends the release object,
-while the comments inlined into `release/{id}?extended_mode=true` send its id as a number.
-A model that expects one shape fails the whole response, so `EmbeddedRelease` decodes
-both. Expect other relations to behave the same way if you start using them.
+two found so far are `ReleaseComment.release` (the release object on `discover/comments`,
+its id as a number on the comments inlined into `release/{id}?extended_mode=true`) and
+`EpisodeSource.type` (the voice-over object in some listings, its id in others).
+
+A model that expects one shape fails the whole response, so `Embedded<T>` decodes either
+and says which arrived. Expect other relations to behave the same way; the `probe` job in
+CI is what finds them.
 
 ### Room row ids are not on the wire
 
