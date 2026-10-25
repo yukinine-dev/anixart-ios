@@ -381,7 +381,7 @@ struct ReleaseDetailView: View {
         let list = release.genreList
         if !list.isEmpty {
             NavigationLink {
-                CatalogView(initialGenres: list)
+                GenreReleasesView(genres: list)
             } label: {
                 Text(underlinedJoin(list))
                     .font(.ax(.subheadline))

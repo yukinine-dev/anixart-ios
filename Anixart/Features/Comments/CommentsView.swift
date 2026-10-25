@@ -15,6 +15,8 @@ struct CommentsView: View {
     @State private var isSpoiler = false
     @State private var isSending = false
     @State private var sendError: String?
+    @State private var replyingTo: ReleaseComment?
+    @State private var openThread: ReleaseComment?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,7 +27,12 @@ struct CommentsView: View {
                         emptyTitle: "Нет комментариев",
                         emptyMessage: "Будьте первым, кто поделится впечатлением"
                     ) { comment in
-                        CommentRow(comment: comment)
+                        CommentRow(
+                            comment: comment,
+                            onReply: { replyingTo = comment },
+                            onVote: { vote in Task { await self.vote(comment, vote) } },
+                            onOpenReplies: { openThread = comment }
+                        )
                     }
                 }
             }
@@ -35,6 +42,9 @@ struct CommentsView: View {
         }
         .navigationTitle("Комментарии")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $openThread) { comment in
+            CommentThreadView(comment: comment, releaseID: releaseID)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -67,42 +77,101 @@ struct CommentsView: View {
         }
     }
 
+    /// The composer, laid out as the Android one is: the field, a Спойлер toggle
+    /// and a Правила link, and a round send button on the right.
     private var composer: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Divider()
             if env.session.isSignedIn {
-                HStack(alignment: .bottom, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        TextField("Поделитесь впечатлениями", text: $draft, axis: .vertical)
-                            .lineLimit(1...4)
-                        Toggle("Содержит спойлер", isOn: $isSpoiler)
+                if let replyingTo {
+                    HStack(spacing: 8) {
+                        Text("Ответ \(replyingTo.authorLogin)")
                             .font(.ax(.caption))
-                            .toggleStyle(.button)
-                            .buttonStyle(.bordered)
-                            .controlSize(.mini)
+                            .foregroundStyle(.secondary)
+                        Button {
+                            self.replyingTo = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
                     }
+                    .padding(.horizontal)
+                }
+
+                TextField("Ваш комментарий", text: $draft, axis: .vertical)
+                    .font(.ax(.title3))
+                    .lineLimit(1...4)
+                    .padding(.horizontal)
+
+                HStack(spacing: 12) {
+                    Button {
+                        isSpoiler.toggle()
+                    } label: {
+                        Label("Спойлер", systemImage: isSpoiler ? "eye.slash.fill" : "eye.slash")
+                            .font(.ax(.subheadline))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background {
+                                if isSpoiler {
+                                    Capsule().fill(Theme.accent.opacity(0.22))
+                                } else {
+                                    Capsule().stroke(.quaternary, lineWidth: 1)
+                                }
+                            }
+                            .foregroundStyle(isSpoiler ? Theme.accent : .primary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Link(destination: URL(string: "https://anixart-app.com/rules/")!) {
+                        Label("Правила", systemImage: "list.clipboard")
+                            .font(.ax(.subheadline))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
+                            .foregroundStyle(.primary)
+                    }
+
+                    Spacer()
+
                     Button {
                         Task { await send() }
                     } label: {
-                        if isSending {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "paperplane.fill")
+                        Group {
+                            if isSending {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "arrow.up").font(.ax(.headline))
+                            }
                         }
+                        .frame(width: 44, height: 44)
+                        .background(Color.primary.opacity(0.12), in: Circle())
+                        .foregroundStyle(.primary)
                     }
+                    .buttonStyle(.plain)
                     .disabled(isSending || draft.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.accent)
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 8)
             } else {
                 Button("Войдите, чтобы комментировать") { env.session.promptSignIn() }
                     .font(.ax(.subheadline))
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
             }
         }
         .background(.bar)
+    }
+
+    /// Up- or down-votes a comment. `vote` is 1 or -1, and repeating the same
+    /// vote clears it, which is what the Android arrows do.
+    private func vote(_ comment: ReleaseComment, _ vote: Int) async {
+        guard env.session.isSignedIn else {
+            env.session.promptSignIn()
+            return
+        }
+        let value = (comment.vote ?? 0) == vote ? 0 : vote
+        _ = try? await env.client.send(CommentEndpoints.vote(commentID: comment.id, vote: value))
+        await paginator?.reload()
     }
 
     private func send() async {
@@ -113,11 +182,17 @@ struct CommentsView: View {
             _ = try await env.client.send(
                 CommentEndpoints.add(
                     releaseID: releaseID,
-                    CommentAddRequest(message: message, spoiler: isSpoiler)
+                    CommentAddRequest(
+                        message: message,
+                        parentCommentId: replyingTo?.id,
+                        replyToProfileId: replyingTo?.profile?.id,
+                        spoiler: isSpoiler
+                    )
                 )
             )
             draft = ""
             isSpoiler = false
+            replyingTo = nil
             await paginator?.reload()
         } catch {
             sendError = Paginator<Release>.message(for: error)
@@ -135,6 +210,7 @@ struct CommentRow: View {
     var showsRelease = false
     var onReply: (() -> Void)?
     var onVote: ((Int) -> Void)?
+    var onOpenReplies: (() -> Void)?
 
     @State private var isSpoilerRevealed = false
 
@@ -195,9 +271,16 @@ struct CommentRow: View {
                 .padding(.top, 2)
 
                 if let replies = comment.replyCount, replies > 0 {
-                    Label("Показать \(Plural.replies(replies))", systemImage: "chevron.right")
-                        .labelStyle(.trailingIcon)
-                        .font(.ax(.subheadline, .medium))
+                    Button {
+                        onOpenReplies?()
+                    } label: {
+                        Label("Показать \(Plural.replies(replies))", systemImage: "chevron.right")
+                            .labelStyle(.trailingIcon)
+                            .font(.ax(.subheadline, .medium))
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onOpenReplies == nil)
                 }
             }
         }
@@ -252,4 +335,40 @@ struct TrailingIconLabelStyle: LabelStyle {
 
 extension LabelStyle where Self == TrailingIconLabelStyle {
     static var trailingIcon: TrailingIconLabelStyle { TrailingIconLabelStyle() }
+}
+
+/// The replies under one comment.
+@MainActor
+struct CommentThreadView: View {
+    @Environment(AppEnvironment.self) private var env
+
+    let comment: ReleaseComment
+    let releaseID: Int
+
+    @State private var paginator: Paginator<ReleaseComment>?
+
+    var body: some View {
+        List {
+            CommentRow(comment: comment)
+            if let paginator {
+                PaginatedContent(paginator: paginator, emptyTitle: "Ответов пока нет") { reply in
+                    CommentRow(comment: reply)
+                        .padding(.leading, 28)
+                }
+            }
+        }
+        .listStyle(.plain)
+        .navigationTitle("Ответы")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if paginator == nil {
+                let client = env.client
+                let id = comment.id
+                paginator = Paginator { page in
+                    try await client.send(CommentEndpoints.replies(commentID: id, page: page))
+                }
+            }
+            await paginator?.loadFirstPageIfNeeded()
+        }
+    }
 }
