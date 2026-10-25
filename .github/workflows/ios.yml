@@ -6,11 +6,19 @@ name: Build
 #   app       - type-check the app for the simulator (fastest signal)
 #   smoke     - boot a simulator, install, launch, and fail on a launch crash
 #   ipa       - unsigned .ipa for sideloading, uploaded as an artifact
+#   release   - publishes that .ipa as an alpha pre-release, gated on smoke
 on:
   push:
     branches: ["**"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      full_release:
+        description: >-
+          Publish as a full release instead of an alpha pre-release.
+          Leave off until the port is considered finished.
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -177,7 +185,10 @@ jobs:
       # re-signed -- see README, "Installing the IPA".
       - name: Build for device, unsigned
         run: |
+          # CURRENT_PROJECT_VERSION is the build number iOS compares when replacing
+          # an installed copy; without a bump, a new alpha looks identical to the old.
           xcodebuild build \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             -project Anixart.xcodeproj \
             -scheme Anixart \
             -configuration Release \
@@ -207,3 +218,57 @@ jobs:
           path: Anixart-unsigned.ipa
           retention-days: 30
           if-no-files-found: error
+
+  release:
+    name: Publish alpha
+    runs-on: ubuntu-latest
+    needs: [ipa, smoke]
+    # Only from the development branch, and never from a pull request. Point this at
+    # the default branch when the work moves there.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/claude/ios-port-d6ttd5'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: Anixart-unsigned-ipa
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FULL: ${{ inputs.full_release }}
+        run: |
+          VERSION=$(grep -m1 'MARKETING_VERSION:' project.yml | tr -d '"' | awk '{print $2}')
+
+          if [ "$FULL" = "true" ]; then
+            TAG="v${VERSION}"
+            TITLE="Anixart ${VERSION}"
+            FLAGS="--latest"
+          else
+            TAG="v${VERSION}-alpha.${{ github.run_number }}"
+            TITLE="Anixart ${VERSION} alpha ${{ github.run_number }}"
+            # --prerelease keeps the repo's "Latest release" empty until a full one
+            # is cut, so an alpha is never mistaken for the real thing.
+            FLAGS="--prerelease"
+          fi
+
+          mv Anixart-unsigned.ipa "Anixart-${TAG}-unsigned.ipa"
+
+          # Notes live in .github/alpha-release-notes.md rather than a heredoc here:
+          # a heredoc inside this block scalar carries its indentation into the file,
+          # which Markdown then renders as a code block.
+          sed -e "s/__BUILD__/${{ github.run_number }}/g" \
+              -e "s/__SHA__/${{ github.sha }}/g" \
+              .github/alpha-release-notes.md > notes.md
+
+          gh release create "$TAG" \
+            --title "$TITLE" \
+            --notes-file notes.md \
+            --target "${{ github.sha }}" \
+            $FLAGS \
+            "Anixart-${TAG}-unsigned.ipa"
+
+          echo "published $TAG"

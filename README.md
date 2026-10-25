@@ -46,12 +46,28 @@ Alongside the run, these were checked mechanically:
 The `smoke` job also prints the first frame into its log as a base64 JPEG, so the
 rendered screen can be inspected without downloading the artifact.
 
+## Releases
+
+Every push to the development branch that gets past the simulator launch test is
+published as an **alpha pre-release** on the
+[Releases page](https://github.com/yukinine-dev/anixart-ios/releases), with the `.ipa`
+attached. They are tagged `v0.1.0-alpha.<build>` and marked as pre-releases, which
+keeps the repository's "Latest release" empty — an alpha is never presented as the
+finished thing.
+
+When the port is ready to be called finished, run the **Build** workflow manually
+(Actions → Build → Run workflow) with **"Publish as a full release"** ticked. That
+publishes `v<MARKETING_VERSION>` as a normal release instead. Bump
+`MARKETING_VERSION` in `project.yml` first.
+
+The same `.ipa` is also attached to each run as the `Anixart-unsigned-ipa` artifact,
+which is the quicker route while iterating.
+
 ## Installing the IPA
 
-CI builds an **unsigned** `.ipa` on every push and uploads it as the
-`Anixart-unsigned-ipa` artifact (Actions → the run → Artifacts). No Apple Developer
-certificate exists in this repository, so the build has code signing switched off and
-**iOS will not install it as-is** — it has to be re-signed with a certificate you control.
+No Apple Developer certificate exists in this repository, so builds have code signing
+switched off and **iOS will not install the `.ipa` as-is** — it has to be re-signed
+with a certificate you control.
 
 The usual routes, in order of how long the install lasts:
 
