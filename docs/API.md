@@ -37,6 +37,19 @@ while the comments inlined into `release/{id}?extended_mode=true` send its id as
 A model that expects one shape fails the whole response, so `EmbeddedRelease` decodes
 both. Expect other relations to behave the same way if you start using them.
 
+### Room row ids are not on the wire
+
+The decompiled models are Room entities, so a `@PrimaryKey` field is not necessarily
+something the server sends. `Episode.id` and `ProfileWatchDynamics.id` are assigned
+locally by the Android app; the server identifies an episode by its `position` within a
+source. Generating those as a required `id` failed the whole response, which is what
+broke the episode list and the profile page. They are dropped from the generated types
+and their identity is declared in `Models/RoomEntities.swift`.
+
+A server-assigned id (`Release.id`, `Profile.id`, `ReleaseComment.id`) stays required, so
+a payload that really is malformed still fails loudly instead of decoding to a silent
+nil that collides with every other nil.
+
 ### Enum values read out of the APK
 
 | Meaning | Values | Source |

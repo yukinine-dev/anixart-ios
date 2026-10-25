@@ -21,6 +21,11 @@ DROP = {
     ("Episode", "source"),
     ("ReleaseVideo", "release"), ("ReleaseStreamingPlatform", "release"),
     ("Search", "type"),
+    # Room row ids the server never sends. Keeping them as a required `id` failed
+    # the whole response ("missing key 'id'"), which is what broke the episode
+    # list and the profile. Both types get a hand-written Identifiable keyed on
+    # what the server does send -- see Models/RoomEntities.swift.
+    ("Episode", "id"), ("ProfileWatchDynamics", "id"),
     # Article.repost_article / payload: Optional-only self recursion is illegal in a Swift
     # value type, and ArticlePayload is a sealed hierarchy the port does not model yet.
     ("Article", "repostArticle"), ("Article", "payload"),
@@ -132,9 +137,10 @@ def gen(cls, emit_name=None, extra_parents=()):
         L.append("    public var code: Int?")
     for sn, st, jk, raw in rows:
         if raw == "id" and has_id:
-            # The primary key is always present; keeping it non-optional makes these
-            # usable with SwiftUI's ForEach and turns malformed payloads into a loud
-            # decode failure instead of a silent nil that collides with every other nil.
+            # A server-assigned id is always present, so keeping it non-optional makes
+            # these usable with SwiftUI's ForEach and turns a malformed payload into a
+            # loud decode failure instead of a silent nil that collides with every
+            # other nil. A Room row id is NOT server-assigned -- those are in DROP.
             L.append("    public var %s: %s" % (sn, st))
         else:
             L.append("    public var %s: %s?" % (sn, st))

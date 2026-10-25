@@ -4,16 +4,14 @@
 
 import Foundation
 
-public struct ProfileWatchDynamics: Codable, Hashable, Sendable, Identifiable {
+public struct ProfileWatchDynamics: Codable, Hashable, Sendable {
     public var count: Int?
     public var day: Int?
-    public var id: Int
     public var timestamp: Int?
 
     public enum CodingKeys: String, CodingKey {
         case count
         case day
-        case id
         case timestamp
     }
 }

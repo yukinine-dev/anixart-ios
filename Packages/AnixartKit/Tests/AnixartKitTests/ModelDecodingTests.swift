@@ -55,6 +55,10 @@ final class ModelDecodingTests: XCTestCase {
         let first = episodes[0]
         XCTAssertEqual(first.name, "Серия 1")
         XCTAssertEqual(first.position, 1)
+        // The server sends no `id` here: the Android entity's is a Room row id,
+        // so identity comes from the position instead. The fixture used to carry
+        // an invented `id`, which is why this passed while the live API failed.
+        XCTAssertEqual(first.id, 1)
         XCTAssertEqual(first.addedDate, 1238889600)   // camelCase on the wire
         XCTAssertEqual(first.isWatched, true)          // snake_case on the wire
         XCTAssertEqual(first.isFiller, false)
@@ -62,6 +66,7 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertNil(first.resumePosition)
 
         let second = episodes[1]
+        XCTAssertEqual(second.id, 2)
         XCTAssertFalse(second.isEmbed)
         XCTAssertEqual(second.isFiller, true)
         // playbackPosition is milliseconds in the Android player.

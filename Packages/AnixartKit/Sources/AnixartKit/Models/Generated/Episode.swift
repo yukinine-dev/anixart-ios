@@ -4,9 +4,8 @@
 
 import Foundation
 
-public struct Episode: Codable, Hashable, Sendable, Identifiable {
+public struct Episode: Codable, Hashable, Sendable {
     public var addedDate: Int?
-    public var id: Int
     public var iframe: Bool?
     public var name: String?
     public var playbackPosition: Int?
@@ -20,7 +19,6 @@ public struct Episode: Codable, Hashable, Sendable, Identifiable {
 
     public enum CodingKeys: String, CodingKey {
         case addedDate
-        case id
         case iframe
         case name
         case playbackPosition

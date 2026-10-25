@@ -2,7 +2,6 @@
   "code": 0,
   "episodes": [
     {
-      "id": 1,
       "name": "Серия 1",
       "position": 1,
       "url": "https://video.sibnet.ru/shell.php?videoid=1",
@@ -16,7 +15,6 @@
       "is_watched": true
     },
     {
-      "id": 2,
       "name": "Серия 2",
       "position": 2,
       "url": "https://cdn.example.com/9243/2.mp4",

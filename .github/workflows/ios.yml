@@ -45,6 +45,81 @@ jobs:
         working-directory: Packages/AnixartKit
         run: swift test --enable-code-coverage
 
+  # The APK's annotations give the key names but not every shape the server
+  # actually sends: a relation can arrive as an object or as a bare id, and a
+  # field the decompiled model calls non-null can be absent. That only shows up
+  # against the live API, so this job fetches real responses and runs them
+  # through the real decoders -- a mismatch fails here with its coding path
+  # instead of as an error banner on a screen.
+  probe:
+    name: Live response shapes
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          test -n "$XCODE" || { echo "::error::no Xcode 26 on this runner"; exit 1; }
+          sudo xcode-select -s "$XCODE"
+
+      # Nothing here is account-specific: the release and the profile are
+      # whatever the server offers, so no id of anyone's is committed.
+      - name: Fetch live responses
+        id: fetch
+        run: |
+          set -u
+          API=https://api-s.anixsekai.com
+          DIR="$RUNNER_TEMP/live"
+          mkdir -p "$DIR"
+
+          get() { curl -sS --max-time 30 "$2" -o "$DIR/$1.json" || echo "::warning::$1 failed"; }
+
+          get release-random "$API/release/random?extended_mode=true"
+          RID=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["release"]["id"])' "$DIR/release-random.json")
+          echo "release id: $RID"
+
+          get release-one       "$API/release/$RID?extended_mode=true"
+          get types-release     "$API/episode/$RID"
+          get comments-release  "$API/release/comment/all/$RID/0?sort=1"
+          get collections-of    "$API/collection/all/release/$RID/0?sort=0"
+
+          # Drill into the first voice-over and its first hosting, which is the
+          # path the player takes.
+          TID=$(python3 -c 'import json,sys;t=json.load(open(sys.argv[1])).get("types") or [];print(t[0]["id"] if t else "")' "$DIR/types-release.json")
+          if [ -n "$TID" ]; then
+            get sources-type "$API/episode/$RID/$TID"
+            SID=$(python3 -c 'import json,sys;s=json.load(open(sys.argv[1])).get("sources") or [];print(s[0]["id"] if s else "")' "$DIR/sources-type.json")
+            if [ -n "$SID" ]; then get episodes-source "$API/episode/$RID/$TID/$SID?sort=0"; fi
+          fi
+
+          curl -sS --max-time 30 -X POST -H 'Content-Type: application/json' \
+            -d '{"query":"a","searchBy":0}' "$API/search/profiles/0" -o "$DIR/profiles-search.json" || true
+          PID=$(python3 -c 'import json,sys;c=json.load(open(sys.argv[1])).get("content") or [];print(c[0]["id"] if c else "")' "$DIR/profiles-search.json")
+          if [ -n "$PID" ]; then get profile-one "$API/profile/$PID"; fi
+
+          curl -sS --max-time 30 -X POST -H 'Content-Type: application/json' \
+            -d '{"sort":1}' "$API/filter/0" -o "$DIR/filter-page.json" || true
+
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          ls -la "$DIR"
+
+      - name: Decode them with AnixartKit
+        working-directory: Packages/AnixartKit
+        env:
+          ANIXART_LIVE_DIR: ${{ steps.fetch.outputs.dir }}
+        run: swift test --filter LiveResponseTests
+
+      # Keeps the responses for the next round of model work; they are public
+      # API reads with no token attached.
+      - name: Upload the responses
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-responses
+          path: ${{ steps.fetch.outputs.dir }}
+          if-no-files-found: warn
+
   app:
     name: iOS app build
     runs-on: macos-15
