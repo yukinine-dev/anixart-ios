@@ -46,7 +46,7 @@ struct NotificationsView: View {
             } label: {
                 notificationBody(
                     title: item.episode?.release?.titleRu ?? "Новая серия",
-                    subtitle: [item.episode?.name, item.episode?.source?.type?.value?.name]
+                    subtitle: [item.episode?.name, item.episode?.source?.type?.name]
                         .compactMap { $0 }
                         .joined(separator: " · "),
                     imageURL: AnixartURL.image(item.episode?.release?.image),
