@@ -173,6 +173,34 @@ final class EpisodePickerViewModel {
         }
     }
 
+    /// The overflow's "отметить все": one call, then the list is refetched so the
+    /// marks come from the server rather than from a guess.
+    func markAllWatched() async {
+        await markAll(watched: true)
+    }
+
+    func markAllUnwatched() async {
+        await markAll(watched: false)
+    }
+
+    private func markAll(watched: Bool) async {
+        guard session.isSignedIn else {
+            session.promptSignIn()
+            return
+        }
+        guard let source = selectedSource else { return }
+        do {
+            if watched {
+                try await client.send(EpisodeEndpoints.markAllWatched(releaseID: release.id, sourceID: source.id))
+            } else {
+                try await client.send(EpisodeEndpoints.markAllUnwatched(releaseID: release.id, sourceID: source.id))
+            }
+            await loadEpisodes()
+        } catch {
+            errorMessage = Paginator<Release>.message(for: error)
+        }
+    }
+
     /// Stores playback progress so "continue watching" survives a reinstall.
     /// Best-effort: losing a position is not worth an error in the player.
     func saveProgress(for episode: Episode, seconds: TimeInterval) async {

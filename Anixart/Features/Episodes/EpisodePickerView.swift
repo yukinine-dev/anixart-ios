@@ -181,7 +181,8 @@ struct EpisodePickerView: View {
     }
 }
 
-/// The episodes of one voice-over, with the hosting picker on top.
+/// "Выберите серию": the chosen voice-over's episodes, with the hosting picker
+/// and the hint card the Android screen shows above them.
 @MainActor
 struct EpisodeListView: View {
     @Environment(AppEnvironment.self) private var env
@@ -190,26 +191,68 @@ struct EpisodeListView: View {
     let type: EpisodeType
 
     @State private var model: EpisodePickerViewModel?
-    @State private var playing: Episode?
+    @State private var launcher: EpisodeLauncher?
+    @State private var isHintVisible = true
 
     var body: some View {
         Group {
-            if let model {
+            if let model, let launcher {
                 content(model)
+                    .episodePlayback(
+                        launcher,
+                        releaseTitle: model.releaseTitle,
+                        onProgress: { episode, seconds in
+                            Task { await model.saveProgress(for: episode, seconds: seconds) }
+                        },
+                        onFinished: { episode in
+                            Task { await model.markWatched(episode, watched: true) }
+                        }
+                    )
             } else {
                 ProgressView()
             }
         }
-        .navigationTitle(type.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // The Android bar carries the screen name over the source name.
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 0) {
+                    Text("Выберите серию").font(.ax(.headline))
+                    if let source = model?.selectedSource?.displayName {
+                        Text("Источник \(source)")
+                            .font(.ax(.caption))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     Task { await model?.toggleSortOrder() }
                 } label: {
-                    Image(systemName: model?.sortDescending == true
-                          ? "arrow.up.arrow.down.circle.fill"
-                          : "arrow.up.arrow.down.circle")
+                    Image(systemName: "arrow.up.arrow.down")
+                        .foregroundStyle(model?.sortDescending == true ? Theme.accent : .primary)
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        Task { await model?.markAllWatched() }
+                    } label: {
+                        Label("Отметить все просмотренными", systemImage: "checkmark.circle")
+                    }
+                    Button {
+                        Task { await model?.markAllUnwatched() }
+                    } label: {
+                        Label("Снять отметки", systemImage: "xmark.circle")
+                    }
+                    Divider()
+                    Button {
+                        isHintVisible = true
+                    } label: {
+                        Label("Показать подсказку", systemImage: "info.circle")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
                 }
             }
         }
@@ -217,21 +260,8 @@ struct EpisodeListView: View {
             if model == nil {
                 let fresh = EpisodePickerViewModel(release: release, client: env.client, session: env.session)
                 model = fresh
+                launcher = EpisodeLauncher(preferences: PlaybackPreferences())
                 await fresh.select(type: type)
-            }
-        }
-        .fullScreenCover(item: $playing) { episode in
-            if let model {
-                PlayerScreen(
-                    episode: episode,
-                    releaseTitle: model.releaseTitle,
-                    onProgress: { seconds in
-                        Task { await model.saveProgress(for: episode, seconds: seconds) }
-                    },
-                    onFinished: {
-                        Task { await model.markWatched(episode, watched: true) }
-                    }
-                )
             }
         }
     }
@@ -280,6 +310,15 @@ struct EpisodeListView: View {
                 )
             } else {
                 List {
+                    Section {
+                        Text(type.displayName)
+                            .font(.ax(.largeTitle, .bold))
+                            .foregroundStyle(.secondary)
+                            .listRowSeparator(.hidden)
+
+                        if isHintVisible { hint }
+                    }
+
                     ForEach(model.episodes) { episode in
                         episodeRow(episode, model: model)
                     }
@@ -289,48 +328,97 @@ struct EpisodeListView: View {
         }
     }
 
+    private var hint: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text("Если серия не запускается ни через какой видеоплеер, попробуйте сменить источник, "
+                 + "если это доступно. Любая реклама в видео к приложению отношения не имеет.")
+                .font(.ax(.subheadline))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                withAnimation { isHintVisible = false }
+            } label: {
+                Image(systemName: "xmark.circle")
+                    .font(.ax(.title3))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.quaternary, lineWidth: 1))
+        .listRowSeparator(.hidden)
+    }
+
     private func episodeRow(_ episode: Episode, model: EpisodePickerViewModel) -> some View {
-        Button {
-            playing = episode
-        } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(episode.displayName)
-                        .font(.ax(.title3))
-                        .foregroundStyle(episode.isWatched == true ? .secondary : .primary)
-                    HStack(spacing: 8) {
-                        if episode.isFiller == true {
-                            Text("филлер")
-                                .font(.ax(.caption2))
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Color.primary.opacity(0.08), in: Capsule())
-                        }
-                        if let quality = episode.quality, quality > 0 {
-                            Text("\(quality)p").font(.ax(.caption)).foregroundStyle(.secondary)
-                        }
-                        if episode.isEmbed {
-                            Label("плеер источника", systemImage: "globe")
-                                .labelStyle(.compact)
-                                .font(.ax(.caption))
-                                .foregroundStyle(.secondary)
-                        }
-                        if let resume = episode.resumePosition, resume > 1 {
-                            Label(Format.duration(resume), systemImage: "arrow.clockwise")
-                                .labelStyle(.compact)
-                                .font(.ax(.caption))
-                                .foregroundStyle(Theme.accent)
+        HStack(spacing: 12) {
+            Button {
+                launcher?.open(episode)
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(episode.displayName)
+                            .font(.ax(.title3))
+                            .foregroundStyle(episode.isWatched == true ? .secondary : .primary)
+                        HStack(spacing: 8) {
+                            if episode.isFiller == true {
+                                Text("филлер")
+                                    .font(.ax(.caption2))
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .background(Color.primary.opacity(0.08), in: Capsule())
+                            }
+                            if let quality = episode.quality, quality > 0 {
+                                Text("\(quality)p").font(.ax(.caption)).foregroundStyle(.secondary)
+                            }
+                            if episode.isEmbed {
+                                Label("плеер источника", systemImage: "globe")
+                                    .labelStyle(.compact)
+                                    .font(.ax(.caption))
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let resume = episode.resumePosition, resume > 1 {
+                                Label(Format.duration(resume), systemImage: "arrow.clockwise")
+                                    .labelStyle(.compact)
+                                    .font(.ax(.caption))
+                                    .foregroundStyle(Theme.accent)
+                            }
                         }
                     }
+                    Spacer(minLength: 0)
+                    if episode.isWatched == true {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
+                    }
                 }
-                Spacer(minLength: 0)
-                if episode.isWatched == true {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
-                }
-                Image(systemName: "play.circle").foregroundStyle(.secondary)
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+
+            // The Android row keeps a per-episode overflow next to it.
+            Menu {
+                Button {
+                    launcher?.open(episode)
+                } label: {
+                    Label("Воспроизвести", systemImage: "play")
+                }
+                Button {
+                    Task { await model.markWatched(episode, watched: !(episode.isWatched ?? false)) }
+                } label: {
+                    Label(
+                        episode.isWatched == true ? "Отметить непросмотренной" : "Отметить просмотренной",
+                        systemImage: episode.isWatched == true ? "xmark.circle" : "checkmark.circle"
+                    )
+                }
+                if let url = episode.playbackURL {
+                    ShareLink(item: url) {
+                        Label("Поделиться ссылкой", systemImage: "square.and.arrow.up")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
+            }
         }
-        .buttonStyle(.plain)
         .swipeActions(edge: .trailing) {
             Button {
                 Task { await model.markWatched(episode, watched: !(episode.isWatched ?? false)) }

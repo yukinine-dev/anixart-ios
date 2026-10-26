@@ -3,46 +3,63 @@ import AVKit
 import AVFoundation
 import AnixartKit
 
-/// Routes an episode to the right player.
+/// Routes an episode to the player the user picked.
 ///
-/// Anixart serves two kinds of episode: a direct video URL, which `AVPlayer` can
-/// play natively, and an `iframe` page belonging to a hosting (Kodik, Sibnet,
-/// VK Video), which has to run in a web view because the real stream sits behind
-/// that page's own player and token handling. `Episode.iframe` says which it is.
+/// Anixart serves two kinds of episode. A direct video URL can go to any of the
+/// three players. An `iframe` episode is a hosting's own player page (Kodik,
+/// Sibnet, VK Video) whose real stream sits behind that page's own token
+/// handling, so only the web player can show it -- which is why the Android app
+/// keeps "Невозможно воспроизвести видео в выбранном плеере. Попробуйте
+/// использовать Веб-плеер." in its strings. `Episode.iframe` says which it is.
 @MainActor
 struct PlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     let episode: Episode
     let releaseTitle: String
+    let preferences: PlaybackPreferences
     let onProgress: (TimeInterval) -> Void
     let onFinished: () -> Void
+
+    /// Decided before this screen appears, by `EpisodeLauncher`.
+    let choice: PlayerChoice
 
     var body: some View {
         Group {
             if let url = episode.playbackURL {
-                if episode.isEmbed {
-                    EmbedPlayerView(url: url, title: episode.displayName)
-                        .ignoresSafeArea()
-                        .overlay(alignment: .topLeading) { closeButton }
-                        // A hosting's own player reports nothing back, so the episode
-                        // is marked watched on exit rather than at the end of the video.
-                        .onDisappear { onFinished() }
-                } else {
-                    NativePlayerView(
+                switch resolved(for: url) {
+                case .embedded:
+                    EmbeddedPlayerView(
                         url: url,
+                        releaseTitle: releaseTitle,
+                        episodeTitle: episode.displayName,
                         startAt: episode.resumePosition,
+                        preferences: preferences,
                         onProgress: onProgress,
                         onFinished: onFinished
                     )
-                    .ignoresSafeArea()
-                    .overlay(alignment: .topLeading) { closeButton }
+                case .external:
+                    ExternalHandoff(url: url) { dismiss() }
+                case .web:
+                    EmbedPlayerView(url: url, title: episode.displayName)
+                        .ignoresSafeArea()
+                        .overlay(alignment: .topLeading) { closeButton }
+                        // A hosting's own player reports nothing back, so the
+                        // episode is marked watched on exit rather than at the
+                        // end of the video.
+                        .onDisappear { onFinished() }
                 }
             } else {
                 unavailable
             }
         }
         .background(.black)
+    }
+
+    /// The embedded and external players need a stream; an `iframe` episode only
+    /// has a page, so those two fall back to the web player.
+    private func resolved(for url: URL) -> PlayerChoice {
+        episode.isEmbed ? .web : choice
     }
 
     private var closeButton: some View {
@@ -71,53 +88,41 @@ struct PlayerScreen: View {
     }
 }
 
-/// `AVPlayer` for direct video URLs, with resume and progress reporting.
+/// "Сторонний плеер": hands the stream to whatever is installed and closes.
 @MainActor
-struct NativePlayerView: View {
-    let url: URL
-    let startAt: TimeInterval?
-    let onProgress: (TimeInterval) -> Void
-    let onFinished: () -> Void
+struct ExternalHandoff: View {
+    @Environment(\.openURL) private var openURL
 
-    @State private var player = AVPlayer()
-    @State private var hasReportedFinish = false
+    let url: URL
+    let onDone: () -> Void
+
+    @State private var didOpen = false
+    @State private var failed = false
 
     var body: some View {
-        VideoPlayer(player: player)
-            .onAppear {
-                player.replaceCurrentItem(with: AVPlayerItem(url: url))
-                if let startAt, startAt > 1 {
-                    player.seek(to: CMTime(seconds: startAt, preferredTimescale: 600))
+        VStack(spacing: 16) {
+            if failed {
+                StatusMessageView(
+                    title: "Сторонний плеер не найден",
+                    message: "Установите плеер, который открывает видео по ссылке, или выберите другой вариант",
+                    systemImage: "square.and.arrow.up"
+                )
+            } else {
+                ProgressView().tint(.white)
+            }
+            Button("Закрыть") { onDone() }
+                .buttonStyle(.bordered)
+        }
+        .task {
+            guard !didOpen else { return }
+            didOpen = true
+            openURL(url) { accepted in
+                if accepted {
+                    onDone()
+                } else {
+                    failed = true
                 }
-                player.play()
             }
-            .onDisappear {
-                report()
-                player.pause()
-            }
-            // Polling on the main actor rather than through addPeriodicTimeObserver:
-            // the loop is cancelled with the view, and nothing has to cross actors.
-            .task {
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(15))
-                    guard !Task.isCancelled else { return }
-                    report()
-                }
-            }
-    }
-
-    private func report() {
-        let seconds = player.currentTime().seconds
-        guard seconds.isFinite, seconds > 0 else { return }
-        onProgress(seconds)
-
-        // Treat 90% as finished, as most players do -- the credits are not the point.
-        guard !hasReportedFinish,
-              let duration = player.currentItem?.duration.seconds,
-              duration.isFinite, duration > 0,
-              seconds / duration > 0.9
-        else { return }
-        hasReportedFinish = true
-        onFinished()
+        }
     }
 }
