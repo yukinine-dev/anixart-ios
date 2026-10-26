@@ -7,9 +7,11 @@ struct PlayerPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let preferences: PlaybackPreferences
-    /// False when this episode is the hosting's own page, which the embedded and
-    /// external players cannot do anything with.
+    /// False when nothing was found but the hosting's own page, which the
+    /// embedded and external players cannot do anything with.
     let supportsDirectPlayback: Bool
+    /// Where the stream came from, when it is not the hosting the user picked.
+    let streamSourceName: String?
     /// A hosting of the same voice-over that does hand over a stream, if there
     /// is one. Naming it beats telling the user playback is simply impossible.
     let alternativeSourceName: String?
@@ -20,8 +22,17 @@ struct PlayerPickerSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Выберите плеер")
-                .font(.ax(.title2, .medium))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Выберите плеер")
+                    .font(.ax(.title2, .medium))
+                // Anixart's hostings serve player pages, so a stream that was
+                // found came from somewhere else; say where before playing it.
+                if supportsDirectPlayback, let streamSourceName {
+                    Text("Видео найдено на «\(streamSourceName)»")
+                        .font(.ax(.subheadline))
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             VStack(spacing: 12) {
                 ForEach(PlayerChoice.allCases) { option in
@@ -101,7 +112,7 @@ struct PlayerPickerSheet: View {
 
     private var unavailableReason: String {
         if let alternativeSourceName {
-            return "Источник отдаёт страницу плеера, а не видео. Поток есть у источника «\(alternativeSourceName)» — закройте и выберите его."
+            return "Источник отдаёт страницу плеера, а не видео. Видео есть у источника «\(alternativeSourceName)» — закройте и выберите его."
         }
         return "Источник отдаёт страницу плеера, а не видео — его может показать только Веб-плеер"
     }

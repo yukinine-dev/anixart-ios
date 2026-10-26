@@ -101,9 +101,21 @@ jobs:
           curl -sS --max-time 30 -X POST -H 'Content-Type: application/json' \
             -d '{"sort":1}' "$API/filter/0" -o "$DIR/filter-page.json" || true
 
+          # Where the built-in player's stream really comes from. Anixart's
+          # Libria URL carries AniLibria's own release id, so the episode's HLS
+          # is one public request away -- saved here so the Swift decoder is
+          # checked against the live shape like everything else.
+          curl -sS --max-time 30 "https://anilibria.top/api/v1/anime/releases/9307" \
+            -o "$DIR/libria-release.json" || echo "::warning::libria failed"
 
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
           ls -la "$DIR"
+
+      - name: Decode them with AnixartKit
+        working-directory: Packages/AnixartKit
+        env:
+          ANIXART_LIVE_DIR: ${{ steps.fetch.outputs.dir }}
+        run: swift test --filter LiveResponseTests
 
       # The embedded and external players can only play a direct URL, so whether
       # they are reachable at all depends on the mix the catalogue returns. One
@@ -129,12 +141,6 @@ jobs:
         run: |
           python3 Tools/probe-libria-bridge.py "Киберпанк: Бегущие по краю"
           python3 Tools/probe-libria-bridge.py "Ванпанчмен"
-
-      - name: Decode them with AnixartKit
-        working-directory: Packages/AnixartKit
-        env:
-          ANIXART_LIVE_DIR: ${{ steps.fetch.outputs.dir }}
-        run: swift test --filter LiveResponseTests
 
       # Keeps the responses for the next round of model work; they are public
       # API reads with no token attached.

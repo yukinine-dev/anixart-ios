@@ -5,12 +5,12 @@ import AnixartKit
 
 /// Routes an episode to the player the user picked.
 ///
-/// Anixart serves two kinds of episode. A direct video URL can go to any of the
-/// three players. An `iframe` episode is a hosting's own player page (Kodik,
-/// Sibnet, VK Video) whose real stream sits behind that page's own token
-/// handling, so only the web player can show it -- which is why the Android app
-/// keeps "Невозможно воспроизвести видео в выбранном плеере. Попробуйте
-/// использовать Веб-плеер." in its strings. `Episode.iframe` says which it is.
+/// Anixart never serves the video itself: every hosting it lists answers with
+/// its own player page, which is why the Android app keeps "Невозможно
+/// воспроизвести видео в выбранном плеере. Попробуйте использовать Веб-плеер."
+/// in its strings. So the stream, when there is one, comes from the hosting's
+/// own public API -- `PlaybackResolver` works that out before this appears, and
+/// hands the result over as a `PlaybackTarget`.
 @MainActor
 struct PlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
@@ -23,46 +23,51 @@ struct PlayerScreen: View {
 
     /// Decided before this screen appears, by `EpisodeLauncher`.
     let choice: PlayerChoice
-    /// Established by fetching the URL, not by reading `Episode.iframe`.
-    let supportsDirectPlayback: Bool
+    /// What was found for this episode: the streams, and the page behind them.
+    let target: PlaybackTarget
 
     var body: some View {
         Group {
-            if let url = episode.playbackURL {
-                switch resolved(for: url) {
-                case .embedded:
-                    EmbeddedPlayerView(
-                        url: url,
-                        releaseTitle: releaseTitle,
-                        episodeTitle: episode.displayName,
-                        startAt: episode.resumePosition,
-                        preferences: preferences,
-                        onProgress: onProgress,
-                        onFinished: onFinished
-                    )
-                case .external:
+            switch resolvedChoice {
+            case .embedded:
+                EmbeddedPlayerView(
+                    variants: target.variants,
+                    referer: target.referer,
+                    streamSourceName: target.streamSourceName,
+                    releaseTitle: releaseTitle,
+                    episodeTitle: episode.displayName,
+                    startAt: episode.resumePosition,
+                    preferences: preferences,
+                    onProgress: onProgress,
+                    onFinished: onFinished
+                )
+            case .external:
+                if let url = target.variants.first?.url {
                     ExternalHandoff(url: url) { dismiss() }
-                case .web:
-                    EmbedPlayerView(url: url, title: episode.displayName)
+                } else {
+                    unavailable
+                }
+            case .web:
+                if let page = target.pageURL ?? target.variants.first?.url {
+                    EmbedPlayerView(url: page, title: episode.displayName)
                         .ignoresSafeArea()
                         .overlay(alignment: .topLeading) { closeButton }
                         // A hosting's own player reports nothing back, so the
                         // episode is marked watched on exit rather than at the
                         // end of the video.
                         .onDisappear { onFinished() }
+                } else {
+                    unavailable
                 }
-            } else {
-                unavailable
             }
         }
         .background(.black)
     }
 
-    /// The embedded and external players need a stream. Where the hosting
-    /// serves its own page instead -- which on this API is everywhere so far --
-    /// only the web player can show it.
-    private func resolved(for url: URL) -> PlayerChoice {
-        supportsDirectPlayback ? choice : .web
+    /// The embedded and external players need a stream. Without one only the
+    /// web player can show anything, whatever the user picked.
+    private var resolvedChoice: PlayerChoice {
+        target.supportsDirectPlayback ? choice : .web
     }
 
     private var closeButton: some View {

@@ -66,11 +66,13 @@ final class EpisodePickerViewModel {
     private(set) var playableTypeIDs: Set<Int> = []
     private(set) var isCheckingPlayability = false
 
-    /// Whether a hosting hands over a stream turns out to be a property of the
-    /// hosting itself, not of the release -- the probe in CI shows Kodik always
-    /// sending a page and Sibnet, Libria, Liberty and RuTube always sending a
-    /// URL. So each hosting is classified once per screen, by name, instead of
+    /// Whether a hosting can be played is a property of the hosting, not of the
+    /// release, so each one is classified once per screen by name instead of
     /// fetching every voice-over's episodes.
+    ///
+    /// "Can be played" means a stream was found for it: either the hosting
+    /// really handed over a video, or a source with its own public API has the
+    /// same episode. On this API it is always the second.
     private var hostingGivesStream: [String: Bool] = [:]
 
     /// The voice-overs the current chip leaves visible.
@@ -156,8 +158,10 @@ final class EpisodePickerViewModel {
                             sort: 0
                         )
                     )
-                    guard let url = response?.episodes?.compactMap(\.playbackURL).first else { continue }
-                    hostingGivesStream[name] = await StreamProbe.isPlayable(url)
+                    guard let episode = response?.episodes?.first(where: { $0.playbackURL != nil })
+                    else { continue }
+                    let target = await PlaybackResolver.shared.target(for: episode)
+                    hostingGivesStream[name] = target.supportsDirectPlayback
                 }
                 if hostingGivesStream[name] == true {
                     playableTypeIDs.insert(typeID)
@@ -209,11 +213,12 @@ final class EpisodePickerViewModel {
         }
     }
 
-    /// Hostings whose URLs turned out to be something AVFoundation can open.
+    /// Hostings a stream was actually found for.
     ///
-    /// Checked by fetching the URL, not by reading `Episode.iframe`: that flag
-    /// does not mean what it looks like -- Libria's "non-iframe" URL is an HTML
-    /// player page.
+    /// Established by resolving one of their episodes, not by reading
+    /// `Episode.iframe`: that flag does not mean what it looks like -- Libria's
+    /// "non-iframe" URL is an HTML player page, and the stream behind it comes
+    /// from AniLibria's own API.
     private(set) var playableSourceIDs: Set<Int> = []
 
     func hasDirectStream(_ source: EpisodeSource) -> Bool {
@@ -251,12 +256,15 @@ final class EpisodePickerViewModel {
         episodesBySource = loaded
     }
 
-    /// Asks each hosting's first episode URL what it really serves.
+    /// Works out which hostings a stream can be found for, by resolving one
+    /// episode of each.
     private func probeSources(_ sources: [EpisodeSource]) async {
         var playable: Set<Int> = []
         for source in sources {
-            guard let url = episodesBySource[source.id]?.compactMap(\.playbackURL).first else { continue }
-            if await StreamProbe.isPlayable(url) { playable.insert(source.id) }
+            guard let episode = episodesBySource[source.id]?.first(where: { $0.playbackURL != nil })
+            else { continue }
+            let target = await PlaybackResolver.shared.target(for: episode)
+            if target.supportsDirectPlayback { playable.insert(source.id) }
         }
         playableSourceIDs = playable
     }

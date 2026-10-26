@@ -21,7 +21,17 @@ final class LiveResponseTests: XCTestCase {
         "profiles": { try summary(PageableResponse<Profile>.self, $0) { "\($0.content?.count ?? 0) profiles" } },
         "filter": { try summary(PageableResponse<Release>.self, $0) { "\($0.content?.count ?? 0) releases" } },
         "comments": { try summary(PageableResponse<ReleaseComment>.self, $0) { "\($0.content?.count ?? 0) comments" } },
-        "collections": { try summary(PageableResponse<ReleaseCollection>.self, $0) { "\($0.content?.count ?? 0) collections" } }
+        "collections": { try summary(PageableResponse<ReleaseCollection>.self, $0) { "\($0.content?.count ?? 0) collections" } },
+        // Not Anixart's: the release AniLibria returns for the id Anixart puts
+        // in its Libria URLs, which is where the built-in player's stream
+        // actually comes from.
+        "libria": {
+            try summary(AniLibriaStreamSource.ReleasePayload.self, $0) { release in
+                let episodes = release.episodes ?? []
+                let rungs = episodes.first?.streams.keys.sorted().map(String.init).joined(separator: "/") ?? "-"
+                return "release \(release.id as Any), \(episodes.count) episodes, first offers \(rungs)"
+            }
+        }
     ]
 
     private static func summary<T: Decodable>(

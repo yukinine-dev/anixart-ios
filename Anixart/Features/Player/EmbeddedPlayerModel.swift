@@ -9,14 +9,17 @@ import AnixartKit
 /// One rung in the quality menu, built from what the stream actually offers
 /// rather than from a fixed list.
 ///
-/// An HLS playlist declares its variants, so those become the rungs. A
-/// progressive file is a single encode with nothing to switch between, so it
-/// contributes one entry naming its own resolution.
+/// There are two shapes. A single HLS playlist declares its own variants, and
+/// switching between them is a bitrate ceiling. A source that publishes one
+/// playlist per quality -- which is how AniLibria hands them over -- gives a
+/// rung its own URL, and switching means swapping the item.
 struct VideoQuality: Identifiable, Hashable, Sendable {
     let id: String
     let title: String
     /// Ceiling handed to AVPlayer; `0` lets it choose.
     let peakBitRate: Double
+    /// Set when this rung is its own playlist rather than a variant inside one.
+    let url: URL?
 
     static let auto = VideoQuality(id: "auto", title: "Авто", peakBitRate: 0)
 
@@ -26,6 +29,7 @@ struct VideoQuality: Identifiable, Hashable, Sendable {
         let height = variant.videoAttributes?.presentationSize.height ?? 0
         let bitRate = variant.peakBitRate ?? variant.averageBitRate ?? 0
         self.peakBitRate = bitRate
+        self.url = nil
         if height > 0 {
             self.title = "\(Int(height))p"
             self.id = "h\(Int(height))"
@@ -35,10 +39,19 @@ struct VideoQuality: Identifiable, Hashable, Sendable {
         }
     }
 
-    init(id: String, title: String, peakBitRate: Double) {
+    init(id: String, title: String, peakBitRate: Double, url: URL? = nil) {
         self.id = id
         self.title = title
         self.peakBitRate = peakBitRate
+        self.url = url
+    }
+
+    /// A rung a stream source published as its own playlist.
+    init(stream: StreamVariant) {
+        self.id = stream.id
+        self.title = stream.label
+        self.peakBitRate = 0
+        self.url = stream.url
     }
 }
 
@@ -94,6 +107,7 @@ final class EmbeddedPlayerModel {
     @ObservationIgnored private var onFinished: (() -> Void)?
     @ObservationIgnored private var hasReportedFinish = false
     @ObservationIgnored private var asset: AVURLAsset?
+    @ObservationIgnored private var referer: URL?
 
     var isPictureInPictureSupported: Bool {
         AVPictureInPictureController.isPictureInPictureSupported()
@@ -102,30 +116,30 @@ final class EmbeddedPlayerModel {
     // MARK: - Lifecycle
 
     func start(
-        url: URL,
+        variants: [StreamVariant],
+        referer: URL?,
         startAt: TimeInterval?,
         onProgress: @escaping (TimeInterval) -> Void,
         onFinished: @escaping () -> Void
     ) async {
-        guard asset == nil else { return }
+        guard asset == nil, let first = variants.first else { return }
         self.onProgress = onProgress
         self.onFinished = onFinished
+        self.referer = referer
 
-        // Several hostings refuse a request without a Referer, the same way they
-        // do for the web player.
-        let asset = AVURLAsset(url: url, options: [
-            "AVURLAssetHTTPHeaderFieldsKey": ["Referer": AnixartEnvironment.webBaseURL.absoluteString]
-        ])
-        self.asset = asset
-
-        let item = AVPlayerItem(asset: asset)
-        player.replaceCurrentItem(with: item)
-        observe(item)
+        install(first.url)
 
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
 
-        await loadQualities(from: asset)
+        if variants.count > 1 {
+            // A source that publishes one playlist per quality decides the menu
+            // itself; there is no ladder inside the playlist to read.
+            qualities = variants.map(VideoQuality.init(stream:))
+            quality = qualities[0]
+        } else if let asset {
+            await loadQualities(from: asset)
+        }
 
         if let startAt, startAt > 1 {
             await player.seek(to: CMTime(seconds: startAt, preferredTimescale: 600))
@@ -135,12 +149,33 @@ final class EmbeddedPlayerModel {
         scheduleControlsHide()
     }
 
+    /// Points the player at one URL, keeping the observations attached to the
+    /// item that is actually playing.
+    private func install(_ url: URL) {
+        // Several hostings refuse a request without a Referer, the same way they
+        // do for the web player.
+        let headers = ["Referer": (referer ?? AnixartEnvironment.webBaseURL).absoluteString]
+        let asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+        self.asset = asset
+
+        let item = AVPlayerItem(asset: asset)
+        player.replaceCurrentItem(with: item)
+        observe(item)
+    }
+
     func stop() {
         report()
         player.pause()
         isPlaying = false
         hideControlsTask?.cancel()
         seekFeedbackTask?.cancel()
+        detachObservations()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// Lets go of the item that is being replaced or put away. Each `install`
+    /// attaches its own, so they have to come off first or they stack up.
+    private func detachObservations() {
         if let timeObserver {
             player.removeTimeObserver(timeObserver)
             self.timeObserver = nil
@@ -151,7 +186,6 @@ final class EmbeddedPlayerModel {
             NotificationCenter.default.removeObserver(endObserver)
             self.endObserver = nil
         }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     private func observe(_ item: AVPlayerItem) {
@@ -247,8 +281,30 @@ final class EmbeddedPlayerModel {
     }
 
     func setQuality(_ newQuality: VideoQuality) {
+        guard newQuality != quality else { return }
         quality = newQuality
-        player.currentItem?.preferredPeakBitRate = newQuality.peakBitRate
+
+        guard let url = newQuality.url else {
+            player.currentItem?.preferredPeakBitRate = newQuality.peakBitRate
+            scheduleControlsHide()
+            return
+        }
+
+        // Its own playlist, so the item is replaced and the position carried
+        // over -- otherwise changing quality restarts the episode.
+        let resume = player.currentTime()
+        let wasPlaying = isPlaying
+        isBuffering = true
+        detachObservations()
+        install(url)
+        Task { [weak self] in
+            guard let self else { return }
+            await self.player.seek(to: resume)
+            if wasPlaying {
+                self.player.play()
+                self.player.rate = self.rate
+            }
+        }
         scheduleControlsHide()
     }
 

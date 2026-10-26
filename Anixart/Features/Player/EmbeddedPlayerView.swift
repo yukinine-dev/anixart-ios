@@ -12,7 +12,13 @@ import AnixartKit
 struct EmbeddedPlayerView: View {
     @Environment(\.dismiss) private var dismiss
 
-    let url: URL
+    /// Every quality the stream was offered at, tallest first.
+    let variants: [StreamVariant]
+    /// Some hosts refuse a request without one.
+    let referer: URL?
+    /// Named under the episode when the stream came from somewhere other than
+    /// the hosting the user picked.
+    let streamSourceName: String?
     let releaseTitle: String
     let episodeTitle: String
     let startAt: TimeInterval?
@@ -87,7 +93,8 @@ struct EmbeddedPlayerView: View {
         }
         .task {
             await model.start(
-                url: url,
+                variants: variants,
+                referer: referer,
                 startAt: startAt,
                 onProgress: onProgress,
                 onFinished: onFinished
@@ -128,7 +135,17 @@ struct EmbeddedPlayerView: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(releaseTitle).font(.ax(.title3)).lineLimit(1)
-                    Text(episodeTitle).font(.ax(.subheadline)).foregroundStyle(.white.opacity(0.7))
+                    HStack(spacing: 6) {
+                        Text(episodeTitle)
+                        // The hosting Anixart named rarely hands over the video
+                        // itself, so say where this picture is coming from.
+                        if let streamSourceName {
+                            Text("· \(streamSourceName)")
+                        }
+                    }
+                    .font(.ax(.subheadline))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
                 }
             }
 

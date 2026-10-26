@@ -4,14 +4,19 @@ import AnixartKit
 /// The sequence the Android app runs before an episode opens: the warning about
 /// third-party sources, then "Выберите плеер" when the user has not told it to
 /// stop asking, then the player itself.
+///
+/// One step more than Android needs. Anixart gives a page rather than a video,
+/// so between the warning and the picker the episode's stream has to be found,
+/// and that takes a request or two.
 @MainActor
 @Observable
 final class EpisodeLauncher {
     enum Stage: Equatable {
         case idle
         case warning(Episode)
-        case picking(Episode)
-        case playing(Episode, PlayerChoice)
+        case resolving(Episode)
+        case picking(Episode, PlaybackTarget)
+        case playing(Episode, PlayerChoice, PlaybackTarget)
     }
 
     private(set) var stage: Stage = .idle
@@ -23,34 +28,51 @@ final class EpisodeLauncher {
 
     var pendingEpisode: Episode? {
         switch stage {
-        case .warning(let episode), .picking(let episode): return episode
-        case .playing(let episode, _): return episode
+        case .warning(let episode), .resolving(let episode): return episode
+        case .picking(let episode, _): return episode
+        case .playing(let episode, _, _): return episode
         case .idle: return nil
         }
     }
 
+    var isResolving: Bool {
+        if case .resolving = stage { return true }
+        return false
+    }
+
     func open(_ episode: Episode) {
-        stage = preferences.hasAcceptedDisclaimer ? next(after: episode) : .warning(episode)
+        if preferences.hasAcceptedDisclaimer {
+            resolve(episode)
+        } else {
+            stage = .warning(episode)
+        }
     }
 
     func acceptWarning() {
         guard case .warning(let episode) = stage else { return }
         preferences.acceptDisclaimer()
-        stage = next(after: episode)
+        resolve(episode)
     }
 
     func choose(_ choice: PlayerChoice) {
-        guard case .picking(let episode) = stage else { return }
-        stage = .playing(episode, choice)
+        guard case .picking(let episode, let target) = stage else { return }
+        stage = .playing(episode, choice, target)
     }
 
     func cancel() {
         stage = .idle
     }
 
-    /// After the warning: ask unless the user unticked "Спрашивать всегда".
-    private func next(after episode: Episode) -> Stage {
-        preferences.alwaysAsk ? .picking(episode) : .playing(episode, preferences.choice)
+    /// Finds the stream, then asks unless the user unticked "Спрашивать всегда".
+    private func resolve(_ episode: Episode) {
+        stage = .resolving(episode)
+        Task { [weak self] in
+            let target = await PlaybackResolver.shared.target(for: episode)
+            guard let self, case .resolving(let pending) = self.stage, pending.id == episode.id else { return }
+            self.stage = self.preferences.alwaysAsk
+                ? .picking(episode, target)
+                : .playing(episode, self.preferences.choice, target)
+        }
     }
 }
 
@@ -61,7 +83,6 @@ extension View {
     func episodePlayback(
         _ launcher: EpisodeLauncher,
         releaseTitle: String,
-        supportsDirectPlayback: Bool,
         alternativeSourceName: String? = nil,
         onProgress: @escaping (Episode, TimeInterval) -> Void,
         onFinished: @escaping (Episode) -> Void
@@ -69,7 +90,6 @@ extension View {
         modifier(EpisodePlaybackModifier(
             launcher: launcher,
             releaseTitle: releaseTitle,
-            supportsDirectPlayback: supportsDirectPlayback,
             alternativeSourceName: alternativeSourceName,
             onProgress: onProgress,
             onFinished: onFinished
@@ -81,13 +101,18 @@ extension View {
 struct EpisodePlaybackModifier: ViewModifier {
     let launcher: EpisodeLauncher
     let releaseTitle: String
-    /// Whether this hosting's URLs turned out to be playable, established by
-    /// fetching one rather than by reading `Episode.iframe`.
-    let supportsDirectPlayback: Bool
-    /// A hosting of the same voice-over that hands over a real stream, if any.
+    /// A hosting of the same voice-over whose stream can be found, if any.
     let alternativeSourceName: String?
     let onProgress: (Episode, TimeInterval) -> Void
     let onFinished: (Episode) -> Void
+
+    private var target: PlaybackTarget? {
+        switch launcher.stage {
+        case .picking(_, let target): return target
+        case .playing(_, _, let target): return target
+        default: return nil
+        }
+    }
 
     func body(content: Content) -> some View {
         content
@@ -105,13 +130,30 @@ struct EpisodePlaybackModifier: ViewModifier {
                      + "Администрация приложения не несёт ответственности за его содержимое, "
                      + "а также не гарантирует работоспособность.")
             }
+            // Finding the stream takes a request or two, and a list that does
+            // nothing after a tap looks broken.
+            .overlay {
+                if launcher.isResolving {
+                    ZStack {
+                        Color.black.opacity(0.25).ignoresSafeArea()
+                        VStack(spacing: 12) {
+                            ProgressView()
+                            Text("Ищем видео…").font(.ax(.subheadline))
+                        }
+                        .padding(24)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .transition(.opacity)
+                }
+            }
             .sheet(isPresented: Binding(
                 get: { if case .picking = launcher.stage { true } else { false } },
                 set: { if !$0, case .picking = launcher.stage { launcher.cancel() } }
             )) {
                 PlayerPickerSheet(
                     preferences: launcher.preferences,
-                    supportsDirectPlayback: supportsDirectPlayback,
+                    supportsDirectPlayback: target?.supportsDirectPlayback ?? false,
+                    streamSourceName: target?.streamSourceName,
                     alternativeSourceName: alternativeSourceName,
                     onContinue: { launcher.choose($0) }
                 )
@@ -120,7 +162,7 @@ struct EpisodePlaybackModifier: ViewModifier {
                 get: { if case .playing = launcher.stage { true } else { false } },
                 set: { if !$0 { launcher.cancel() } }
             )) {
-                if case .playing(let episode, let choice) = launcher.stage {
+                if case .playing(let episode, let choice, let target) = launcher.stage {
                     PlayerScreen(
                         episode: episode,
                         releaseTitle: releaseTitle,
@@ -128,7 +170,7 @@ struct EpisodePlaybackModifier: ViewModifier {
                         onProgress: { onProgress(episode, $0) },
                         onFinished: { onFinished(episode) },
                         choice: choice,
-                        supportsDirectPlayback: supportsDirectPlayback
+                        target: target
                     )
                 }
             }
