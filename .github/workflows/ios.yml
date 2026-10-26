@@ -123,6 +123,13 @@ jobs:
         run: |
           python3 Tools/probe-anilibria.py "Киберпанк: Бегущие по краю"
 
+      # The id in Anixart's own Libria URL looks like AniLibria's release id, so
+      # the stream may be one public request away. This checks the whole chain.
+      - name: Bridge Anixart's Libria URLs to AniLibria's API
+        run: |
+          python3 Tools/probe-libria-bridge.py "Киберпанк: Бегущие по краю"
+          python3 Tools/probe-libria-bridge.py "Ванпанчмен"
+
       - name: Decode them with AnixartKit
         working-directory: Packages/AnixartKit
         env:
