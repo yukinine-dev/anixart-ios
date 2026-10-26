@@ -54,11 +54,19 @@ struct EpisodePickerView: View {
                 VStack(spacing: 0) {
                     kindChips(model)
                     if isHintVisible { hint }
+                    if model.isCheckingPlayability {
+                        Label("Проверяем, какие варианты откроются во встроенном плеере…", systemImage: "clock")
+                            .font(.ax(.caption))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal)
+                            .padding(.bottom, 8)
+                    }
+
                     ForEach(model.visibleTypes) { type in
                         NavigationLink {
                             EpisodeListView(release: release, type: type)
                         } label: {
-                            typeRow(type)
+                            typeRow(type, model: model)
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 96)
@@ -121,7 +129,7 @@ struct EpisodePickerView: View {
         .padding(.bottom, Theme.Spacing.row)
     }
 
-    private func typeRow(_ type: EpisodeType) -> some View {
+    private func typeRow(_ type: EpisodeType, model: EpisodePickerViewModel) -> some View {
         HStack(spacing: 14) {
             AsyncImage(url: type.iconURL) { image in
                 image.resizable().scaledToFill()
@@ -141,6 +149,12 @@ struct EpisodePickerView: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     if type.isSubtitles { badge("СУБТИТРЫ", color: .secondary) }
+                    // Most voice-overs sit on a hosting that only serves its own
+                    // player page; this marks the ones the built-in player can
+                    // actually take, so the choice is informed.
+                    if model.playableTypeIDs.contains(type.id) {
+                        badge("ПЛЕЕР", color: Theme.listColor(.watching))
+                    }
                     // The variant that received the release's newest episode is
                     // the one the Android picker marks as new.
                     if type.id == release.episodeLastUpdate?.lastEpisodeTypeUpdateId {

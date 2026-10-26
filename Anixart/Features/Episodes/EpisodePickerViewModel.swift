@@ -59,6 +59,20 @@ final class EpisodePickerViewModel {
         self.session = session
     }
 
+    /// Voice-overs known to have a hosting the built-in player can take.
+    ///
+    /// Filled in the background after the list appears: the user should not wait
+    /// on it, and the list is useful without it.
+    private(set) var playableTypeIDs: Set<Int> = []
+    private(set) var isCheckingPlayability = false
+
+    /// Whether a hosting hands over a stream turns out to be a property of the
+    /// hosting itself, not of the release -- the probe in CI shows Kodik always
+    /// sending a page and Sibnet, Libria, Liberty and RuTube always sending a
+    /// URL. So each hosting is classified once per screen, by name, instead of
+    /// fetching every voice-over's episodes.
+    private var hostingGivesStream: [String: Bool] = [:]
+
     /// The voice-overs the current chip leaves visible.
     var visibleTypes: [EpisodeType] {
         switch kind {
@@ -99,6 +113,61 @@ final class EpisodePickerViewModel {
             errorMessage = Paginator<Release>.message(for: error)
         }
         isLoadingTypes = false
+        Task { await checkPlayability() }
+    }
+
+    /// Works out which voice-overs the built-in player can handle.
+    ///
+    /// Sources are cheap to list, so every voice-over's are fetched; episodes
+    /// are not, so one episode list per distinct hosting is enough to classify
+    /// it. Results land as they arrive, so badges appear progressively.
+    private func checkPlayability() async {
+        guard !isCheckingPlayability else { return }
+        isCheckingPlayability = true
+        defer { isCheckingPlayability = false }
+
+        let client = self.client
+        let releaseID = release.id
+        let allTypes = types
+
+        let sourcesByType = await withTaskGroup(of: (Int, [EpisodeSource]).self) { group in
+            for type in allTypes {
+                group.addTask {
+                    let response = try? await client.send(
+                        EpisodeEndpoints.sources(releaseID: releaseID, typeID: type.id)
+                    )
+                    return (type.id, response?.sources ?? [])
+                }
+            }
+            var result: [Int: [EpisodeSource]] = [:]
+            for await (id, sources) in group { result[id] = sources }
+            return result
+        }
+
+        for (typeID, sources) in sourcesByType {
+            for source in sources {
+                let name = source.displayName
+                if hostingGivesStream[name] == nil {
+                    let response = try? await client.send(
+                        EpisodeEndpoints.episodes(
+                            releaseID: releaseID,
+                            typeID: typeID,
+                            sourceID: source.id,
+                            sort: 0
+                        )
+                    )
+                    let episodes = response?.episodes ?? []
+                    // No episodes says nothing about the hosting, so leave it
+                    // unclassified rather than recording a false negative.
+                    guard !episodes.isEmpty else { continue }
+                    hostingGivesStream[name] = episodes.contains { !$0.isEmbed }
+                }
+                if hostingGivesStream[name] == true {
+                    playableTypeIDs.insert(typeID)
+                    break
+                }
+            }
+        }
     }
 
     func toggleSortOrder() async {
