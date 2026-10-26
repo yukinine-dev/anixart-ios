@@ -22,16 +22,18 @@ from collections import Counter
 
 DEFAULT_API = "https://api-s.anixsekai.com"
 TIMEOUT = 30
+# urllib's default agent gets a 403 from the API where curl's does not, so say
+# plainly what this is instead.
+USER_AGENT = "anixart-ios-probe/1.0"
 
 
 def get(api: str, path: str, body: dict | None = None):
     url = f"{api}/{path}"
     data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request(
-        url,
-        data=data,
-        headers={"Content-Type": "application/json"} if data else {},
-    )
+    headers = {"User-Agent": USER_AGENT}
+    if data:
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
             return json.load(response)
@@ -49,8 +51,10 @@ def main() -> int:
     page = get(args.api, "filter/0", {"sort": 1})
     releases = (page or {}).get("content") or []
     if not releases:
+        # This is a measurement, not a correctness check: a bad day for the API
+        # should not fail the build that the decode test is the real gate for.
         print("no releases returned; nothing to measure", file=sys.stderr)
-        return 1
+        return 0
 
     shapes = Counter()
     per_hosting = Counter()
