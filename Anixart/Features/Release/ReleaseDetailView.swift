@@ -136,7 +136,7 @@ struct ReleaseDetailView: View {
         ZStack {
             // The Android page fills the area behind the poster with the poster
             // itself, blurred and dimmed.
-            AsyncImage(url: release.posterURL) { image in
+            CachedAsyncImage(url: release.posterURL, maxPixelSize: 520) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 Color.clear
@@ -147,7 +147,7 @@ struct ReleaseDetailView: View {
             .overlay(.black.opacity(0.45))
             .allowsHitTesting(false)
 
-            AsyncImage(url: release.posterURL) { image in
+            CachedAsyncImage(url: release.posterURL, maxPixelSize: 520) { image in
                 image.resizable().scaledToFit()
             } placeholder: {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.quaternary)
@@ -441,7 +441,7 @@ struct ReleaseDetailView: View {
                             ReleaseVideosView(release: release, category: banner.name)
                         } label: {
                             ZStack {
-                                AsyncImage(url: AnixartURL.image(banner.image)) { image in
+                                CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
                                     image.resizable().scaledToFill()
                                 } placeholder: {
                                     Rectangle().fill(.quaternary)
@@ -539,7 +539,7 @@ struct ReleaseDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(release.screenshotURLs, id: \.self) { url in
-                        AsyncImage(url: url) { image in
+                        CachedAsyncImage(url: url, maxPixelSize: 520) { image in
                             image.resizable().scaledToFill()
                         } placeholder: {
                             Rectangle().fill(.quaternary)

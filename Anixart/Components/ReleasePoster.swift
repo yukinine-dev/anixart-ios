@@ -12,17 +12,10 @@ struct ReleasePoster: View {
     private var height: CGFloat { width / Theme.Poster.aspectRatio }
 
     var body: some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable().scaledToFill()
-            case .failure:
-                placeholder(systemImage: "photo")
-            case .empty:
-                placeholder(systemImage: nil)
-            @unknown default:
-                placeholder(systemImage: nil)
-            }
+        CachedAsyncImage(url: url, maxPixelSize: width * 2) { image in
+            image.resizable().scaledToFill()
+        } placeholder: {
+            placeholder(systemImage: url == nil ? "photo" : nil)
         }
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))

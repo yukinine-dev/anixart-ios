@@ -131,7 +131,7 @@ struct EpisodePickerView: View {
 
     private func typeRow(_ type: EpisodeType, model: EpisodePickerViewModel) -> some View {
         HStack(spacing: 14) {
-            AsyncImage(url: type.iconURL) { image in
+            CachedAsyncImage(url: type.iconURL, maxPixelSize: 120) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 ZStack {

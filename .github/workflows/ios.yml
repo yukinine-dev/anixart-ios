@@ -117,6 +117,12 @@ jobs:
         run: |
           python3 Tools/probe-stream-playability.py "Киберпанк: Бегущие по краю"
 
+      # Anixart gives no playable URLs at all, so this asks whether a source
+      # with a documented public API could supply them without scraping.
+      - name: Check AniLibria's own API
+        run: |
+          python3 Tools/probe-anilibria.py "Киберпанк: Бегущие по краю"
+
       - name: Decode them with AnixartKit
         working-directory: Packages/AnixartKit
         env:

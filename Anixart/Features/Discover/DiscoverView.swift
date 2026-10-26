@@ -114,7 +114,7 @@ struct BannerCarousel: View {
 
     private func bannerCard(_ banner: Interesting) -> some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(url: AnixartURL.image(banner.image)) { image in
+            CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 Rectangle().fill(.quaternary)

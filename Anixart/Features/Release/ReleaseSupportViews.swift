@@ -48,7 +48,7 @@ struct ReleaseCollectionsView: View {
                         CollectionDetailView(collection: collection)
                     } label: {
                         HStack(spacing: Theme.Spacing.row) {
-                            AsyncImage(url: collection.coverURL) { image in
+                            CachedAsyncImage(url: collection.coverURL, maxPixelSize: 120) { image in
                                 image.resizable().scaledToFill()
                             } placeholder: {
                                 Rectangle().fill(.quaternary)
@@ -155,7 +155,7 @@ struct ReleaseVideosView: View {
                         playing = video
                     } label: {
                         HStack(spacing: Theme.Spacing.row) {
-                            AsyncImage(url: AnixartURL.image(video.image)) { image in
+                            CachedAsyncImage(url: AnixartURL.image(video.image), maxPixelSize: 240) { image in
                                 image.resizable().scaledToFill()
                             } placeholder: {
                                 Rectangle().fill(.quaternary)

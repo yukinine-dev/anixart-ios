@@ -110,7 +110,7 @@ struct NotificationsView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: Theme.Spacing.row) {
             if let imageURL {
-                AsyncImage(url: imageURL) { image in
+                CachedAsyncImage(url: imageURL, maxPixelSize: 120) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     Rectangle().fill(.quaternary)

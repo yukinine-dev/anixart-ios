@@ -43,7 +43,7 @@ struct CollectionRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.row) {
-            AsyncImage(url: collection.coverURL) { image in
+            CachedAsyncImage(url: collection.coverURL, maxPixelSize: 160) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 Rectangle().fill(.quaternary)

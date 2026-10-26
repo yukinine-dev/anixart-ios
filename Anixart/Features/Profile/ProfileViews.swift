@@ -574,7 +574,7 @@ struct Avatar: View {
     var isOnline: Bool = false
 
     var body: some View {
-        AsyncImage(url: url) { image in
+        CachedAsyncImage(url: url, maxPixelSize: 160) { image in
             image.resizable().scaledToFill()
         } placeholder: {
             Circle().fill(.quaternary)
@@ -651,7 +651,7 @@ struct ProfileCollectionsSection: View {
                         CollectionDetailView(collection: collection)
                     } label: {
                         HStack(spacing: Theme.Spacing.row) {
-                            AsyncImage(url: collection.coverURL) { image in
+                            CachedAsyncImage(url: collection.coverURL, maxPixelSize: 160) { image in
                                 image.resizable().scaledToFill()
                             } placeholder: {
                                 Rectangle().fill(.quaternary)
