@@ -108,6 +108,18 @@ final class EmbeddedPlayerModel {
     @ObservationIgnored private var hasReportedFinish = false
     @ObservationIgnored private var asset: AVURLAsset?
     @ObservationIgnored private var referer: URL?
+    /// Where to land once the replaced item is ready, during a quality change.
+    @ObservationIgnored private var pendingSeek: CMTime?
+    @ObservationIgnored private var resumeAfterSeek = false
+
+    private var hasPendingSeek: Bool { pendingSeek != nil }
+
+    /// Whether the stream will play faster than 1x at all.
+    ///
+    /// AVPlayer silently refuses a rate the item cannot do, which looked exactly
+    /// like a broken menu. Read off the item once it is ready, so the menu can
+    /// say so instead.
+    private(set) var canPlayFaster = true
 
     var isPictureInPictureSupported: Bool {
         AVPictureInPictureController.isPictureInPictureSupported()
@@ -146,6 +158,7 @@ final class EmbeddedPlayerModel {
         }
         player.play()
         isPlaying = true
+        applyRate()
         scheduleControlsHide()
     }
 
@@ -209,10 +222,19 @@ final class EmbeddedPlayerModel {
                 guard let self else { return }
                 if status == .readyToPlay {
                     self.duration = seconds.isFinite ? seconds : 0
-                    self.isBuffering = false
                     // The smoke test greps for this: it is the only line that
                     // says AVFoundation actually opened the stream.
                     Self.log.notice("playback ready, duration \(Int(self.duration), privacy: .public)s")
+                    self.canPlayFaster = item.canPlayFastForward
+                    if !self.canPlayFaster {
+                        Self.log.notice("stream cannot play faster than 1x")
+                        if self.rate > 1 { self.setRate(1) }
+                    }
+                    if self.hasPendingSeek {
+                        await self.finishQualitySwitch()
+                    } else {
+                        self.isBuffering = false
+                    }
                 } else if status == .failed {
                     Self.log.error("playback failed: \(failure ?? "unknown", privacy: .public)")
                     self.isBuffering = false
@@ -223,7 +245,8 @@ final class EmbeddedPlayerModel {
         bufferObservation = item.observe(\.isPlaybackLikelyToKeepUp, options: [.new]) { [weak self] item, _ in
             let keepsUp = item.isPlaybackLikelyToKeepUp
             Task { @MainActor [weak self] in
-                self?.isBuffering = !keepsUp
+                guard let self, !self.hasPendingSeek else { return }
+                self.isBuffering = !keepsUp
             }
         }
 
@@ -247,9 +270,9 @@ final class EmbeddedPlayerModel {
             player.pause()
         } else {
             player.play()
-            player.rate = rate
         }
         isPlaying.toggle()
+        if isPlaying { applyRate() }
         scheduleControlsHide()
     }
 
@@ -276,11 +299,17 @@ final class EmbeddedPlayerModel {
     }
 
     func setRate(_ newRate: Float) {
-        // The enhanced picture is composed frame by frame, so the explainer caps
-        // the speed at 1.5x; honour that rather than dropping frames.
-        rate = isEnhanced ? min(newRate, 1.5) : newRate
-        if isPlaying { player.rate = rate }
+        rate = newRate
+        applyRate()
         scheduleControlsHide()
+    }
+
+    /// `play()` resets the rate to `defaultRate`, and AVPlayer calls it itself
+    /// when a stall clears -- so setting `rate` alone let the speed fall back to
+    /// 1x on its own. Both are set, which is what makes a chosen speed stick.
+    private func applyRate() {
+        player.defaultRate = rate
+        if isPlaying { player.rate = rate }
     }
 
     func setQuality(_ newQuality: VideoQuality) {
@@ -294,21 +323,38 @@ final class EmbeddedPlayerModel {
         }
 
         // Its own playlist, so the item is replaced and the position carried
-        // over -- otherwise changing quality restarts the episode.
-        let resume = player.currentTime()
-        let wasPlaying = isPlaying
+        // over. The seek has to wait for the new item to be ready -- seeking a
+        // fresh item before that silently lands wherever it can.
+        pendingSeek = player.currentTime()
+        resumeAfterSeek = isPlaying
         isBuffering = true
+        player.pause()
         detachObservations()
         install(url)
-        Task { [weak self] in
-            guard let self else { return }
-            await self.player.seek(to: resume)
-            if wasPlaying {
-                self.player.play()
-                self.player.rate = self.rate
-            }
-        }
         scheduleControlsHide()
+    }
+
+    /// Puts the new playlist back at the position the old one was at.
+    ///
+    /// The tolerances are both zero on purpose. A default seek is allowed to
+    /// land on the nearest segment boundary, which on an HLS stream is several
+    /// seconds earlier -- so changing quality visibly rewound the episode.
+    /// Exact seeking takes longer and is what the buffering spinner is for.
+    private func finishQualitySwitch() async {
+        guard let target = pendingSeek else { return }
+        pendingSeek = nil
+
+        await player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        position = target.seconds.isFinite ? target.seconds : position
+        scrubPosition = position
+        isBuffering = false
+
+        if resumeAfterSeek {
+            isPlaying = true
+            player.play()
+            applyRate()
+        }
+        resumeAfterSeek = false
     }
 
     /// Reads the rungs off the asset. An HLS playlist declares variants; a
@@ -353,11 +399,11 @@ final class EmbeddedPlayerModel {
         }
 
         isEnhanced = enabled
-        if enabled {
-            // The explainer caps the speed, because every frame is composed one
-            // at a time rather than handed straight to the display.
-            if rate > 1.5 { setRate(1.5) }
-        }
+        // No speed cap any more. The Android explainer lists one because its GL
+        // effect composed frames on the way through; `EnhancedVideoSurface`
+        // draws whatever the player presents, at display rate, so a higher
+        // playback speed costs it nothing per drawn frame.
+        //
         // `EnhancedVideoSurface` draws the frames while this is on; nothing is
         // set on the item itself, because a video composition cannot touch an
         // HLS stream and HLS is all this player gets.

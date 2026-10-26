@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreGraphics
 import CoreImage
 import MetalKit
 import SwiftUI
@@ -48,7 +49,6 @@ struct EnhancedVideoSurface: UIViewRepresentable {
 
     func updateUIView(_ view: MTKView, context: Context) {
         context.coordinator.isFilling = isFilling
-        context.coordinator.attachToCurrentItem()
     }
 
     static func dismantleUIView(_ view: MTKView, coordinator: Renderer) {
@@ -70,6 +70,11 @@ struct EnhancedVideoSurface: UIViewRepresentable {
         private let context: CIContext?
         private let output: AVPlayerItemVideoOutput
         private weak var attachedItem: AVPlayerItem?
+        /// A quality change replaces the item, and SwiftUI has no reason to
+        /// refresh this view when it does -- so the output has to notice for
+        /// itself, or it keeps pulling from an item the player has let go and
+        /// the picture freezes.
+        private var itemObservation: NSKeyValueObservation?
         /// Kept so a paused picture still redraws; `hasNewPixelBuffer` is false
         /// while nothing is advancing, and without this the screen goes black
         /// the moment the user pauses.
@@ -81,12 +86,30 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             self.onFailure = onFailure
             self.device = MTLCreateSystemDefaultDevice()
             self.queue = device?.makeCommandQueue()
-            self.context = queue.map { CIContext(mtlCommandQueue: $0, options: [.cacheIntermediates: false]) }
+            // The kernel's coefficients and thresholds come from a GLSL effect
+            // that ran on gamma-encoded video texels. Core Image's default
+            // working space is linear, where 0.05 and 0.95 mean something else
+            // entirely and the sharpening overshoots -- so it is pinned to
+            // sRGB, which is also cheaper.
+            let working = CGColorSpace(name: CGColorSpace.sRGB)
+            self.context = queue.map {
+                CIContext(mtlCommandQueue: $0, options: [
+                    .workingColorSpace: working as Any,
+                    .cacheIntermediates: false
+                ])
+            }
             self.output = AVPlayerItemVideoOutput(pixelBufferAttributes: [
                 kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
             ])
             super.init()
-            attachToCurrentItem()
+            itemObservation = player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
+                self?.attachToCurrentItem()
+            }
+        }
+
+        deinit {
+            itemObservation = nil
+            attachedItem?.remove(output)
         }
 
         /// The item is replaced when the user changes quality, so the output has
@@ -100,6 +123,7 @@ struct EnhancedVideoSurface: UIViewRepresentable {
         }
 
         func detach() {
+            itemObservation = nil
             attachedItem?.remove(output)
             attachedItem = nil
             lastBuffer = nil

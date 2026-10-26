@@ -130,12 +130,17 @@ struct EmbeddedPlayerView: View {
             bottomBar
         }
         .background(
+            // This gradient covers the whole screen, so it -- not the video
+            // underneath -- is what a tap on empty space actually hits. Without
+            // the gesture here the chrome could only be dismissed by waiting.
             LinearGradient(
                 colors: [.black.opacity(0.65), .clear, .black.opacity(0.75)],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
+            .contentShape(.rect)
+            .onTapGesture { model.toggleControls() }
         )
     }
 
@@ -190,8 +195,9 @@ struct EmbeddedPlayerView: View {
                         Text(EmbeddedPlayerModel.label(for: speed))
                     }
                 }
-                // The explainer caps the enhanced picture at 1.5x.
-                .disabled(model.isEnhanced && speed > 1.5)
+                // AVPlayer refuses a rate the stream cannot do, which is
+                // indistinguishable from a menu that does not work.
+                .disabled(!model.canPlayFaster && speed > 1)
             }
         } label: {
             HStack(spacing: 6) {
@@ -355,9 +361,12 @@ struct VideoEnhanceExplainer: View {
                     .foregroundStyle(.secondary)
 
                 VStack(alignment: .leading, spacing: 12) {
-                    limitation("Недоступно масштабирование видео")
-                    limitation("Скорость воспроизведения до 1.5x")
+                    // The Android list also caps the speed at 1.5x and
+                    // disables zoom, because its GL effect composed frames on
+                    // the way through. This one draws what the player presents,
+                    // so neither holds here and claiming them would be wrong.
                     limitation("Повышенный расход батареи")
+                    limitation("Требуется поддержка Metal")
                 }
 
                 Button {

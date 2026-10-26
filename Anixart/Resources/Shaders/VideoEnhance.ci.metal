@@ -182,12 +182,20 @@ extern "C" float4 anixVideoEnhance(
     float refineBias,
     float edgeThreshold,
     float deblurIntensity,
-    float sharpeningStrength
+    float sharpeningStrength,
+    coreimage::destination dest
 ) {
-    // The GLSL works in normalised coordinates with uTexelSize = 1/size; a Core
-    // Image sampler is already in source pixels, so one texel is one unit.
-    float2 pos = src.coord();
-    float2 d = float2(1.0, 1.0);
+    // The GLSL offsets by uTexelSize = 1/size. A Core Image sampler's space is
+    // not the pixel grid, so guessing at the step is how this went wrong the
+    // first time: every neighbour landed a whole image away and came back as
+    // the clamped edge, which is what produced the artefacts. Ask Core Image
+    // for the mapping instead -- one destination pixel, expressed in sampler
+    // space, is correct whatever that space turns out to be.
+    float2 dc = dest.coord();
+    float2 pos = src.transform(dc);
+    // abs() because the transform may flip an axis; the kernel samples both
+    // +d and -d, so the sign carries no information.
+    float2 d = abs(src.transform(dc + float2(1.0, 1.0)) - pos);
 
     float4 originalColor = src.sample(pos);
     float4 deblurred = directionalDeblur(
