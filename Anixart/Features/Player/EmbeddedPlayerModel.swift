@@ -4,6 +4,7 @@ import Foundation
 import Observation
 import UIKit
 import os
+import AnixartKit
 
 /// Quality as the Android dialog lists it. Anixart hands over one URL per
 /// episode, so for an HLS stream this picks a variant by capping the bitrate,
