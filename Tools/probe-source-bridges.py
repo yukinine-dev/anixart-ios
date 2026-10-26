@@ -53,6 +53,24 @@ def anixart(path: str, body: dict | None = None):
         return None
 
 
+def libria(release_id: str) -> None:
+    """The id in a libria.fun URL should be AniLibria's own release id."""
+    status, content_type, body = get(f"https://anilibria.top/api/v1/anime/releases/{release_id}")
+    print(f"      anilibria releases/{release_id}: {status} {content_type}")
+    if status != 200 or not body:
+        return
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        print("      not JSON")
+        return
+    name = data.get("name") or {}
+    episodes = data.get("episodes") or []
+    rungs = sorted(k for k in (episodes[0] if episodes else {}) if k.startswith("hls_")
+                   and (episodes[0] if episodes else {}).get(k))
+    print(f"      {name.get('main')!r} ({data.get('year')}), {len(episodes)} episodes, first offers {rungs}")
+
+
 def rutube(video_id: str) -> None:
     """RuTube publishes play options, which name the HLS playlist directly."""
     status, content_type, body = get(f"https://rutube.ru/api/play/options/{video_id}/?no_404=true")
@@ -120,6 +138,15 @@ def main() -> int:
         print(f"    path  {parsed.path}")
         print(f"    query {query}")
         print(f"    e.g.  {url}")
+
+        if "libria" in host:
+            # Both the hosting Anixart calls Libria and the one it calls Liberty
+            # sit on this host, so one bridge covers both -- if the id means the
+            # same thing for each.
+            ident = urllib.parse.parse_qs(parsed.query).get("id", [""])[0]
+            print(f"    libria id {ident}")
+            if ident:
+                libria(ident)
 
         if "rutube" in host:
             # The id is the last path component for rutube.ru/play/embed/<id>.

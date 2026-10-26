@@ -329,29 +329,6 @@ jobs:
             --predicate 'subsystem == "app.anixart.client"' \
             --last 10m --style compact 2>/dev/null || echo "(no entries)"
 
-      # Compiling the player says nothing about whether a stream is found or
-      # whether AVFoundation can open it. This reports both, as a warning rather
-      # than a failure: whether a third-party service answers a GitHub runner is
-      # not this app's correctness.
-      - name: What the player found
-        if: always()
-        run: |
-          entries=$(xcrun simctl spawn "$UDID" log show \
-            --predicate 'subsystem == "app.anixart.client"' \
-            --last 10m --style compact 2>/dev/null || true)
-
-          echo "$entries" | grep 'smoke player:' || echo "::warning::the player smoke screen logged nothing"
-          if echo "$entries" | grep -q 'smoke player: stream=yes'; then
-            echo "a stream was found"
-          else
-            echo "::warning::no hosting of the test release handed over a stream"
-          fi
-          if echo "$entries" | grep -q 'playback ready'; then
-            echo "$entries" | grep 'playback ready'
-          else
-            echo "::warning::AVFoundation never reported the stream ready to play"
-          fi
-
       # A screen that renders its error state still leaves the process alive, so
       # the launch check alone would call a decode failure a pass.
       - name: Fail on a decode failure
@@ -379,6 +356,29 @@ jobs:
           name: simulator-screenshot
           path: "*.png"
           if-no-files-found: warn
+
+      # Compiling the player says nothing about whether a stream is found or
+      # whether AVFoundation can open it. This reports both, as a warning rather
+      # than a failure: whether a third-party service answers a GitHub runner is
+      # not this app's correctness.
+      - name: What the player found
+        if: always()
+        run: |
+          entries=$(xcrun simctl spawn "$UDID" log show \
+            --predicate 'subsystem == "app.anixart.client"' \
+            --last 10m --style compact 2>/dev/null || true)
+
+          echo "$entries" | grep 'smoke player:' || echo "::warning::the player smoke screen logged nothing"
+          if echo "$entries" | grep -q 'smoke player: stream=yes'; then
+            echo "a stream was found"
+          else
+            echo "::warning::no hosting of the test release handed over a stream"
+          fi
+          if echo "$entries" | grep -q 'playback ready'; then
+            echo "$entries" | grep 'playback ready'
+          else
+            echo "::warning::AVFoundation never reported the stream ready to play"
+          fi
 
   ipa:
     name: Unsigned IPA

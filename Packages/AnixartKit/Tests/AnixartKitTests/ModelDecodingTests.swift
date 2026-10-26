@@ -73,6 +73,30 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(second.resumePosition), 435, accuracy: 0.001)
     }
 
+    /// Some `url` rows hold the middle of an iframe tag rather than a URL. The
+    /// CI probe found Sibnet episodes stored with the closing quote and the
+    /// following attributes still attached, and `URL(string:)` rejects that, so
+    /// those episodes looked as if they had no video at all.
+    func testEpisodeURLSurvivesIframeLeftovers() throws {
+        func url(_ raw: String?) -> URL? {
+            var episode = Episode()
+            episode.url = raw
+            return episode.playbackURL
+        }
+
+        XCTAssertEqual(
+            url("https://video.sibnet.ru/shell.php?videoid=2882842\" frameborder=\"0\" scrolling=\"no"),
+            URL(string: "https://video.sibnet.ru/shell.php?videoid=2882842")
+        )
+        XCTAssertEqual(
+            url("https://anixart.libria.fun/public/iframe.php?id=9307&ep=1"),
+            URL(string: "https://anixart.libria.fun/public/iframe.php?id=9307&ep=1")
+        )
+        XCTAssertNil(url(nil))
+        XCTAssertNil(url(""))
+        XCTAssertNil(url("\" frameborder=\"0\""))
+    }
+
     func testDecodesPolymorphicNotificationsAndToleratesUnknownKind() throws {
         let page = try Fixture.decode(PageableResponse<AnixartNotification>.self, from: "notifications")
         XCTAssertEqual(page.items.count, 3)

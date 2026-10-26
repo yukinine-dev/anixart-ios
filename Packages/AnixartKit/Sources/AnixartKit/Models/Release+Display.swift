@@ -137,9 +137,20 @@ extension Episode {
     /// video file, which decides whether it goes to `AVPlayer` or a web view.
     public var isEmbed: Bool { iframe ?? false }
 
+    /// The episode's URL, cleaned up.
+    ///
+    /// Some rows do not hold a URL but the middle of an iframe tag -- the CI
+    /// probe found Sibnet episodes stored as
+    /// `https://video.sibnet.ru/shell.php?videoid=2882842" frameborder="0" scrolling="no`.
+    /// `URL(string:)` rejects that outright, so those episodes looked as if they
+    /// had no URL at all. Cutting at the attribute quote recovers them.
     public var playbackURL: URL? {
         guard let url, !url.isEmpty else { return nil }
-        return URL(string: url)
+        let cleaned = url
+            .prefix { $0 != "\"" && $0 != "'" && $0 != "<" && !$0.isWhitespace }
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return nil }
+        return URL(string: cleaned)
     }
 
     /// Where to resume from, or `nil` when there is nothing to resume.
