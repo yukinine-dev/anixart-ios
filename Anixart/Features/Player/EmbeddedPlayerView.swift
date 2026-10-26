@@ -51,6 +51,20 @@ struct EmbeddedPlayerView: View {
                     .padding()
             }
 
+            if let note = model.enhancementNote {
+                Text(note)
+                    .font(.ax(.subheadline))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(.black.opacity(0.7), in: Capsule())
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 70)
+                    .task {
+                        try? await Task.sleep(for: .seconds(3))
+                        model.dismissEnhancementNote()
+                    }
+            }
+
             if let seek = model.seekFeedback {
                 Text(seek)
                     .font(.ax(.title3, .medium))
@@ -157,13 +171,20 @@ struct EmbeddedPlayerView: View {
 
     private var qualityMenu: some View {
         Menu {
-            Picker("Качество", selection: Binding(
-                get: { model.quality },
-                set: { model.setQuality($0) }
-            )) {
-                ForEach(VideoQuality.allCases) { quality in
-                    Text(quality.title).tag(quality)
+            // Only what the stream actually offers. A progressive file has a
+            // single encode, so there is nothing to pick and the menu just
+            // reports its resolution.
+            if model.qualities.count > 1 {
+                Picker("Качество", selection: Binding(
+                    get: { model.quality },
+                    set: { model.setQuality($0) }
+                )) {
+                    ForEach(model.qualities) { quality in
+                        Text(quality.title).tag(quality)
+                    }
                 }
+            } else {
+                Text("Качество: \(model.quality.title)")
             }
 
             if VideoEnhanceFilter.isAvailable {

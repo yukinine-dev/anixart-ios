@@ -6,33 +6,39 @@ import UIKit
 import os
 import AnixartKit
 
-/// Quality as the Android dialog lists it. Anixart hands over one URL per
-/// episode, so for an HLS stream this picks a variant by capping the bitrate,
-/// and for a single progressive file only "Авто" is meaningful.
-enum VideoQuality: String, CaseIterable, Identifiable, Sendable {
-    case auto, p360, p480, p720, p1080
+/// One rung in the quality menu, built from what the stream actually offers
+/// rather than from a fixed list.
+///
+/// An HLS playlist declares its variants, so those become the rungs. A
+/// progressive file is a single encode with nothing to switch between, so it
+/// contributes one entry naming its own resolution.
+struct VideoQuality: Identifiable, Hashable, Sendable {
+    let id: String
+    let title: String
+    /// Ceiling handed to AVPlayer; `0` lets it choose.
+    let peakBitRate: Double
 
-    var id: String { rawValue }
+    static let auto = VideoQuality(id: "auto", title: "Авто", peakBitRate: 0)
 
-    var title: String {
-        switch self {
-        case .auto: return "Авто"
-        case .p360: return "360p"
-        case .p480: return "480p"
-        case .p720: return "720p"
-        case .p1080: return "1080p"
+    /// "1080p" from a variant's presentation size, falling back to its bitrate
+    /// when the playlist does not declare one.
+    init(variant: AVAssetVariant) {
+        let height = variant.videoAttributes?.presentationSize.height ?? 0
+        let bitRate = variant.peakBitRate ?? variant.averageBitRate ?? 0
+        self.peakBitRate = bitRate
+        if height > 0 {
+            self.title = "\(Int(height))p"
+            self.id = "h\(Int(height))"
+        } else {
+            self.title = String(format: "%.1f Мбит/с", bitRate / 1_000_000)
+            self.id = "b\(Int(bitRate))"
         }
     }
 
-    /// Rough ceilings per rung, in bits per second; `0` means no cap.
-    var peakBitRate: Double {
-        switch self {
-        case .auto: return 0
-        case .p360: return 800_000
-        case .p480: return 1_500_000
-        case .p720: return 3_000_000
-        case .p1080: return 6_000_000
-        }
+    init(id: String, title: String, peakBitRate: Double) {
+        self.id = id
+        self.title = title
+        self.peakBitRate = peakBitRate
     }
 }
 
@@ -57,6 +63,12 @@ final class EmbeddedPlayerModel {
     private(set) var position: TimeInterval = 0
     private(set) var rate: Float = 1
     private(set) var quality: VideoQuality = .auto
+    /// What this stream actually offers. One entry means there is nothing to
+    /// choose, and the view hides the menu rather than pretending otherwise.
+    private(set) var qualities: [VideoQuality] = [.auto]
+    /// Set when the enhancement could not be applied, so the toggle silently
+    /// turning itself off is explained.
+    private(set) var enhancementNote: String?
     private(set) var isEnhanced = false
     private(set) var isLocked = false
     private(set) var areControlsVisible = true
@@ -112,6 +124,8 @@ final class EmbeddedPlayerModel {
 
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
+
+        await loadQualities(from: asset)
 
         if let startAt, startAt > 1 {
             await player.seek(to: CMTime(seconds: startAt, preferredTimescale: 600))
@@ -238,6 +252,38 @@ final class EmbeddedPlayerModel {
         scheduleControlsHide()
     }
 
+    /// Reads the rungs off the asset. An HLS playlist declares variants; a
+    /// progressive file has none, so its own resolution is the only entry and
+    /// the menu becomes a label.
+    private func loadQualities(from asset: AVURLAsset) async {
+        if let variants = try? await asset.load(.variants), !variants.isEmpty {
+            var rungs = variants.map(VideoQuality.init(variant:))
+            // Several variants can share a height (different codecs); keep the
+            // highest bitrate of each and sort tallest first.
+            rungs = Dictionary(grouping: rungs, by: \.id)
+                .compactMap { $0.value.max(by: { $0.peakBitRate < $1.peakBitRate }) }
+                .sorted { $0.peakBitRate > $1.peakBitRate }
+            qualities = [.auto] + rungs
+            quality = .auto
+            return
+        }
+
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first,
+              let size = try? await track.load(.naturalSize)
+        else {
+            qualities = [.auto]
+            return
+        }
+        let height = Int(abs(size.height))
+        let single = VideoQuality(id: "native", title: height > 0 ? "\(height)p" : "Исходное", peakBitRate: 0)
+        qualities = [single]
+        quality = single
+    }
+
+    func dismissEnhancementNote() {
+        enhancementNote = nil
+    }
+
     func setEnhancement(_ enabled: Bool) {
         guard enabled != isEnhanced else { return }
         isEnhanced = enabled
@@ -254,6 +300,9 @@ final class EmbeddedPlayerModel {
                     // than leaving a toggle on that changes nothing.
                     Self.log.notice("enhancement unavailable for this stream")
                     self.isEnhanced = false
+                    self.enhancementNote = VideoEnhanceFilter.isAvailable
+                        ? "Улучшение недоступно для этого потока"
+                        : "Улучшение недоступно в этой сборке"
                 }
                 item.videoComposition = composition
             }

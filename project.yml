@@ -51,11 +51,14 @@ targets:
         # Playback continues when the screen locks, as in the Android app.
         UIBackgroundModes:
           - audio
-        # Several video hostings still serve their player page or its assets over
-        # plain HTTP. This allows it inside the embedded web view only; the API
-        # itself stays HTTPS-only.
+        # Several video hostings still serve over plain HTTP. The web-content
+        # exception covers the web player's WKWebView; AVFoundation is not
+        # covered by it, which is why direct streams silently played nothing in
+        # the built-in player, so media gets its own exception. The API itself
+        # stays HTTPS-only -- neither key relaxes ordinary URLSession traffic.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInWebContent: true
+          NSAllowsArbitraryLoadsForMedia: true
         ITSAppUsesNonExemptEncryption: false
         # Roboto (Apache-2.0) matches the Android app, which styles almost every
         # text appearance as sans-serif-medium.
