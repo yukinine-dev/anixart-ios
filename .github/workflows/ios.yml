@@ -115,7 +115,9 @@ jobs:
         working-directory: Packages/AnixartKit
         env:
           ANIXART_LIVE_DIR: ${{ steps.fetch.outputs.dir }}
-        run: swift test --filter LiveResponseTests
+        run: |
+          set -o pipefail
+          swift test --filter LiveResponseTests 2>&1 | tee "$RUNNER_TEMP/decode.log"
 
       # The embedded and external players can only play a direct URL, so whether
       # they are reachable at all depends on the mix the catalogue returns. One
@@ -141,6 +143,12 @@ jobs:
         run: |
           python3 Tools/probe-libria-bridge.py "Киберпанк: Бегущие по краю"
           python3 Tools/probe-libria-bridge.py "Ванпанчмен"
+
+      # The compile output buries what this job is for, and the logs are only
+      # readable from the end. This repeats the findings where they can be read.
+      - name: What the live responses said
+        if: always()
+        run: grep '^live ' "$RUNNER_TEMP/decode.log" || echo "no decode summary"
 
       # Keeps the responses for the next round of model work; they are public
       # API reads with no token attached.

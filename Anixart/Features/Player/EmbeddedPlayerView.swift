@@ -39,6 +39,22 @@ struct EmbeddedPlayerView: View {
                 onLayerReady: { model.adopt(playerLayer: $0) }
             )
             .ignoresSafeArea()
+
+            // Over the player layer, not instead of it: the layer keeps
+            // decoding, keeps the audio and keeps picture in picture working.
+            if model.isEnhanced {
+                EnhancedVideoSurface(
+                    player: model.player,
+                    isFilling: model.isFilling,
+                    onFailure: { model.reportEnhancementFailure($0) }
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            }
+
+            Color.clear
+                .contentShape(.rect)
+                .ignoresSafeArea()
                 .onTapGesture { model.toggleControls() }
 
             if model.isBuffering {

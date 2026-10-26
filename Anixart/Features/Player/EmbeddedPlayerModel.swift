@@ -342,30 +342,31 @@ final class EmbeddedPlayerModel {
 
     func setEnhancement(_ enabled: Bool) {
         guard enabled != isEnhanced else { return }
-        isEnhanced = enabled
 
-        if enabled {
-            isFilling = false
-            if rate > 1.5 { setRate(1.5) }
-            Task { [weak self] in
-                guard let self, let asset = self.asset, let item = self.player.currentItem else { return }
-                let composition = await VideoEnhanceFilter.videoComposition(for: asset)
-                guard self.isEnhanced else { return }
-                if composition == nil {
-                    // Streamed assets have no composable tracks; say so rather
-                    // than leaving a toggle on that changes nothing.
-                    Self.log.notice("enhancement unavailable for this stream")
-                    self.isEnhanced = false
-                    self.enhancementNote = VideoEnhanceFilter.isAvailable
-                        ? "Улучшение недоступно для этого потока"
-                        : "Улучшение недоступно в этой сборке"
-                }
-                item.videoComposition = composition
-            }
-        } else {
-            player.currentItem?.videoComposition = nil
+        if enabled, !VideoEnhanceFilter.isAvailable {
+            enhancementNote = "Улучшение недоступно в этой сборке"
+            scheduleControlsHide()
+            return
         }
+
+        isEnhanced = enabled
+        if enabled {
+            // The explainer caps the speed, because every frame is composed one
+            // at a time rather than handed straight to the display.
+            if rate > 1.5 { setRate(1.5) }
+        }
+        // `EnhancedVideoSurface` draws the frames while this is on; nothing is
+        // set on the item itself, because a video composition cannot touch an
+        // HLS stream and HLS is all this player gets.
         scheduleControlsHide()
+    }
+
+    /// Called by the surface when it cannot draw at all, so the toggle does not
+    /// stay on over a black screen.
+    func reportEnhancementFailure(_ message: String) {
+        guard isEnhanced else { return }
+        isEnhanced = false
+        enhancementNote = message
     }
 
     // MARK: - Chrome
