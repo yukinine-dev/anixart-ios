@@ -156,11 +156,8 @@ final class EpisodePickerViewModel {
                             sort: 0
                         )
                     )
-                    let episodes = response?.episodes ?? []
-                    // No episodes says nothing about the hosting, so leave it
-                    // unclassified rather than recording a false negative.
-                    guard !episodes.isEmpty else { continue }
-                    hostingGivesStream[name] = episodes.contains { !$0.isEmbed }
+                    guard let url = response?.episodes?.compactMap(\.playbackURL).first else { continue }
+                    hostingGivesStream[name] = await StreamProbe.isPlayable(url)
                 }
                 if hostingGivesStream[name] == true {
                     playableTypeIDs.insert(typeID)
@@ -191,11 +188,10 @@ final class EpisodePickerViewModel {
             let loaded = response.sources ?? []
             sources = loaded
             await loadEverySource(type: type, sources: loaded)
+            await probeSources(loaded)
 
-            // Prefer a hosting that hands over a real stream. Taking the first
-            // one blindly meant the player picker looked at Kodik, found a
-            // player page, and told the user no direct playback existed -- while
-            // the same release had a hosting one chip away that does.
+            // Prefer a hosting the built-in player can actually open, when one
+            // exists at all.
             let preferred = loaded.first(where: hasDirectStream) ?? loaded.first
             if let preferred { await select(source: preferred) }
         } catch {
@@ -213,10 +209,15 @@ final class EpisodePickerViewModel {
         }
     }
 
-    /// True when this hosting gives URLs AVFoundation can play, rather than its
-    /// own player page.
+    /// Hostings whose URLs turned out to be something AVFoundation can open.
+    ///
+    /// Checked by fetching the URL, not by reading `Episode.iframe`: that flag
+    /// does not mean what it looks like -- Libria's "non-iframe" URL is an HTML
+    /// player page.
+    private(set) var playableSourceIDs: Set<Int> = []
+
     func hasDirectStream(_ source: EpisodeSource) -> Bool {
-        (episodesBySource[source.id] ?? []).contains { !$0.isEmbed }
+        playableSourceIDs.contains(source.id)
     }
 
     /// The hosting to point the user at when the current one is a page only.
@@ -248,6 +249,16 @@ final class EpisodePickerViewModel {
             return result
         }
         episodesBySource = loaded
+    }
+
+    /// Asks each hosting's first episode URL what it really serves.
+    private func probeSources(_ sources: [EpisodeSource]) async {
+        var playable: Set<Int> = []
+        for source in sources {
+            guard let url = episodesBySource[source.id]?.compactMap(\.playbackURL).first else { continue }
+            if await StreamProbe.isPlayable(url) { playable.insert(source.id) }
+        }
+        playableSourceIDs = playable
     }
 
     private func sorted(_ episodes: [Episode]) -> [Episode] {

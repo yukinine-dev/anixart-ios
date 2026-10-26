@@ -215,6 +215,7 @@ struct EpisodeListView: View {
                     .episodePlayback(
                         launcher,
                         releaseTitle: model.releaseTitle,
+                        supportsDirectPlayback: model.selectedSource.map(model.hasDirectStream) ?? false,
                         alternativeSourceName: model.sourceWithDirectStream.map(\.displayName),
                         onProgress: { episode, seconds in
                             Task { await model.saveProgress(for: episode, seconds: seconds) }

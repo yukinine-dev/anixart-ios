@@ -101,8 +101,8 @@ struct PlayerPickerSheet: View {
 
     private var unavailableReason: String {
         if let alternativeSourceName {
-            return "Источник отдаёт только страницу плеера. Прямой поток есть у источника «\(alternativeSourceName)» — закройте и выберите его."
+            return "Источник отдаёт страницу плеера, а не видео. Поток есть у источника «\(alternativeSourceName)» — закройте и выберите его."
         }
-        return "Источник отдаёт только страницу плеера, прямого потока у этой озвучки нет"
+        return "Источник отдаёт страницу плеера, а не видео — его может показать только Веб-плеер"
     }
 }

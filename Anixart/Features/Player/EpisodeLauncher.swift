@@ -61,6 +61,7 @@ extension View {
     func episodePlayback(
         _ launcher: EpisodeLauncher,
         releaseTitle: String,
+        supportsDirectPlayback: Bool,
         alternativeSourceName: String? = nil,
         onProgress: @escaping (Episode, TimeInterval) -> Void,
         onFinished: @escaping (Episode) -> Void
@@ -68,6 +69,7 @@ extension View {
         modifier(EpisodePlaybackModifier(
             launcher: launcher,
             releaseTitle: releaseTitle,
+            supportsDirectPlayback: supportsDirectPlayback,
             alternativeSourceName: alternativeSourceName,
             onProgress: onProgress,
             onFinished: onFinished
@@ -79,6 +81,9 @@ extension View {
 struct EpisodePlaybackModifier: ViewModifier {
     let launcher: EpisodeLauncher
     let releaseTitle: String
+    /// Whether this hosting's URLs turned out to be playable, established by
+    /// fetching one rather than by reading `Episode.iframe`.
+    let supportsDirectPlayback: Bool
     /// A hosting of the same voice-over that hands over a real stream, if any.
     let alternativeSourceName: String?
     let onProgress: (Episode, TimeInterval) -> Void
@@ -106,7 +111,7 @@ struct EpisodePlaybackModifier: ViewModifier {
             )) {
                 PlayerPickerSheet(
                     preferences: launcher.preferences,
-                    supportsDirectPlayback: !(launcher.pendingEpisode?.isEmbed ?? true),
+                    supportsDirectPlayback: supportsDirectPlayback,
                     alternativeSourceName: alternativeSourceName,
                     onContinue: { launcher.choose($0) }
                 )
@@ -122,7 +127,8 @@ struct EpisodePlaybackModifier: ViewModifier {
                         preferences: launcher.preferences,
                         onProgress: { onProgress(episode, $0) },
                         onFinished: { onFinished(episode) },
-                        choice: choice
+                        choice: choice,
+                        supportsDirectPlayback: supportsDirectPlayback
                     )
                 }
             }

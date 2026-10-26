@@ -23,6 +23,8 @@ struct PlayerScreen: View {
 
     /// Decided before this screen appears, by `EpisodeLauncher`.
     let choice: PlayerChoice
+    /// Established by fetching the URL, not by reading `Episode.iframe`.
+    let supportsDirectPlayback: Bool
 
     var body: some View {
         Group {
@@ -56,10 +58,11 @@ struct PlayerScreen: View {
         .background(.black)
     }
 
-    /// The embedded and external players need a stream; an `iframe` episode only
-    /// has a page, so those two fall back to the web player.
+    /// The embedded and external players need a stream. Where the hosting
+    /// serves its own page instead -- which on this API is everywhere so far --
+    /// only the web player can show it.
     private func resolved(for url: URL) -> PlayerChoice {
-        episode.isEmbed ? .web : choice
+        supportsDirectPlayback ? choice : .web
     }
 
     private var closeButton: some View {
