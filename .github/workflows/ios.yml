@@ -111,6 +111,12 @@ jobs:
       - name: Measure how many episodes carry a real stream
         run: python3 Tools/probe-stream-shapes.py --releases 8
 
+      # `iframe: false` says the API gave a URL, not that AVFoundation can open
+      # what is behind it. This reports what the hostings actually serve.
+      - name: Check what the direct URLs really serve
+        run: |
+          python3 Tools/probe-stream-playability.py "Киберпанк: Бегущие по краю"
+
       - name: Decode them with AnixartKit
         working-directory: Packages/AnixartKit
         env:
