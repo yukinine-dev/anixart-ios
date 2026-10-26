@@ -61,12 +61,14 @@ extension View {
     func episodePlayback(
         _ launcher: EpisodeLauncher,
         releaseTitle: String,
+        alternativeSourceName: String? = nil,
         onProgress: @escaping (Episode, TimeInterval) -> Void,
         onFinished: @escaping (Episode) -> Void
     ) -> some View {
         modifier(EpisodePlaybackModifier(
             launcher: launcher,
             releaseTitle: releaseTitle,
+            alternativeSourceName: alternativeSourceName,
             onProgress: onProgress,
             onFinished: onFinished
         ))
@@ -77,6 +79,8 @@ extension View {
 struct EpisodePlaybackModifier: ViewModifier {
     let launcher: EpisodeLauncher
     let releaseTitle: String
+    /// A hosting of the same voice-over that hands over a real stream, if any.
+    let alternativeSourceName: String?
     let onProgress: (Episode, TimeInterval) -> Void
     let onFinished: (Episode) -> Void
 
@@ -103,6 +107,7 @@ struct EpisodePlaybackModifier: ViewModifier {
                 PlayerPickerSheet(
                     preferences: launcher.preferences,
                     supportsDirectPlayback: !(launcher.pendingEpisode?.isEmbed ?? true),
+                    alternativeSourceName: alternativeSourceName,
                     onContinue: { launcher.choose($0) }
                 )
             }

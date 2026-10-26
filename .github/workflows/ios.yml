@@ -109,7 +109,7 @@ jobs:
       # they are reachable at all depends on the mix the catalogue returns. One
       # release says nothing; this walks several.
       - name: Measure how many episodes carry a real stream
-        run: python3 Tools/probe-stream-shapes.py --releases 10
+        run: python3 Tools/probe-stream-shapes.py --releases 8
 
       - name: Decode them with AnixartKit
         working-directory: Packages/AnixartKit

@@ -7,10 +7,12 @@ struct PlayerPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let preferences: PlaybackPreferences
-    /// `nil` when the episode has no direct stream, which the embedded and
-    /// external players both need; that option is then shown as unavailable
-    /// rather than hidden, so the list does not change shape between episodes.
+    /// False when this episode is the hosting's own page, which the embedded and
+    /// external players cannot do anything with.
     let supportsDirectPlayback: Bool
+    /// A hosting of the same voice-over that does hand over a stream, if there
+    /// is one. Naming it beats telling the user playback is simply impossible.
+    let alternativeSourceName: String?
     let onContinue: (PlayerChoice) -> Void
 
     @State private var selection: PlayerChoice = .web
@@ -70,7 +72,7 @@ struct PlayerPickerSheet: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(option.title).font(.ax(.title3, .medium))
-                Text(available ? option.summary : "Этот источник отдаёт только страницу плеера")
+                Text(available ? option.summary : unavailableReason)
                     .font(.ax(.subheadline))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -95,5 +97,12 @@ struct PlayerPickerSheet: View {
     /// stream they can hand to AVFoundation.
     private func isAvailable(_ option: PlayerChoice) -> Bool {
         option == .web || supportsDirectPlayback
+    }
+
+    private var unavailableReason: String {
+        if let alternativeSourceName {
+            return "Источник отдаёт только страницу плеера. Прямой поток есть у источника «\(alternativeSourceName)» — закройте и выберите его."
+        }
+        return "Источник отдаёт только страницу плеера, прямого потока у этой озвучки нет"
     }
 }

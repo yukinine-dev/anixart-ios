@@ -201,6 +201,7 @@ struct EpisodeListView: View {
                     .episodePlayback(
                         launcher,
                         releaseTitle: model.releaseTitle,
+                        alternativeSourceName: model.sourceWithDirectStream.map(\.displayName),
                         onProgress: { episode, seconds in
                             Task { await model.saveProgress(for: episode, seconds: seconds) }
                         },
@@ -277,7 +278,13 @@ struct EpisodeListView: View {
                             Button {
                                 Task { await model.select(source: source) }
                             } label: {
-                                Text(source.displayName)
+                                HStack(spacing: 5) {
+                                    Text(source.displayName)
+                                    // Only these can go to the built-in player.
+                                    if model.hasDirectStream(source) {
+                                        Image(systemName: "play.circle.fill").font(.ax(.caption))
+                                    }
+                                }
                                     .font(.ax(.subheadline, isSelected ? .medium : .regular))
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 9)

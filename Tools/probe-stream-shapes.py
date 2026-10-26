@@ -6,9 +6,11 @@ episode is the hosting's own page, whose stream sits behind that page's token
 handling. Whether those two players are reachable at all therefore depends on
 the mix the catalogue actually returns, and nothing in the port measured it.
 
-This walks a page of the catalogue, and for each release takes every voice-over
-and its first hosting, then counts the episodes by shape. It only reads public
-endpoints, the same ones the app calls.
+This walks a page of the catalogue and, for each release, every voice-over and
+*every* hosting under it, then counts the episodes by shape. Walking every
+hosting is the point: the app used to take the first one blindly, which hid the
+hostings that do hand over a stream. It only reads public endpoints, the same
+ones the app calls.
 
     python3 Tools/probe-stream-shapes.py [--releases N] [--api URL]
 """
@@ -73,19 +75,17 @@ def main() -> int:
 
         for voice in types:
             sources = (get(args.api, f"episode/{release_id}/{voice['id']}") or {}).get("sources") or []
-            if not sources:
-                continue
-            source = sources[0]
-            episodes = (
-                get(args.api, f"episode/{release_id}/{voice['id']}/{source['id']}?sort=0") or {}
-            ).get("episodes") or []
+            for source in sources:
+                episodes = (
+                    get(args.api, f"episode/{release_id}/{voice['id']}/{source['id']}?sort=0") or {}
+                ).get("episodes") or []
 
-            for episode in episodes:
-                shape = "iframe" if episode.get("iframe") else "direct"
-                shapes[shape] += 1
-                per_hosting[(source.get("name") or "?", shape)] += 1
-                if shape == "direct":
-                    direct_here += 1
+                for episode in episodes:
+                    shape = "iframe" if episode.get("iframe") else "direct"
+                    shapes[shape] += 1
+                    per_hosting[(source.get("name") or "?", shape)] += 1
+                    if shape == "direct":
+                        direct_here += 1
 
         if direct_here:
             releases_with_direct += 1
@@ -97,7 +97,7 @@ def main() -> int:
     print(f"episodes: {total}, iframe: {shapes['iframe']}, direct: {shapes['direct']}")
     if total:
         print(f"direct share: {shapes['direct'] / total:.1%}")
-    print(f"releases with at least one direct episode: {releases_with_direct}/{releases_seen}")
+    print(f"releases where some hosting gives a stream: {releases_with_direct}/{releases_seen}")
 
     print("\nby hosting:")
     hostings = sorted({name for name, _ in per_hosting})

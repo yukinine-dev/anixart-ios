@@ -13,6 +13,13 @@ final class EpisodePickerViewModel {
     private(set) var sources: [EpisodeSource] = []
     private(set) var episodes: [Episode] = []
 
+    /// Episodes per hosting, filled once the voice-over's sources are known.
+    ///
+    /// Two reasons to hold them all. Switching hosting becomes instant, and --
+    /// the point -- it is the only way to know which hostings hand over a real
+    /// stream, which decides whether the embedded player can be offered at all.
+    private(set) var episodesBySource: [Int: [Episode]] = [:]
+
     private(set) var selectedType: EpisodeType?
     private(set) var selectedSource: EpisodeSource?
 
@@ -96,7 +103,9 @@ final class EpisodePickerViewModel {
 
     func toggleSortOrder() async {
         sortDescending.toggle()
-        await loadEpisodes()
+        // Order is just the position, so the cached list is re-sorted rather
+        // than refetched.
+        episodes = sorted(episodes)
     }
 
     func select(type: EpisodeType) async {
@@ -104,22 +113,80 @@ final class EpisodePickerViewModel {
         sources = []
         episodes = []
         selectedSource = nil
+        episodesBySource = [:]
+        isLoadingEpisodes = true
         do {
             let response = try await client.send(
                 EpisodeEndpoints.sources(releaseID: release.id, typeID: type.id)
             )
-            sources = response.sources ?? []
-            if let first = sources.first {
-                await select(source: first)
-            }
+            let loaded = response.sources ?? []
+            sources = loaded
+            await loadEverySource(type: type, sources: loaded)
+
+            // Prefer a hosting that hands over a real stream. Taking the first
+            // one blindly meant the player picker looked at Kodik, found a
+            // player page, and told the user no direct playback existed -- while
+            // the same release had a hosting one chip away that does.
+            let preferred = loaded.first(where: hasDirectStream) ?? loaded.first
+            if let preferred { await select(source: preferred) }
         } catch {
             errorMessage = Paginator<Release>.message(for: error)
         }
+        isLoadingEpisodes = false
     }
 
     func select(source: EpisodeSource) async {
         selectedSource = source
-        await loadEpisodes()
+        if let cached = episodesBySource[source.id] {
+            episodes = sorted(cached)
+        } else {
+            await loadEpisodes()
+        }
+    }
+
+    /// True when this hosting gives URLs AVFoundation can play, rather than its
+    /// own player page.
+    func hasDirectStream(_ source: EpisodeSource) -> Bool {
+        (episodesBySource[source.id] ?? []).contains { !$0.isEmbed }
+    }
+
+    /// The hosting to point the user at when the current one is a page only.
+    var sourceWithDirectStream: EpisodeSource? {
+        sources.first(where: hasDirectStream)
+    }
+
+    private func loadEverySource(type: EpisodeType, sources: [EpisodeSource]) async {
+        let client = self.client
+        let releaseID = release.id
+        let sortDescending = self.sortDescending
+
+        let loaded = await withTaskGroup(of: (Int, [Episode]).self) { group in
+            for source in sources {
+                group.addTask {
+                    let response = try? await client.send(
+                        EpisodeEndpoints.episodes(
+                            releaseID: releaseID,
+                            typeID: type.id,
+                            sourceID: source.id,
+                            sort: sortDescending ? 1 : 0
+                        )
+                    )
+                    return (source.id, response?.episodes ?? [])
+                }
+            }
+            var result: [Int: [Episode]] = [:]
+            for await (id, episodes) in group { result[id] = episodes }
+            return result
+        }
+        episodesBySource = loaded
+    }
+
+    private func sorted(_ episodes: [Episode]) -> [Episode] {
+        episodes.sorted {
+            sortDescending
+                ? ($0.position ?? 0) > ($1.position ?? 0)
+                : ($0.position ?? 0) < ($1.position ?? 0)
+        }
     }
 
     func loadEpisodes() async {
@@ -136,6 +203,7 @@ final class EpisodePickerViewModel {
                 )
             )
             episodes = response.episodes ?? []
+            if let source = selectedSource { episodesBySource[source.id] = episodes }
         } catch {
             episodes = []
             errorMessage = Paginator<Release>.message(for: error)
