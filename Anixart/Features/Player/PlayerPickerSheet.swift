@@ -78,8 +78,13 @@ struct PlayerPickerSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background {
+                // Theme.accent is a Color and .quaternary is a hierarchical
+                // style, so the two sides need erasing to one type.
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(selection == option ? Theme.accent : .quaternary, lineWidth: 1)
+                    .stroke(
+                        selection == option ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.quaternary),
+                        lineWidth: 1
+                    )
             }
             .opacity(available ? 1 : 0.45)
         }
