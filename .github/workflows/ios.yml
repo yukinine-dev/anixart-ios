@@ -101,6 +101,13 @@ jobs:
           curl -sS --max-time 30 -X POST -H 'Content-Type: application/json' \
             -d '{"sort":1}' "$API/filter/0" -o "$DIR/filter-page.json" || true
 
+          # The embedded and external players need a direct stream; an iframe
+          # episode only has the hosting's page. This says how often each shows
+          # up, which is what decides whether those two players are reachable.
+          if [ -f "$DIR/episodes-source.json" ]; then
+            python3 -c 'import json,sys; e=json.load(open(sys.argv[1])).get("episodes") or []; i=sum(1 for x in e if x.get("iframe")); print(f"episodes: {len(e)}, iframe: {i}, direct: {len(e)-i}")' "$DIR/episodes-source.json"
+          fi
+
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
           ls -la "$DIR"
 
