@@ -144,6 +144,12 @@ jobs:
           python3 Tools/probe-libria-bridge.py "Киберпанк: Бегущие по краю"
           python3 Tools/probe-libria-bridge.py "Ванпанчмен"
 
+      # One source is not enough: AniLibria does not carry every title. This
+      # looks for other hostings whose URL carries an id their own API would
+      # accept, the way the Libria one does.
+      - name: Look for other id bridges
+        run: python3 Tools/probe-source-bridges.py --releases 12
+
       # The compile output buries what this job is for, and the logs are only
       # readable from the end. This repeats the findings where they can be read.
       - name: What the live responses said
@@ -302,11 +308,13 @@ jobs:
           shoot launch
 
           # `release` opens whatever release/random returns, since this job has no
-          # live release id of its own.
-          for screen in profile release; do
+          # live release id of its own. `player` resolves a real episode and
+          # opens the built-in player on it, so the frame carries video rather
+          # than a screen that merely rendered.
+          for screen in profile release player; do
             xcrun simctl terminate "$UDID" app.anixart.client >/dev/null 2>&1 || true
             xcrun simctl launch "$UDID" app.anixart.client -anixart-screen "$screen" || continue
-            sleep 18
+            if [ "$screen" = player ]; then sleep 30; else sleep 18; fi
             shoot "$screen"
           done
 
@@ -320,6 +328,29 @@ jobs:
           xcrun simctl spawn "$UDID" log show \
             --predicate 'subsystem == "app.anixart.client"' \
             --last 10m --style compact 2>/dev/null || echo "(no entries)"
+
+      # Compiling the player says nothing about whether a stream is found or
+      # whether AVFoundation can open it. This reports both, as a warning rather
+      # than a failure: whether a third-party service answers a GitHub runner is
+      # not this app's correctness.
+      - name: What the player found
+        if: always()
+        run: |
+          entries=$(xcrun simctl spawn "$UDID" log show \
+            --predicate 'subsystem == "app.anixart.client"' \
+            --last 10m --style compact 2>/dev/null || true)
+
+          echo "$entries" | grep 'smoke player:' || echo "::warning::the player smoke screen logged nothing"
+          if echo "$entries" | grep -q 'smoke player: stream=yes'; then
+            echo "a stream was found"
+          else
+            echo "::warning::no hosting of the test release handed over a stream"
+          fi
+          if echo "$entries" | grep -q 'playback ready'; then
+            echo "$entries" | grep 'playback ready'
+          else
+            echo "::warning::AVFoundation never reported the stream ready to play"
+          fi
 
       # A screen that renders its error state still leaves the process alive, so
       # the launch check alone would call a decode failure a pass.

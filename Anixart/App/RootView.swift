@@ -17,6 +17,8 @@ struct RootView: View {
                 NavigationStack { ReleaseDetailView(releaseID: id) }
             case .randomRelease:
                 NavigationStack { RandomReleaseScreen() }
+            case .player(let id):
+                PlayerSmokeScreen(releaseID: id)
             case .profile where env.session.currentProfileID == nil:
                 NavigationStack { SampleProfileScreen() }
             default:
@@ -74,6 +76,9 @@ enum LaunchScreen: Equatable {
     /// `release` with no id: the smoke test does not know a live release id, so
     /// the app asks the server for one.
     case randomRelease
+    /// Resolves an episode and opens the built-in player on it, so the smoke
+    /// test checks playback rather than only that the code compiles.
+    case player(Int)
 
     static let current: LaunchScreen = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -86,9 +91,15 @@ enum LaunchScreen: Equatable {
         case "profile": return .profile
         case "catalog": return .catalog
         case "release": return .randomRelease
+        // «Киберпанк: Бегущие по краю», the release the CI probe showed lists an
+        // AniLibria hosting.
+        case "player": return .player(18846)
         default:
             if value.hasPrefix("release:"), let id = Int(value.dropFirst("release:".count)) {
                 return .release(id)
+            }
+            if value.hasPrefix("player:"), let id = Int(value.dropFirst("player:".count)) {
+                return .player(id)
             }
             return .home
         }

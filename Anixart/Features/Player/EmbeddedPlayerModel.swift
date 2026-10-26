@@ -210,6 +210,9 @@ final class EmbeddedPlayerModel {
                 if status == .readyToPlay {
                     self.duration = seconds.isFinite ? seconds : 0
                     self.isBuffering = false
+                    // The smoke test greps for this: it is the only line that
+                    // says AVFoundation actually opened the stream.
+                    Self.log.notice("playback ready, duration \(Int(self.duration), privacy: .public)s")
                 } else if status == .failed {
                     Self.log.error("playback failed: \(failure ?? "unknown", privacy: .public)")
                     self.isBuffering = false
