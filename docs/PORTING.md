@@ -94,20 +94,54 @@ SwiftUI's font modifiers, so they are set through the appearance proxies in `App
 The APK also bundles `product_sans_medium.ttf` for a single style. Product Sans is Google
 proprietary and is deliberately **not** shipped here.
 
-## Known risks
+## Where the video comes from
 
-**The embedded player is the fragile part.** Kodik, Sibnet and VK Video serve their own player
-pages and check `Referer` and user agent before handing out a stream. `EmbedPlayerView` sends
-the same `Referer` the Android app uses (`https://anixart-app.com`) and a desktop user agent,
-and blocks link navigation so a tap cannot bounce the user to a store page. These pages change
-their anti-embedding behaviour without notice; expect this file to need maintenance. The
-Android app also carries an adblock list (`assets/adblock.txt`) that is not ported.
+**Anixart serves no video.** Measured against the live API in the `probe` job, every hosting it
+lists answers with its own player page: Kodik always, Libria's `iframe: false` URL is an HTML
+page too, and Sibnet's `shell.php` is a 403. `Episode.iframe` says which shape the API used, not
+whether anything is playable — so it must not be used to decide which players to offer. That is
+what `StreamProbe` is for: it fetches the first kilobyte and looks for `ftyp` or `#EXTM3U`.
+
+**So the stream comes from the hosting's own API.** Anixart's Libria URL,
+`anixart.libria.fun/public/iframe.php?id=9307&ep=1`, carries AniLibria's own release id — 9307 is
+the release AniLibria returns for "Киберпанк: Бегущие по краю", 1210 for "Ванпанчмен". So
+`anime/releases/{id}` gives that episode's `hls_480`, `hls_720` and `hls_1080` directly, each a
+real playlist. No title matching and no scraping of anyone's player.
+
+`AnixartKit/Streams` holds that layer: `StreamSource`, `StreamOffer` and `StreamResolver`, with
+`AniLibriaStreamSource` as the only source so far. The app resolves an episode to a
+`PlaybackTarget` (`Anixart/Features/Player/PlaybackTarget.swift`) before the player appears:
+Anixart's own URL when it really is a stream, otherwise a source's, otherwise nothing and only
+the web player is offered.
+
+**The gap is titles AniLibria does not carry.** A Kodik-only release still has no stream, so the
+built-in player is not offered for it and the picker says why. Closing that means another
+source, and the APK's own Kodik parser runs its strings through a decryption routine —
+circumventing that hosting's deliberate access protection, which is a different thing from using
+Anixart's open API, and is deliberately **not** ported.
+
+**Quality comes from the source, not a fixed list.** A source that publishes one playlist per
+quality decides the rungs, so "Ванпанчмен" offers 480p and 720p and no 1080p. Switching replaces
+the player item and carries the position over; there is no bitrate ladder inside these playlists
+to cap. AniLibria's URLs carry `isWithVideoAds=1`, so its own ad segments are part of the stream.
+
+**The web player is still the fragile part.** Kodik, Sibnet and VK Video check `Referer` and user
+agent before handing out a stream. `EmbedPlayerView` sends the same `Referer` the Android app uses
+(`https://anixart-app.com`) and a desktop user agent, and blocks link navigation so a tap cannot
+bounce the user to a store page. These pages change their anti-embedding behaviour without notice;
+expect this file to need maintenance. The Android app also carries an adblock list
+(`assets/adblock.txt`) that is not ported.
+
+## Known risks
 
 **`NSAllowsArbitraryLoadsInWebContent` is on.** Some hostings still serve player assets over
 plain HTTP. It is scoped to web content only — the API itself is HTTPS.
 
 **No local cache.** Every screen fetches on appearance. The Android app has a Room cache; adding
-one here would mean a second model layer, since the DTOs are deliberately all-optional.
+one here would mean a second model layer, since the DTOs are deliberately all-optional. Images are
+the exception: `Anixart/Support/ImageLoader.swift` keeps decoded posters in memory and their bytes
+in a `URLCache` on disk, downsamples to the size actually drawn, and falls back to
+`mirror-static.anixart.tv` when the primary host does not answer.
 
 **`versionCode` is hardcoded to 1050** in `AnixartEnvironment`, matching the Android build this
 was read from. `config/toggles` and `config/urls` both receive it, and the server uses it to

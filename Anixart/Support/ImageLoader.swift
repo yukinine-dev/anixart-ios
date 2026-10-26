@@ -1,3 +1,4 @@
+import AnixartKit
 import ImageIO
 import SwiftUI
 import UIKit
@@ -29,7 +30,9 @@ actor ImageLoader {
         configuration.requestCachePolicy = .returnCacheDataElseLoad
         // The host is slow enough that a stampede makes it slower.
         configuration.httpMaximumConnectionsPerHost = 6
-        configuration.timeoutIntervalForRequest = 20
+        // Short enough that the mirror is tried while the user is still looking
+        // at the screen.
+        configuration.timeoutIntervalForRequest = 12
         return URLSession(configuration: configuration)
     }()
 
@@ -42,20 +45,16 @@ actor ImageLoader {
         decoded.totalCostLimit = 64 * 1024 * 1024
     }
 
-    func image(for url: URL, maxPixelSize: CGFloat) async -> UIImage? {
-        let key = cacheKey(url, maxPixelSize)
+    /// `pixelSize` is the longest edge in pixels, so the caller does the
+    /// point-to-pixel conversion where the display scale is actually known.
+    func image(for url: URL, pixelSize: CGFloat) async -> UIImage? {
+        let key = cacheKey(url, pixelSize)
         if let cached = decoded.object(forKey: key) { return cached }
 
         if let existing = inFlight[url] { return await existing.value }
 
-        let task = Task<UIImage?, Never> { [maxPixelSize] in
-            do {
-                let (data, _) = try await Self.session.data(from: url)
-                return Self.downsample(data, maxPixelSize: maxPixelSize)
-            } catch {
-                Self.log.notice("image failed \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                return nil
-            }
+        let task = Task<UIImage?, Never> { [pixelSize] in
+            await Self.fetch(url, pixelSize: pixelSize)
         }
         inFlight[url] = task
         let image = await task.value
@@ -67,15 +66,37 @@ actor ImageLoader {
         return image
     }
 
-    private func cacheKey(_ url: URL, _ maxPixelSize: CGFloat) -> NSURL {
+    /// The poster host, then its mirror.
+    ///
+    /// `static.anixart.tv` is slow and sometimes unreachable depending on where
+    /// the request comes from, and the API publishes `mirror-static.anixart.tv`
+    /// for exactly that. One host is tried, then the other, rather than both at
+    /// once: a race would double the load on a host that is already struggling.
+    private static func fetch(_ url: URL, pixelSize: CGFloat) async -> UIImage? {
+        let mirror = AnixartURL.mirrored(url)
+        for candidate in (mirror == url ? [url] : [url, mirror]) {
+            do {
+                let (data, response) = try await session.data(from: candidate)
+                if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                    continue
+                }
+                if let image = downsample(data, pixelSize: pixelSize) { return image }
+            } catch {
+                log.notice("image failed \(candidate.host() ?? "?", privacy: .public)\(candidate.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        return nil
+    }
+
+    private func cacheKey(_ url: URL, _ pixelSize: CGFloat) -> NSURL {
         // The same poster is drawn at a few sizes; each gets its own entry so a
         // grid thumbnail is never blown up into a detail header.
-        (URL(string: "\(url.absoluteString)#\(Int(maxPixelSize))") ?? url) as NSURL
+        (URL(string: "\(url.absoluteString)#\(Int(pixelSize))") ?? url) as NSURL
     }
 
     /// Decodes straight to the size that will be drawn. Full-size decoding is
     /// what makes a long list stutter, not the download.
-    private static func downsample(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
+    private static func downsample(_ data: Data, pixelSize: CGFloat) -> UIImage? {
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else { return nil }
 
@@ -83,7 +104,7 @@ actor ImageLoader {
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize * UIScreen.main.scale
+            kCGImageSourceThumbnailMaxPixelSize: pixelSize
         ] as [CFString: Any] as CFDictionary
 
         guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return nil }
@@ -99,6 +120,8 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     var maxPixelSize: CGFloat = 400
     @ViewBuilder var content: (Image) -> Content
     @ViewBuilder var placeholder: () -> Placeholder
+
+    @Environment(\.displayScale) private var displayScale
 
     @State private var image: UIImage?
     @State private var loadedURL: URL?
@@ -117,7 +140,8 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 return
             }
             guard url != loadedURL else { return }
-            let loaded = await ImageLoader.shared.image(for: url, maxPixelSize: maxPixelSize)
+            let pixels = maxPixelSize * max(displayScale, 1)
+            let loaded = await ImageLoader.shared.image(for: url, pixelSize: pixels)
             guard !Task.isCancelled else { return }
             image = loaded
             loadedURL = url
