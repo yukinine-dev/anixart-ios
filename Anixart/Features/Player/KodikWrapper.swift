@@ -12,6 +12,18 @@ import AnixartKit
 /// Opening the episode URL directly is what produced "данной страницы не
 /// существует": that page is not meant to be opened by a client, and the advert
 /// callback belongs to the wrapper, not to it.
+/// Measured from the live `config/toggles` with the right `version_code`:
+///
+///     kodikAdIframeUrl   = "https://anixmirai.com/iframe/ad?url="
+///     kodikIframeAd      = true
+///     kodikVideoLinksUrl = "https://kodikplayer.com/get-video-info"
+///     iframeEmbedUrl     = "https://anixmirai.com/iframe?url="
+///
+/// So the wrapper lives on `anixmirai.com`, which is also the `staticDomain` --
+/// nowhere near the `anixart-app.com` paths I had been guessing at. The same
+/// response carries `impMessageText`: "Сейчас наблюдаются временные проблемы с
+/// работой видео из источника Kodik на территории РФ." Anixart says it itself,
+/// which is worth remembering before blaming this code for a dead Kodik stream.
 enum KodikWrapper {
     /// Hostings this applies to, as `Parser.KODIK_URL` lists them.
     static let hosts = ["kodik.cc", "kodik.info", "aniqit.com", "kodikplayer.com"]

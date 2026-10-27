@@ -131,6 +131,31 @@ circumventing the hosting's protection. That was wrong twice over, and the corre
   four regexes, prefixing `https:` on a protocol-relative one and rewriting the host with two
   string replaces. Ordinary reading of a public page.
 
+**The Kodik path, from the live `config/toggles`.** Everything it needs is server-side, and the
+model for it (`TogglesResponse`) was generated from the APK at the start of this port — but
+`loadRemoteConfiguration()` only fetched `config/urls`, so these were always nil, and
+`versionCode` was 1050 instead of the manifest's 26101718, which is the field the server gates on.
+With both fixed:
+
+    kodikAdIframeUrl   = "https://anixmirai.com/iframe/ad?url="
+    kodikIframeAd      = true
+    kodikVideoLinksUrl = "https://kodikplayer.com/get-video-info"
+    iframeEmbedUrl     = "https://anixmirai.com/iframe?url="
+    staticDomain       = "anixmirai.com"
+    sibnetUserAgent    = "Mozilla/5.0 (Linux; Android 10; MAR-LX1M) … Chrome/86 …"
+    sibnetRandUserAgent = true
+    lastVersionCode    = 26101718
+    impMessageText     = "Сейчас наблюдаются временные проблемы с работой видео из источника
+                          Kodik на территории РФ."
+
+So the wrapper is on `anixmirai.com`, not `anixart-app.com` where twelve guessed paths all
+returned the same catch-all. `KodikWrapper` builds
+`kodikAdIframeUrl + urlencode(scheme://host/path) + "&v=" + versionCode`, which is what
+`KodikAdActivity` loads, and the web player now goes through it too — a hosting's page is not
+meant to be opened directly. `sibnetUserAgent` explains Sibnet's 403: the server tells the client
+which agent to present. And that `impMessageText` is Anixart's own notice that Kodik video is
+currently broken in Russia, which is worth reading before blaming this port for a dead stream.
+
 **What a Kodik page actually does**, measured from a WKWebView in the simulator
 (`-anixart-screen kodik`, or Настройки → Диагностика on a device):
 

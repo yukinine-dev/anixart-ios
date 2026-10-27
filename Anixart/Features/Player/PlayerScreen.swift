@@ -14,6 +14,7 @@ import AnixartKit
 @MainActor
 struct PlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppEnvironment.self) private var env
 
     let episode: Episode
     let releaseTitle: String
@@ -48,7 +49,7 @@ struct PlayerScreen: View {
                     unavailable
                 }
             case .web:
-                if let page = target.pageURL ?? target.variants.first?.url {
+                if let page = webPage {
                     EmbedPlayerView(url: page, title: episode.displayName)
                         .ignoresSafeArea()
                         .overlay(alignment: .topLeading) { closeButton }
@@ -68,6 +69,23 @@ struct PlayerScreen: View {
     /// web player can show anything, whatever the user picked.
     private var resolvedChoice: PlayerChoice {
         target.supportsDirectPlayback ? choice : .web
+    }
+
+    /// What the web player opens.
+    ///
+    /// A hosting's page is not meant to be loaded directly -- Kodik answers
+    /// "данной страницы не существует" to one -- so it goes through the wrapper
+    /// the server names, which is what the Android client loads. With the advert
+    /// wrapper when the server asks for it, the plain one otherwise.
+    private var webPage: URL? {
+        guard let page = target.pageURL ?? target.variants.first?.url else { return nil }
+        guard KodikWrapper.handles(page) else { return page }
+
+        let toggles = env.session.toggles
+        let base = (toggles?.kodikIframeAd ?? false)
+            ? toggles?.kodikAdIframeUrl
+            : toggles?.iframeEmbedUrl
+        return KodikWrapper.url(for: page, base: base) ?? page
     }
 
     private var closeButton: some View {
