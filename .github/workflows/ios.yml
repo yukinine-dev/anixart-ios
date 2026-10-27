@@ -166,6 +166,16 @@ jobs:
       # question is which other services publish their own dubs through an API.
       # Anixart carries no external ids, so Shikimori's search is the bridge --
       # this reports every hop's candidates so the match can be judged.
+      # Kodik carries almost every voice-over, and the original app plays it in
+      # its own player after showing Kodik's ad -- Kodik's page calls back into
+      # a bridge the app registers as `KodikInterface`, so this is cooperative
+      # rather than scraped. What the extraction needs is the page's own shape.
+      - name: What a Kodik player page contains
+        run: |
+          set -o pipefail
+          python3 Tools/probe-kodik-page.py "Киберпанк: Бегущие по краю" \
+            2>&1 | tee -a "$RUNNER_TEMP/probe.log"
+
       - name: Look for services that publish their own dubs
         run: |
           set -o pipefail

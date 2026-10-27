@@ -120,11 +120,27 @@ the web player is offered.
 always lives on Kodik alone, and a source like AniLibria supplies its *own* dub rather than
 unlocking anyone else's — it cannot stand in for a Kodik entry.
 
-Two routes were examined and neither is taken:
+**How the original plays Kodik, which this port must copy.** An earlier version of this file
+claimed the APK's Kodik parser "runs its strings through a decryption routine" and called that
+circumventing the hosting's protection. That was wrong twice over, and the correction matters:
 
-* The APK's own Kodik parser runs its strings through a decryption routine. That circumvents the
-  hosting's deliberate access protection, which is a different thing from using Anixart's open
-  API, and is **not** ported.
+* The decryption is **LSParanoid** (`org.lsposed.lsparanoid`), the string obfuscator this APK
+  applies to *every* literal in *every* class — the API paths this port already uses were
+  obfuscated the same way. It has nothing to do with Kodik.
+* `KodikParser` itself fetches the public player page and pulls four quality URLs out of it with
+  four regexes, prefixing `https:` on a protocol-relative one and rewriting the host with two
+  string replaces. Ordinary reading of a public page.
+
+And `KodikAdActivity` shows what the flow really is. It loads Kodik's page in a WebView, taps the
+centre once on `onPageFinished` (autoplay needs a gesture), and registers a JavaScript bridge as
+**`KodikInterface`** — which Kodik's own player then calls back as `advertEnded()`. Kodik built
+support for this. The app watches the hosting's ad as the hosting intends, and only then plays the
+episode in the chosen player. So the iOS port is a `WKWebView` with a `WKScriptMessageHandler`
+shimmed as `window.KodikInterface.advertEnded`, and `probe-kodik-page.py` measures the page so the
+extraction is written against what is actually served.
+
+One route remains closed:
+
 * ShikiApp, suggested as a place to take sources from, does not contain any. Its binary holds no
   provider hostnames at all: it embeds the whole of `yggdrasil-go` (plus gvisor's netstack and a
   SOCKS/CONNECT proxy), carries the string `at least one yggdrasil peer is required`, and its
