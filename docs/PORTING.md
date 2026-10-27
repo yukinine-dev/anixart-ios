@@ -267,6 +267,39 @@ Several things in it are deliberately *not* the APK's:
   because it is working on interpolated pixels — there is no detail there to recover, only an edge
   to keep.
 
+### Anime4K proper
+
+The APK ships a *simplified* Anime4K — a hand-written edge detector and sharpener. Upstream
+Anime4K is something else: trained convolutions baked into shaders. `ThirdParty/Anime4K` vendors
+the two small ones (MIT licensed, verbatim, never hand-edited — they are weights):
+
+* `Anime4K_Restore_CNN_S` — four 3×3 layers with a residual connection, fitted to undo the blur
+  and compression a low-bitrate encode leaves behind.
+* `Anime4K_Upscale_CNN_x2_S` — four more plus a depth-to-space layer that doubles the picture.
+
+They are written for mpv's shader-hook format, so `Tools/convert-anime4k.py` translates them into
+Core Image Metal kernels: one function per pass, plus a Swift description of the wiring
+(`Anime4KChain.swift`). Re-run it after updating the vendored files; never edit the output.
+
+The one real difference is coordinates. mpv hands each pass normalised texture coordinates; Core
+Image hands it a destination pixel and a `transform` into each sampler's space, and a pass whose
+output is twice its input's size cannot get that mapping out of Core Image, because both images
+sit in one working space at different scales. So every position is computed from `dest.coord()`
+and sizes passed in as arguments, and nothing is inferred.
+
+Two runtime details are load-bearing. The context runs with `workingColorSpace: NSNull()`, because
+both kernels want the frame's own gamma-encoded values — the hand-written one because its
+thresholds were tuned on them, Anime4K because that is what mpv gives its hooks. And the working
+format is `RGBAh`: the convolutions' intermediate layers carry negative numbers and numbers above
+one, and an 8-bit intermediate clipping them does not look like an artefact, it looks like the
+network failed.
+
+Cost, measured off the shaders rather than guessed: one pass is nine samples and nine 4×4 matrix
+multiplies, about 144 MACs per pixel. `Restore_CNN_S` is roughly 600 MACs per pixel, so about
+0.55 GMAC per 720p frame — around 66 GFLOPS at 60fps, which a phone GPU has several times over.
+The M, L, VL, UL and GAN variants (up to 300 KB of weights) are sized for a desktop GPU driving a
+4K display and are deliberately not vendored.
+
 The three-way dial (Слабо / Средне / Сильно) scales the deblur and sharpening amounts only.
 Средне is the APK's own numbers. The edge threshold and the anti-ringing clamp are never scaled:
 those are what keep it from breaking.

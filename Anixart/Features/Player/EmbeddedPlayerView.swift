@@ -255,7 +255,7 @@ struct EmbeddedPlayerView: View {
                         get: { preferences.enhanceStrength },
                         set: { preferences.setEnhanceStrength($0) }
                     )) {
-                        ForEach(VideoEnhanceFilter.Strength.allCases) { level in
+                        ForEach(VideoEnhanceFilter.Strength.available) { level in
                             Text(level.title).tag(level)
                         }
                     }

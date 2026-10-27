@@ -96,10 +96,18 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             // working space is linear, where 0.05 and 0.95 mean something else
             // entirely and the sharpening overshoots -- so it is pinned to
             // sRGB, which is also cheaper.
-            let working = CGColorSpace(name: CGColorSpace.sRGB)
+            // No colour management at all, and half-float intermediates.
+            //
+            // Both kernels want the frame's own gamma-encoded values -- the
+            // hand-written one because its thresholds were tuned on them, the
+            // Anime4K chain because that is what mpv hands its hooks. And the
+            // convolutions' intermediate layers carry negative numbers and
+            // numbers above one: an 8-bit intermediate would clip them, which
+            // does not look like an artefact, it looks like the network failed.
             self.context = queue.map {
                 CIContext(mtlCommandQueue: $0, options: [
-                    .workingColorSpace: working as Any,
+                    .workingColorSpace: NSNull(),
+                    .workingFormat: CIFormat.RGBAh,
                     .cacheIntermediates: false
                 ])
             }
@@ -208,8 +216,18 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             let scaleY = size.height / extent.height
             let scale = filling ? max(scaleX, scaleY) : min(scaleX, scaleY)
 
-            var frame = VideoEnhanceFilter.scaled(image, by: scale)
-            if scale > 1.1 {
+            var frame = image
+            var remaining = scale
+            // Anime4K's own x2 layer first, where there is room for it: it was
+            // trained to double a picture, which Lanczos was not. Whatever is
+            // left over after that is an ordinary resample.
+            if strength.usesNeuralChain, scale > 1.2, let doubled = Anime4KFilter.upscaleX2(frame) {
+                frame = doubled
+                remaining = scale / 2
+            }
+
+            frame = VideoEnhanceFilter.scaled(frame, by: remaining)
+            if remaining > 1.1 {
                 frame = VideoEnhanceFilter.applyAfterUpscale(to: frame, strength: strength)
             }
 

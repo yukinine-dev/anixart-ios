@@ -37,22 +37,39 @@ struct VideoEnhanceFilter {
         case light = 0
         case medium = 1
         case strong = 2
+        /// The real Anime4K: trained convolutions rather than a sharpener.
+        ///
+        /// The three above are the hand-written kernel at three amounts. This
+        /// one is a different algorithm altogether, so it does not belong on the
+        /// same axis -- but it belongs in the same menu, because it answers the
+        /// same question and the user should be able to put the two side by side
+        /// on one episode.
+        case neural = 3
 
         var id: Int { rawValue }
+
+        /// Offered only when its kernels actually loaded.
+        static var available: [Strength] {
+            allCases.filter { $0 != .neural || Anime4KFilter.isAvailable }
+        }
 
         var title: String {
             switch self {
             case .light: return "Слабо"
             case .medium: return "Средне"
             case .strong: return "Сильно"
+            case .neural: return "Anime4K"
             }
         }
+
+        var usesNeuralChain: Bool { self == .neural }
 
         var scale: Float {
             switch self {
             case .light: return 0.55
             case .medium: return 1.0
             case .strong: return 1.6
+            case .neural: return 1.0
             }
         }
     }
@@ -86,6 +103,12 @@ struct VideoEnhanceFilter {
     /// Debanding runs in the first pass only: once is enough to flatten a
     /// terrace, and doing it twice would start eating real shading.
     static func apply(to image: CIImage, strength: Strength = .medium) -> CIImage {
+        if strength.usesNeuralChain {
+            // No fallback dressed up as success: if the chain cannot run, the
+            // frame goes through untouched and the picture is simply the
+            // decoder's, which is honest and visible.
+            return Anime4KFilter.restore(image) ?? image
+        }
         let step = strength.scale * 0.6
         let first = run(image, scale: step, deband: 1.0)
         return run(first, scale: step, deband: 0.0)
@@ -103,6 +126,8 @@ struct VideoEnhanceFilter {
     /// on interpolated pixels, where there is no detail to recover, only an edge
     /// to keep.
     static func applyAfterUpscale(to image: CIImage, strength: Strength) -> CIImage {
+        // The neural chain does its own upscaling, with a layer trained for it.
+        if strength.usesNeuralChain { return image }
         // No debanding here: the pixels are interpolated, so a terrace has
         // already been smeared into a ramp and there is nothing left to flatten
         // -- only real detail to lose.
