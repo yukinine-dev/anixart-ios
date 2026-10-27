@@ -351,10 +351,16 @@ jobs:
           # live release id of its own. `player` resolves a real episode and
           # opens the built-in player on it, so the frame carries video rather
           # than a screen that merely rendered.
-          for screen in profile release player; do
+          for screen in profile release player kodik; do
             xcrun simctl terminate "$UDID" app.anixart.client >/dev/null 2>&1 || true
             xcrun simctl launch "$UDID" app.anixart.client -anixart-screen "$screen" || continue
-            if [ "$screen" = player ]; then sleep 30; else sleep 18; fi
+            case "$screen" in
+              # The advert screen waits on Kodik's own player, so give it longer
+              # than a screen that only has to render.
+              kodik) sleep 60 ;;
+              player) sleep 30 ;;
+              *) sleep 18 ;;
+            esac
             shoot "$screen"
           done
 
@@ -419,6 +425,13 @@ jobs:
           else
             echo "::warning::AVFoundation never reported the stream ready to play"
           fi
+
+          echo
+          echo "--- kodik ---"
+          # The stream URL is not in that page's HTML, so this is the measurement
+          # the extraction gets written against.
+          echo "$entries" | grep -E 'smoke kodik|advert |page played|page loaded|kodik page failed' \
+            || echo "::warning::the Kodik advert screen logged nothing"
 
   ipa:
     name: Unsigned IPA

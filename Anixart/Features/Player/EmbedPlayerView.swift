@@ -17,6 +17,12 @@ import AnixartKit
 /// change their player and their anti-embedding checks without notice.
 @MainActor
 struct EmbedPlayerView: UIViewRepresentable {
+    /// Shared with the advert screen, which loads the same pages and has to look
+    /// like the same client.
+    static let userAgent =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+        + "(KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+
     let url: URL
     let title: String
 
@@ -32,9 +38,7 @@ struct EmbedPlayerView: UIViewRepresentable {
         webView.backgroundColor = .black
         webView.scrollView.backgroundColor = .black
         webView.scrollView.isScrollEnabled = false
-        webView.customUserAgent =
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
-            + "(KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        webView.customUserAgent = Self.userAgent
 
         webView.load(request)
         return webView

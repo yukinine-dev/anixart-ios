@@ -19,6 +19,8 @@ struct RootView: View {
                 NavigationStack { RandomReleaseScreen() }
             case .player(let id):
                 PlayerSmokeScreen(releaseID: id)
+            case .kodik(let id):
+                KodikProbeScreen(releaseID: id)
             case .profile where env.session.currentProfileID == nil:
                 NavigationStack { SampleProfileScreen() }
             default:
@@ -79,6 +81,10 @@ enum LaunchScreen: Equatable {
     /// Resolves an episode and opens the built-in player on it, so the smoke
     /// test checks playback rather than only that the code compiles.
     case player(Int)
+    /// Loads a Kodik episode through the advert screen and logs what the page
+    /// played. The stream is not in that page's HTML, so this is the only way to
+    /// measure it.
+    case kodik(Int)
 
     static let current: LaunchScreen = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -94,12 +100,16 @@ enum LaunchScreen: Equatable {
         // «Киберпанк: Бегущие по краю», the release the CI probe showed lists an
         // AniLibria hosting.
         case "player": return .player(18846)
+        case "kodik": return .kodik(18846)
         default:
             if value.hasPrefix("release:"), let id = Int(value.dropFirst("release:".count)) {
                 return .release(id)
             }
             if value.hasPrefix("player:"), let id = Int(value.dropFirst("player:".count)) {
                 return .player(id)
+            }
+            if value.hasPrefix("kodik:"), let id = Int(value.dropFirst("kodik:".count)) {
+                return .kodik(id)
             }
             return .home
         }
