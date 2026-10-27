@@ -62,7 +62,18 @@ final class SessionController {
         if let urls = try? await client.send(ConfigEndpoints.urls()) {
             await client.apply(urls)
         }
+        // `config/toggles` was never fetched, which is why the Kodik path had
+        // nothing to work with: `kodikAdIframeUrl`, `kodikVideoLinksUrl` and
+        // `kodikIframeAd` all live here, and the APK reads them from the same
+        // place. The model was generated at the start of this port; nobody had
+        // asked the server for it.
+        toggles = try? await client.send(ConfigEndpoints.toggles())
     }
+
+    /// Server-side feature flags, including everything the Kodik playback path
+    /// needs. Absent until `loadRemoteConfiguration()` has run, and absent for
+    /// good if it failed -- the rest of the app works without it.
+    private(set) var toggles: TogglesResponse?
 
     func signIn(login: String, password: String) async throws {
         let response = try await client.send(AuthEndpoints.signIn(login: login, password: password))

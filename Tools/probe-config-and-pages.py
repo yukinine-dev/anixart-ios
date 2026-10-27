@@ -59,8 +59,20 @@ def anixart(path: str, body: dict | None = None):
 
 
 def dump_config() -> None:
-    """Every field of every config endpoint, so a URL cannot hide in one."""
-    for path in ("config/urls", "config/toggles", "config/urls?version=26101718"):
+    """Every field of every config endpoint, so a URL cannot hide in one.
+
+    `TogglesResponse` -- generated from the APK at the start of this port --
+    already declares `kodikAdIframeUrl`, `kodikVideoLinksUrl` and
+    `kodikIframeAd`. The wrapper was never a mystery; I was guessing at paths
+    while the answer sat in a model in this repository. These are the queries
+    the kit itself sends, which is why the first attempt got no JSON: it left
+    `version_code` out.
+    """
+    version = "26101718"
+    for path in (
+        f"config/urls?version_code={version}&is_beta=false",
+        f"config/toggles?version_code={version}&is_beta=false&is_api_alt=false",
+    ):
         data = anixart(path)
         if data is None:
             continue
@@ -73,6 +85,8 @@ def dump_config() -> None:
             # A wrapper base would look like a URL ending in a parameter.
             if isinstance(value, str) and ("http" in value or "url=" in value):
                 say(f"    ^^ URL-shaped: {key}")
+            if "kodik" in key.lower():
+                say(f"    ^^ KODIK: {key} = {shown}")
 
 
 def episode_url(title: str, marker: str) -> str | None:

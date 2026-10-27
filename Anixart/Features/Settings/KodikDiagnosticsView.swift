@@ -26,9 +26,28 @@ struct KodikDiagnosticsView: View {
     @State private var found: [URL] = []
     @State private var diagnosis: KodikAdView.Diagnosis?
     @State private var isRunning = false
+    /// What the server says about the Kodik path. Everything here comes from
+    /// `config/toggles`, which is the only place the wrapper's address exists.
+    @State private var wrapperBase: String?
+    @State private var linksURL: String?
+    @State private var iframeAd: Bool?
 
     var body: some View {
         List {
+            Section("Конфиг сервера") {
+                row("kodikIframeAd", iframeAd.map { $0 ? "да" : "нет" } ?? "—")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("kodikAdIframeUrl").font(.ax(.caption)).foregroundStyle(.secondary)
+                    Text(wrapperBase ?? "— не пришёл").font(.ax(.caption)).monospaced()
+                        .textSelection(.enabled)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("kodikVideoLinksUrl").font(.ax(.caption)).foregroundStyle(.secondary)
+                    Text(linksURL ?? "— не пришёл").font(.ax(.caption)).monospaced()
+                        .textSelection(.enabled)
+                }
+            }
+
             Section {
                 if !what.isEmpty {
                     Text(what).font(.ax(.subheadline))
@@ -137,7 +156,13 @@ struct KodikDiagnosticsView: View {
     }
 
     private var summary: String {
-        var lines = [what, "kodik: \(episodeURL?.absoluteString ?? "—")"]
+        var lines = [
+            what,
+            "kodikIframeAd: \(iframeAd.map(String.init(describing:)) ?? "nil")",
+            "kodikAdIframeUrl: \(wrapperBase ?? "nil")",
+            "kodikVideoLinksUrl: \(linksURL ?? "nil")",
+            "kodik: \(episodeURL?.absoluteString ?? "—")"
+        ]
         if let diagnosis {
             lines.append("advert finished: \(diagnosis.advertFinished)")
             lines.append("frames: \(diagnosis.frames.count)")
@@ -152,6 +177,13 @@ struct KodikDiagnosticsView: View {
 
     private func findEpisode() async {
         let client = env.client
+
+        // The wrapper's address is server-side only, so it has to be read before
+        // anything can be opened.
+        let toggles = env.session.toggles
+        wrapperBase = toggles?.kodikAdIframeUrl
+        linksURL = toggles?.kodikVideoLinksUrl
+        iframeAd = toggles?.kodikIframeAd
         let types = (try? await client.send(EpisodeEndpoints.types(releaseID: releaseID)))?.types ?? []
 
         for type in types {
@@ -172,8 +204,11 @@ struct KodikDiagnosticsView: View {
                     return host.contains("kodik") || host.contains("aniqit")
                 }) else { continue }
 
-                episodeURL = url
+                // The wrapper when the server named one; the bare URL otherwise,
+                // so the report shows what each does.
+                episodeURL = KodikWrapper.url(for: url, base: wrapperBase) ?? url
                 what = "«Киберпанк: Бегущие по краю» · \(type.displayName) / \(source.displayName)"
+                    + (wrapperBase == nil ? " · без обёртки" : " · через обёртку")
                 isRunning = true
                 return
             }

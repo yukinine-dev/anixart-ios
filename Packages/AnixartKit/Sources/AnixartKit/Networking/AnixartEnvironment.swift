@@ -20,10 +20,17 @@ public enum AnixartEnvironment {
 
     /// `versionCode` the client reports to `config/toggles` and `config/urls`.
     ///
-    /// Sent so the server can gate features and force updates. Keep it in step with
-    /// the Android build this port tracks, otherwise the server may answer as if the
-    /// client were out of date.
-    public static let versionCode = 1050
+    /// Sent so the server can gate features and force updates. This is the value
+    /// from the APK's own manifest -- `versionCode="26101718"` against
+    /// `versionName="10.5"`.
+    ///
+    /// It was 1050 here for most of this port, which I had derived from the
+    /// version *name*. The server gates on this field, so the client was
+    /// announcing itself as years out of date on every launch, and anything the
+    /// server withholds from an old client was being withheld. The Android app
+    /// also appends it to the Kodik advert URL as `&v=`, which is where the
+    /// mismatch became visible.
+    public static let versionCode = 26_101_718
 
     /// Value sent in the `API-Version` header on the endpoints that require it.
     public static let apiVersion = "2"
