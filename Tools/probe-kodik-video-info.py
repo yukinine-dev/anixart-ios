@@ -37,8 +37,12 @@ VERSION = "26101718"
 TIMEOUT = 25
 
 
-def anixart(path: str):
-    request = urllib.request.Request(f"{ANIXART_API}/{path}", headers={"User-Agent": USER_AGENT})
+def anixart(path: str, body: dict | None = None):
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"User-Agent": USER_AGENT}
+    if data:
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(f"{ANIXART_API}/{path}", data=data, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
             return json.load(response)
@@ -60,7 +64,8 @@ def video_links_url() -> str:
 
 def kodik_episode(title: str) -> str | None:
     """The first Kodik episode of the first voice-over of a release."""
-    found = anixart(f"search/{urllib.parse.quote(title)}/0?searchBy=0") or {}
+    # Search is a POST with a body; the path form answers 404.
+    found = anixart("search/releases/0", {"query": title, "searchBy": 0}) or {}
     releases = found.get("content") or []
     if not releases:
         print(f"  nothing found for {title!r}")
@@ -76,8 +81,8 @@ def kodik_episode(title: str) -> str | None:
                 anixart(f"episode/{release['id']}/{kind['id']}/{source['id']}?sort=0") or {}
             ).get("episodes") or []
             for episode in episodes:
-                url = (episode.get("url") or "").strip()
-                if "kodik" in url:
+                url = (episode.get("url") or "").split('"')[0].strip()
+                if "kodik" in url or "aniqit" in url:
                     print(f"  via {kind.get('name')} / {source.get('name')}")
                     return url
     return None
