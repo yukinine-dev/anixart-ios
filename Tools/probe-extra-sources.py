@@ -121,39 +121,38 @@ def shikimori(release) -> int | None:
 
 
 def animelib(release, shikimori_id: int | None):
-    """AnimeLib publishes its own dubs, several teams per title."""
+    """AnimeLib publishes its own dubs, several teams per title.
+
+    The question is not whether it answers -- `api.lib.social` does -- but
+    whether the players it lists carry their own video. A player entry whose
+    `video.quality` is empty is an embed of somebody else's player, which is the
+    same wall as Kodik; only an entry with qualities is a stream we could open.
+    """
     query = release.get("title_original") or release.get("title_ru")
     print(f"  animelib search: {query!r}")
 
     found = None
     api = None
     for host in ANIMELIB_HOSTS:
-        print(f"    via {host}")
         found = get_json(f"{host}/anime?q={urllib.parse.quote(query)}", ANIMELIB_HEADERS)
         if found:
             api = host
+            print(f"    answered by {host}")
             break
+        print(f"    {host}: no")
     if not found:
         print("    no AnimeLib host answered this client")
         return
+
     items = found.get("data") if isinstance(found, dict) else found
     if not items:
         print("    no matches")
         return
 
-    for item in items[:5]:
-        print(f"    {item.get('slug_url')!r}  {item.get('rus_name')!r}"
-              f"  shikimori {item.get('shikimori_href')}")
-
     chosen = items[0]
-    if shikimori_id:
-        for item in items:
-            if str(shikimori_id) in str(item.get("shikimori_href") or ""):
-                chosen = item
-                print(f"    -> {item.get('slug_url')} confirmed by shikimori id {shikimori_id}")
-                break
-        else:
-            print(f"    -> no candidate names shikimori id {shikimori_id}; taking the first")
+    # AnimeLib names the Shikimori id itself, so it needs no bridge of its own.
+    print(f"    taking {chosen.get('slug_url')!r} {chosen.get('rus_name')!r}"
+          f"  shikimori {chosen.get('shikimori_href')}")
 
     slug = chosen.get("slug_url")
     episodes = get_json(f"{api}/episodes?anime_id={urllib.parse.quote(str(slug))}", ANIMELIB_HEADERS)
@@ -161,36 +160,39 @@ def animelib(release, shikimori_id: int | None):
     if not rows:
         print("    no episode list")
         return
-    print(f"    {len(rows)} episodes; first keys: {sorted(rows[0].keys())}")
 
     detail = get_json(f"{api}/episodes/{rows[0].get('id')}", ANIMELIB_HEADERS)
     data = (detail or {}).get("data") if isinstance(detail, dict) else detail
-    if not data:
-        print("    no episode detail")
-        return
-    print(f"    episode keys: {sorted(data.keys())}")
+    players = (data or {}).get("players") or []
 
-    players = data.get("players") or []
-    print(f"    {len(players)} players")
-    for player in players[:6]:
-        team = (player.get("team") or {}).get("name")
-        qualities = [q.get("quality") for q in ((player.get("video") or {}).get("quality") or [])]
-        print(f"      {player.get('player')!r} team {team!r} qualities {qualities}")
-
-    # Verify one is really media, the way AVFoundation would ask.
+    kinds: dict[str, int] = {}
+    with_video = []
     for player in players:
-        for quality in ((player.get("video") or {}).get("quality") or []):
-            href = quality.get("href")
-            if not href:
-                continue
-            stream = href if href.startswith("http") else f"https://video1.anilib.me{href}"
-            status, content_type, head = get(stream, {"Referer": "https://anilib.me/"}, raw=True)
-            looks = ("MP4" if head[4:8] == b"ftyp"
-                     else "HLS" if head.startswith(b"#EXTM3U")
-                     else repr(head[:32]))
-            print(f"    stream: {status} {content_type} -> {looks}")
-            print(f"      {stream}")
-            return
+        kind = str(player.get("player"))
+        kinds[kind] = kinds.get(kind, 0) + 1
+        qualities = (player.get("video") or {}).get("quality") or []
+        if qualities:
+            with_video.append((kind, (player.get("team") or {}).get("name"), qualities))
+
+    print(f"    {len(rows)} episodes, {len(players)} players: {kinds}")
+    if not with_video:
+        print("    none of them carries its own video -- all embeds, same wall as Kodik")
+        return
+
+    for kind, team, qualities in with_video[:4]:
+        print(f"    {kind!r} team {team!r} qualities {[q.get('quality') for q in qualities]}")
+
+    kind, team, qualities = with_video[0]
+    href = qualities[0].get("href")
+    if not href:
+        return
+    stream = href if href.startswith("http") else f"https://video1.anilib.me{href}"
+    status, content_type, head = get(stream, {"Referer": "https://anilib.me/"}, raw=True)
+    looks = ("MP4" if head[4:8] == b"ftyp"
+             else "HLS" if head.startswith(b"#EXTM3U")
+             else repr(head[:32]))
+    print(f"    stream: {status} {content_type} -> {looks}")
+    print(f"      {stream}")
 
 
 def kodik():

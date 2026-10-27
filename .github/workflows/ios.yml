@@ -156,8 +156,10 @@ jobs:
       # this reports every hop's candidates so the match can be judged.
       - name: Look for services that publish their own dubs
         run: |
-          python3 Tools/probe-extra-sources.py "Киберпанк: Бегущие по краю"
-          python3 Tools/probe-extra-sources.py "Ванпанчмен"
+          for title in "Киберпанк: Бегущие по краю" "Ванпанчмен" \
+                       "Стальной алхимик" "Магическая битва" "Клинок, рассекающий демонов"; do
+            python3 Tools/probe-extra-sources.py "$title"
+          done
 
       # The compile output buries what this job is for, and the logs are only
       # readable from the end. This repeats the findings where they can be read.
