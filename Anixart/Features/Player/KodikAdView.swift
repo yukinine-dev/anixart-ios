@@ -139,7 +139,7 @@ struct KodikAdView: UIViewRepresentable {
             // Catches what the hooks cannot: a native `<video src>`, a worker,
             // anything loaded by an API this script did not wrap. Telemetry and
             // adverts are skipped so the interesting rows are not buried.
-            var boring = /mc\.yandex\.ru|adsbygoogle|googlesyndication|doubleclick|\.css|\.woff|\.png|\.jpg|\.svg|\.gif/;
+            var boring = /mc[.]yandex[.]ru|adsbygoogle|googlesyndication|doubleclick|[.]css|[.]woff|[.]png|[.]jpg|[.]svg|[.]gif/;
             try {
                 new PerformanceObserver(function (list) {
                     var entries = list.getEntries();
