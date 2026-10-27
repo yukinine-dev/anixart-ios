@@ -1,4 +1,5 @@
 import Foundation
+import os
 import AnixartKit
 
 /// Owns "who is signed in" for the whole app.
@@ -9,6 +10,8 @@ import AnixartKit
 @MainActor
 @Observable
 final class SessionController {
+    private static let log = Logger(subsystem: "app.anixart.client", category: "config")
+
     enum State: Equatable {
         case loading
         case guest
@@ -68,6 +71,16 @@ final class SessionController {
         // place. The model was generated at the start of this port; nobody had
         // asked the server for it.
         toggles = try? await client.send(ConfigEndpoints.toggles())
+        // Said out loud, because its absence is silent everywhere else: without
+        // it the Kodik path falls back to the bare page, and the only sign is a
+        // player that does not open.
+        if let base = toggles?.kodikAdIframeUrl {
+            Self.log.notice("config toggles loaded, kodik wrapper \(base, privacy: .public)")
+        } else if toggles == nil {
+            Self.log.error("config toggles did not load; the Kodik wrapper is unavailable")
+        } else {
+            Self.log.notice("config toggles loaded, but it names no kodik wrapper")
+        }
     }
 
     /// Server-side feature flags, including everything the Kodik playback path

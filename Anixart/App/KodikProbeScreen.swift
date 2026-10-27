@@ -10,6 +10,12 @@ import os
 /// browser that matters here is the one the app ships. This runs that browser in
 /// the smoke job and prints the answer, which is what the extraction then gets
 /// written against.
+///
+/// It loads the same URL the player screen would, wrapper and all. It used to
+/// load the bare episode URL, which made the smoke job look like the app was
+/// skipping the wrapper when the truth was only that this screen predated it --
+/// an instrument that measures something other than what ships is worse than no
+/// instrument, because its answer is believed.
 @MainActor
 struct KodikProbeScreen: View {
     private static let log = Logger(subsystem: "app.anixart.client", category: "smoke")
@@ -95,8 +101,17 @@ struct KodikProbeScreen: View {
                 }), let url = episode.playbackURL
                 else { continue }
 
-                episodeURL = url
-                report("\(type.displayName) / \(source.displayName): \(url.absoluteString)")
+                // The same choice PlayerScreen makes: the advert wrapper when
+                // the server turns it on, the plain embed wrapper otherwise.
+                let toggles = env.session.toggles
+                let base = (toggles?.kodikIframeAd ?? false)
+                    ? toggles?.kodikAdIframeUrl
+                    : toggles?.iframeEmbedUrl
+                let wrapped = KodikWrapper.url(for: url, base: base) ?? url
+                episodeURL = wrapped
+
+                let how = base == nil ? "без обёртки (конфиг не пришёл)" : "через \(base ?? "")"
+                report("\(type.displayName) / \(source.displayName): \(wrapped.absoluteString) — \(how)")
                 return
             }
         }

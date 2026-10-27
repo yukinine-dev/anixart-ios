@@ -467,6 +467,9 @@ jobs:
           fi
 
           echo
+          echo "--- config ---"
+          echo "$entries" | grep -E 'config toggles' || echo "::warning::the app never said whether config/toggles loaded"
+          echo
           echo "--- kodik ---"
           # The stream URL is not in that page's HTML, so this is the measurement
           # the extraction gets written against.
