@@ -57,6 +57,17 @@ struct SettingsView: View {
                     }
                 }
 
+                // Kodik carries almost every voice-over, and what its page does
+                // can only be measured on a real device -- four runs in a
+                // simulator saw nothing at all.
+                Section("Диагностика") {
+                    NavigationLink {
+                        KodikDiagnosticsView()
+                    } label: {
+                        Label("Проверить Kodik", systemImage: "stethoscope")
+                    }
+                }
+
                 Section {
                     HStack {
                         Text("Версия")

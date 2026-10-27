@@ -29,8 +29,15 @@ struct KodikProbeScreen: View {
             if let episodeURL {
                 KodikAdView(
                     url: episodeURL,
-                    onResolved: { urls in
-                        report("нашлось \(urls.count) ссылок")
+                    onResolved: { urls, result in
+                        report("фреймов \(result.frames.count), запросов \(result.requests.count), "
+                               + "реклама \(result.advertFinished ? "да" : "нет"), ссылок \(urls.count)")
+                        for frame in result.frames.prefix(6) {
+                            Self.log.notice("smoke kodik frame: \(frame, privacy: .public)")
+                        }
+                        for request in result.requests.prefix(10) {
+                            Self.log.notice("smoke kodik request: \(request, privacy: .public)")
+                        }
                         for url in urls.prefix(8) {
                             Self.log.notice("smoke kodik url: \(url.absoluteString, privacy: .public)")
                         }

@@ -23,8 +23,16 @@ struct KodikAdView: UIViewRepresentable {
     let url: URL
     /// Called with every media URL the page turned out to load, once its advert
     /// reports finished -- or once the wait runs out, since a page that never
-    /// calls back should not strand the user.
-    let onResolved: ([URL]) -> Void
+    /// calls back should not strand the user. The second argument is what the
+    /// page was seen doing, so a screen can show why nothing was found.
+    let onResolved: ([URL], Diagnosis) -> Void
+
+    /// What the page was observed doing, for when it yields nothing.
+    struct Diagnosis: Equatable {
+        var frames: [String] = []
+        var requests: [String] = []
+        var advertFinished = false
+    }
     /// Called when the page itself could not be loaded at all.
     let onFailure: (String) -> Void
 
@@ -91,6 +99,12 @@ struct KodikAdView: UIViewRepresentable {
                     window.webkit.messageHandlers.\(channel).postMessage(payload);
                 } catch (error) { /* a frame without the handler is fine */ }
             };
+
+            // Says the script runs in this frame at all. Without it, a report of
+            // zero requests could equally mean the page did nothing or that this
+            // never executed -- which is exactly the ambiguity the first three
+            // measurements left.
+            post({ event: "hello", url: String(location.href) });
 
             // Kodik's player calls this when its advert is over; on Android the
             // name comes from addJavascriptInterface.
@@ -172,18 +186,21 @@ struct KodikAdView: UIViewRepresentable {
         /// that never calls back still has to let the user through.
         private static let patience: Duration = .seconds(45)
 
-        private let onResolved: ([URL]) -> Void
+        private let onResolved: ([URL], Diagnosis) -> Void
         private let onFailure: (String) -> Void
         private weak var view: WKWebView?
         private var timeout: Task<Void, Never>?
         private var hasFinished = false
+        private var advertFinished = false
         /// Media URLs the frames reported, in the order they asked for them.
         private var media: [URL] = []
         /// Every request, for the diagnostic: whether the page got as far as
         /// resolving its links at all.
         private var requests: [String] = []
+        /// Frames whose copy of the script checked in.
+        private(set) var frames: [String] = []
 
-        init(onResolved: @escaping ([URL]) -> Void, onFailure: @escaping (String) -> Void) {
+        init(onResolved: @escaping ([URL], Diagnosis) -> Void, onFailure: @escaping (String) -> Void) {
             self.onResolved = onResolved
             self.onFailure = onFailure
             super.init()
@@ -237,7 +254,14 @@ struct KodikAdView: UIViewRepresentable {
             else { return }
 
             switch event {
+            case "hello":
+                let where_ = body["url"] as? String ?? "?"
+                if frames.count < 12 {
+                    frames.append(where_)
+                    Self.log.notice("frame alive \(where_, privacy: .public)")
+                }
             case "advertEnded":
+                advertFinished = true
                 Self.log.notice("advert finished")
                 Task { await finish() }
             case "request":
@@ -267,7 +291,7 @@ struct KodikAdView: UIViewRepresentable {
             hasFinished = true
             stop()
 
-            Self.log.notice("page asked for \(self.requests.count, privacy: .public) urls, \(self.media.count, privacy: .public) of them media")
+            Self.log.notice("\(self.frames.count, privacy: .public) frames alive, \(self.requests.count, privacy: .public) urls asked, \(self.media.count, privacy: .public) media")
             if media.isEmpty, !requests.isEmpty {
                 // Which requests did happen says where it stopped: no `/ftor`
                 // means the links were never resolved.
@@ -293,7 +317,11 @@ struct KodikAdView: UIViewRepresentable {
                 }
             }
 
-            onResolved(media)
+            onResolved(media, Diagnosis(
+                frames: frames,
+                requests: requests,
+                advertFinished: advertFinished
+            ))
         }
 
         private func report(failure: String) {

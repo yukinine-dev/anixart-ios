@@ -430,7 +430,7 @@ jobs:
           echo "--- kodik ---"
           # The stream URL is not in that page's HTML, so this is the measurement
           # the extraction gets written against.
-          echo "$entries" | grep -E 'smoke kodik|advert |page asked|page request|kodik page failed' \
+          echo "$entries" | grep -E 'smoke kodik|advert |frames alive|frame alive|page asked|page request|kodik page failed' \
             || echo "::warning::the Kodik advert screen logged nothing"
 
   ipa:
