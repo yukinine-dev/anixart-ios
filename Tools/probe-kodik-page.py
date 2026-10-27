@@ -14,12 +14,20 @@ status, what scripts it loads, and every video-looking URL in it.
 """
 
 import argparse
+import builtins
 import json
 import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+
+# Every line is tagged so the job summary can pull this probe's whole output
+# without a pattern per line; the summary is the only part of a CI log that can
+# be read without paging through thousands of lines.
+def print(*args, **kwargs):  # noqa: A001 - deliberate shadow, this is a script
+    builtins.print("kodik|", *args, **kwargs)
+
 
 ANIXART_API = "https://api-s.anixsekai.com"
 USER_AGENT = "anixart-ios-probe/1.0"
@@ -70,7 +78,10 @@ def kodik_url(title: str) -> str | None:
                 url = episode.get("url") or ""
                 if "kodik" in url or "aniqit" in url:
                     print(f"  via {voice.get('name')} / {source.get('name')}")
-                    return url.split('"')[0]
+                    # Episodes are /seria/<id>/<hash>/<quality>, films /video/.
+                    clean = url.split('"')[0]
+                    print(f"  path kind: {urllib.parse.urlparse(clean).path.split('/')[1]!r}")
+                    return clean
     return None
 
 
