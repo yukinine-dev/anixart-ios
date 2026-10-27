@@ -240,7 +240,7 @@ Core Image kernel (`Anixart/Resources/Shaders/VideoEnhance.ci.metal`) over frame
 player with `AVPlayerItemVideoOutput` — a video composition cannot touch an HLS stream, and HLS is
 all the built-in player ever gets.
 
-Three things in it are deliberately *not* the APK's:
+Several things in it are deliberately *not* the APK's:
 
 * The APK's gradient is `(r - l, l + 2c + r)`. The second term is a sum, not a derivative, so it
   reads 91% vertical on a vertical edge and exactly vertical on a flat patch — it was blending
@@ -248,6 +248,18 @@ Three things in it are deliberately *not* the APK's:
   the neighbourhood's own min/max, which is what a halo cannot survive.
 * Sharpening is luma-only. Per-channel sharpening moves the hue at an edge, which on flat anime
   fills shows up as a coloured rim.
+* The gradient is Scharr, not Sobel. Sobel under-reads a 45° edge by about a tenth relative to a
+  vertical one, and anime is diagonals — a jawline, an eyelash, a strand of hair. That bias was
+  landing on exactly the lines worth keeping.
+* The restore pass runs twice at 60% strength rather than once at full. One large step overshoots
+  on anything that is not a clean straight edge, which is most of a face; two small steps converge
+  on the same line, and the second aims better because the first cleaned up the gradients it reads.
+* `flat_relief` takes the quantisation terraces out of smooth shading. A 480p stream spends almost
+  no bits on a cheek or a sky, so they arrive as visible steps — and sharpening makes those steps
+  crisper, which is why more sharpening never made a face look better. Where the detector sees no
+  real edge this averages the neighbourhood instead (on a smooth ramp the mean *is* the centre, so
+  genuine shading survives; on a one-code step the step is what disappears) and adds sub-visible
+  noise to break the quantisation that formed the band. It runs on the decoded frame only.
 * The chain is restore → Lanczos upscale → restore, as Anime4K's own is. 480p and 720p are most of
   what the hostings serve, so the frame is stretched roughly 2× on the way to a phone screen;
   everything the first pass recovers at the decoded grid is resampled soft again, and only a

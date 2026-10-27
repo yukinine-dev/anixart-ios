@@ -73,8 +73,22 @@ struct VideoEnhanceFilter {
 
     static var isAvailable: Bool { kernel != nil }
 
+    /// The restore pass, run twice.
+    ///
+    /// Two weak passes beat one strong one, and not by a little. The kernel
+    /// pulls each edge pixel toward the darker side of its gradient; a large
+    /// step overshoots on anything that is not a clean straight edge, which is
+    /// most of a face -- the corner of an eye, the curve of a jaw. Two small
+    /// steps converge on the same line, and the second one is working on a
+    /// picture whose gradients the first already cleaned up, so it aims better.
+    /// The same reason every iterative sharpener does it this way.
+    ///
+    /// Debanding runs in the first pass only: once is enough to flatten a
+    /// terrace, and doing it twice would start eating real shading.
     static func apply(to image: CIImage, strength: Strength = .medium) -> CIImage {
-        run(image, scale: strength.scale)
+        let step = strength.scale * 0.6
+        let first = run(image, scale: step, deband: 1.0)
+        return run(first, scale: step, deband: 0.0)
     }
 
     /// The same kernel again, after the frame has been stretched to the screen.
@@ -89,7 +103,10 @@ struct VideoEnhanceFilter {
     /// on interpolated pixels, where there is no detail to recover, only an edge
     /// to keep.
     static func applyAfterUpscale(to image: CIImage, strength: Strength) -> CIImage {
-        run(image, scale: strength.scale * 0.6)
+        // No debanding here: the pixels are interpolated, so a terrace has
+        // already been smeared into a ramp and there is nothing left to flatten
+        // -- only real detail to lose.
+        run(image, scale: strength.scale * 0.5, deband: 0.0)
     }
 
     /// Lanczos rather than the default resample.
@@ -110,7 +127,7 @@ struct VideoEnhanceFilter {
         return output
     }
 
-    private static func run(_ image: CIImage, scale: Float) -> CIImage {
+    private static func run(_ image: CIImage, scale: Float, deband: Float) -> CIImage {
         guard let kernel else { return image }
 
         // The kernel reads a one-pixel neighbourhood, so the ROI grows by one on
@@ -128,7 +145,8 @@ struct VideoEnhanceFilter {
                 // an edge rather than how firmly it is treated.
                 edgeThreshold,
                 min(deblurIntensity * scale, 1.0),
-                min(sharpeningStrength * scale, 1.0)
+                min(sharpeningStrength * scale, 1.0),
+                deband
             ]
         )
         return output?.cropped(to: image.extent) ?? image
