@@ -107,12 +107,15 @@ public struct TogglesResponse: Codable, Hashable, Sendable {
         case whatsNew
         case yandexAuthAvailable
     }
+}
 
-    // Hand-rolled rather than synthesised, so that one mistyped flag
-    // costs that flag and not the whole response. See LENIENT in
-    // Tools/generate-models.py.
+// Hand-rolled rather than synthesised, so that one mistyped flag costs that
+// flag and not the whole response. See LENIENT in Tools/generate-models.py
+// and Networking/LooseScalars.swift.
+extension TogglesResponse {
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init()
         code = c.looseInt(.code)
         adBannerBlockId = c.looseString(.adBannerBlockId)
         adBannerDelay = c.looseInt(.adBannerDelay)

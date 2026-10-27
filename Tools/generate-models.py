@@ -172,13 +172,19 @@ def gen(cls, emit_name=None, extra_parents=()):
         else:
             L.append('        case %s = "%s"' % (sn, jk))
     L.append("    }")
+    L.append("}")
     if name in LENIENT:
+        # In an extension, not the body: an initialiser in the body would take
+        # the memberwise `init()` away with it, and these are built by hand in
+        # the tests and in `AnixartClient.apply`.
         L.append("")
-        L.append("    // Hand-rolled rather than synthesised, so that one mistyped flag")
-        L.append("    // costs that flag and not the whole response. See LENIENT in")
-        L.append("    // Tools/generate-models.py.")
+        L.append("// Hand-rolled rather than synthesised, so that one mistyped flag costs that")
+        L.append("// flag and not the whole response. See LENIENT in Tools/generate-models.py")
+        L.append("// and Networking/LooseScalars.swift.")
+        L.append("extension %s {" % name)
         L.append("    public init(from decoder: any Decoder) throws {")
         L.append("        let c = try decoder.container(keyedBy: CodingKeys.self)")
+        L.append("        self.init()")
         if is_response:
             L.append("        code = c.looseInt(.code)")
         for sn, st, jk, raw in rows:
@@ -189,7 +195,7 @@ def gen(cls, emit_name=None, extra_parents=()):
                 )
             L.append("        %s = c.%s(.%s)" % (sn, accessor, sn.strip("`")))
         L.append("    }")
-    L.append("}")
+        L.append("}")
     if skipped:
         L.append("")
         L.append("// Props omitted (unmapped Java type): " + ", ".join("%s: %s" % s for s in skipped))
