@@ -270,12 +270,26 @@ jobs:
 
       - name: Build for simulator
         run: |
+          # xcodebuild's failure output is tens of thousands of lines of
+          # dependency bookkeeping with the actual error buried in the middle,
+          # and a log can only be read from its end. So the errors are repeated
+          # at the end, where they can be found.
+          set -o pipefail
           xcodebuild build \
             -project Anixart.xcodeproj \
             -scheme Anixart \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$RUNNER_TEMP/build.log" || status=$?
+          if [ -n "${status:-}" ]; then
+            echo
+            echo "--- what actually failed ---"
+            grep -E "error:|warning: .*(deprecated|unused)" "$RUNNER_TEMP/build.log" \
+              | sed -e "s|/Users/runner/work/anixart-ios/anixart-ios/||" \
+              | sort -u | head -40
+            exit "$status"
+          fi
 
   smoke:
     name: Simulator launch test
