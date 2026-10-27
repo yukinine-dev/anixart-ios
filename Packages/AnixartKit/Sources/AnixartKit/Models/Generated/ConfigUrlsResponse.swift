@@ -26,4 +26,20 @@ public struct ConfigUrlsResponse: Codable, Hashable, Sendable {
         case vkAuthAvailable
         case yandexAuthAvailable
     }
+
+    // Hand-rolled rather than synthesised, so that one mistyped flag
+    // costs that flag and not the whole response. See LENIENT in
+    // Tools/generate-models.py.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        apiUrls = c.looseStrings(.apiUrls)
+        consentRequired = c.looseBool(.consentRequired)
+        editorUrl = c.looseString(.editorUrl)
+        googleAuthAvailable = c.looseBool(.googleAuthAvailable)
+        shouldUseMirrorUrls = c.looseBool(.shouldUseMirrorUrls)
+        staticDomain = c.looseString(.staticDomain)
+        telegramAuthAvailable = c.looseBool(.telegramAuthAvailable)
+        vkAuthAvailable = c.looseBool(.vkAuthAvailable)
+        yandexAuthAvailable = c.looseBool(.yandexAuthAvailable)
+    }
 }

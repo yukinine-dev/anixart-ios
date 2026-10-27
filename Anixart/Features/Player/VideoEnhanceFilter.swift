@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreImage
+import CoreImage.CIFilterBuiltins
 import Foundation
 import os
 
@@ -73,8 +74,44 @@ struct VideoEnhanceFilter {
     static var isAvailable: Bool { kernel != nil }
 
     static func apply(to image: CIImage, strength: Strength = .medium) -> CIImage {
+        run(image, scale: strength.scale)
+    }
+
+    /// The same kernel again, after the frame has been stretched to the screen.
+    ///
+    /// Anime4K's own chain is restore, upscale, restore, and on a phone the
+    /// second restore is the one that shows. A 720p frame across a landscape
+    /// iPhone is close to a 2x upscale: whatever the first pass put back at the
+    /// decoded grid is resampled soft again on the way to the display, and a
+    /// one-pixel kernel can only put an edge back on the grid it is run at.
+    ///
+    /// It pushes less hard than the first pass -- 60% -- because it is working
+    /// on interpolated pixels, where there is no detail to recover, only an edge
+    /// to keep.
+    static func applyAfterUpscale(to image: CIImage, strength: Strength) -> CIImage {
+        run(image, scale: strength.scale * 0.6)
+    }
+
+    /// Lanczos rather than the default resample.
+    ///
+    /// A bilinear stretch to the screen throws away most of what the first pass
+    /// recovered, because it averages every output pixel from two inputs. Core
+    /// Image has a proper resampler; this is the one place in the chain where
+    /// using it costs nothing but a filter call.
+    static func scaled(_ image: CIImage, by scale: CGFloat) -> CIImage {
+        guard scale.isFinite, scale > 0, abs(scale - 1) > 0.01 else { return image }
+        let filter = CIFilter.lanczosScaleTransform()
+        filter.inputImage = image
+        filter.scale = Float(scale)
+        filter.aspectRatio = 1
+        guard let output = filter.outputImage, !output.extent.isInfinite, !output.extent.isEmpty else {
+            return image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        }
+        return output
+    }
+
+    private static func run(_ image: CIImage, scale: Float) -> CIImage {
         guard let kernel else { return image }
-        let scale = strength.scale
 
         // The kernel reads a one-pixel neighbourhood, so the ROI grows by one on
         // each side; clamping first keeps the edge rows from sampling nothing.

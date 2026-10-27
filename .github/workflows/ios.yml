@@ -75,6 +75,12 @@ jobs:
 
           get() { curl -sS --max-time 30 "$2" -o "$DIR/$1.json" || echo "::warning::$1 failed"; }
 
+          # The one response nobody was decoding, which is how a string where a
+          # bool belonged (`searchBarIconTint: "false"`) threw away the whole
+          # config -- and with it the Kodik wrapper URL the player needs.
+          get toggles-config "$API/config/toggles"
+          get urls-config    "$API/config/urls"
+
           get release-random "$API/release/random?extended_mode=true"
           RID=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["release"]["id"])' "$DIR/release-random.json")
           echo "release id: $RID"

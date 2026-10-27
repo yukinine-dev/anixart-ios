@@ -22,6 +22,16 @@ final class LiveResponseTests: XCTestCase {
         "filter": { try summary(PageableResponse<Release>.self, $0) { "\($0.content?.count ?? 0) releases" } },
         "comments": { try summary(PageableResponse<ReleaseComment>.self, $0) { "\($0.content?.count ?? 0) comments" } },
         "collections": { try summary(PageableResponse<ReleaseCollection>.self, $0) { "\($0.content?.count ?? 0) collections" } },
+        // The config responses were the one shape this test did not cover, and
+        // they are the shape that broke: the server sends `searchBarIconTint`
+        // as the string "false", which failed the whole payload and took
+        // `kodikAdIframeUrl` with it.
+        "toggles": {
+            try summary(TogglesResponse.self, $0) {
+                "kodik ad=\($0.kodikIframeAd as Any) base=\($0.kodikAdIframeUrl ?? "-")"
+            }
+        },
+        "urls": { try summary(ConfigUrlsResponse.self, $0) { "\($0.apiUrls?.count ?? 0) api urls" } },
         // Not Anixart's: the release AniLibria returns for the id Anixart puts
         // in its Libria URLs, which is where the built-in player's stream
         // actually comes from.

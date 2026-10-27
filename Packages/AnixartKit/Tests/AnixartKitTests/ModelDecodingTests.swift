@@ -245,6 +245,47 @@ final class EmbeddedReleaseTests: XCTestCase {
         XCTAssertNil(wrapper.release?.value)
     }
 
+    /// The live `config/toggles` sends `"searchBarIconTint": "false"` -- a string
+    /// where every other flag in the same payload is a real boolean. With the
+    /// synthesised decoder that one field failed the whole response, and the app
+    /// lost `kodikAdIframeUrl` from the same payload with it.
+    func testTogglesSurvivesAMistypedFlag() throws {
+        let json = """
+        {
+          "code": 0,
+          "searchBarIconTint": "false",
+          "searchBarIconAction": "5",
+          "kodikIframeAd": true,
+          "kodikAdIframeUrl": "https://anixmirai.com/iframe/ad?url=",
+          "kodikVideoLinksUrl": "https://kodikplayer.com/get-video-info",
+          "lastVersionCode": 26101718,
+          "minBlogCreateRatingScore": 3,
+          "min_blog_create_rating_score": 3
+        }
+        """
+        let toggles = try JSONDecoder().decode(TogglesResponse.self, from: Data(json.utf8))
+
+        XCTAssertEqual(toggles.searchBarIconTint, false)
+        XCTAssertEqual(toggles.searchBarIconAction, "5")
+        XCTAssertEqual(toggles.kodikIframeAd, true)
+        XCTAssertEqual(toggles.kodikAdIframeUrl, "https://anixmirai.com/iframe/ad?url=")
+        XCTAssertEqual(toggles.kodikVideoLinksUrl, "https://kodikplayer.com/get-video-info")
+        XCTAssertEqual(toggles.lastVersionCode, 26101718)
+    }
+
+    /// A flag the server sends as a number, and one it sends as a quoted number,
+    /// are both read; a value that means nothing stays nil rather than guessing.
+    func testLooseScalarsCoerceWithoutInventing() throws {
+        let json = """
+        {"snowfall": 1, "inAppUpdatesFlexibleDelay": "4000", "consentRequired": "maybe"}
+        """
+        let toggles = try JSONDecoder().decode(TogglesResponse.self, from: Data(json.utf8))
+
+        XCTAssertEqual(toggles.snowfall, true)
+        XCTAssertEqual(toggles.inAppUpdatesFlexibleDelay, 4000)
+        XCTAssertNil(toggles.consentRequired)
+    }
+
     func testRoundTripsBothShapes() throws {
         let byID = EmbeddedRelease(value: nil, id: 7)
         let encoded = try JSONEncoder().encode(Wrapper(release: byID))

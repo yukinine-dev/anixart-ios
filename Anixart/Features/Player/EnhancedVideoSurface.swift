@@ -164,7 +164,7 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             let source = CIImage(cvPixelBuffer: buffer)
             let enhanced = VideoEnhanceFilter.apply(to: source, strength: strength)
             let size = CGSize(width: drawable.texture.width, height: drawable.texture.height)
-            let placed = Self.place(enhanced, in: size, filling: isFilling)
+            let placed = Self.place(enhanced, in: size, filling: isFilling, strength: strength)
 
             let destination = CIRenderDestination(
                 width: drawable.texture.width,
@@ -188,8 +188,19 @@ struct EnhancedVideoSurface: UIViewRepresentable {
         }
 
         /// Same geometry as `AVLayerVideoGravity`: fit by default, fill when the
-        /// user has tapped the fill button.
-        private static func place(_ image: CIImage, in size: CGSize, filling: Bool) -> CIImage {
+        /// user has tapped the fill button -- and, on the way, the other half of
+        /// the enhancement.
+        ///
+        /// The frame is scaled with Lanczos rather than the default resample,
+        /// and when that scale is an upscale the kernel runs a second time on
+        /// the display's own grid. 480p and 720p are most of what the hostings
+        /// serve, so this path is the usual one, not the exception.
+        private static func place(
+            _ image: CIImage,
+            in size: CGSize,
+            filling: Bool,
+            strength: VideoEnhanceFilter.Strength
+        ) -> CIImage {
             let extent = image.extent
             guard extent.width > 0, extent.height > 0, size.width > 0, size.height > 0 else { return image }
 
@@ -197,14 +208,17 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             let scaleY = size.height / extent.height
             let scale = filling ? max(scaleX, scaleY) : min(scaleX, scaleY)
 
-            let width = extent.width * scale
-            let height = extent.height * scale
-            return image
-                .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-                .transformed(by: CGAffineTransform(
-                    translationX: (size.width - width) / 2 - extent.origin.x * scale,
-                    y: (size.height - height) / 2 - extent.origin.y * scale
-                ))
+            var frame = VideoEnhanceFilter.scaled(image, by: scale)
+            if scale > 1.1 {
+                frame = VideoEnhanceFilter.applyAfterUpscale(to: frame, strength: strength)
+            }
+
+            let placed = frame.extent
+            guard placed.width > 0, placed.height > 0 else { return frame }
+            return frame.transformed(by: CGAffineTransform(
+                translationX: (size.width - placed.width) / 2 - placed.origin.x,
+                y: (size.height - placed.height) / 2 - placed.origin.y
+            ))
         }
 
         /// One message per player, since `draw` runs sixty times a second.

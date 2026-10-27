@@ -7,15 +7,19 @@ query, percent-encodes it, appends it to a base URL read from `Prefs`, adds
 shows the advert and what calls `KodikInterface.advertEnded()` -- which is why
 opening Kodik's URL directly answers "данной страницы не существует".
 
-The base URL is behind LSParanoid and my decoder for it does not work, so this
-tries the plausible ones instead. The test is objective rather than hopeful: a
-wrapper has to mention `KodikInterface` or `advertEnded`, because that is the
-bridge it talks to. Anything else is not it, and if none matches, none matches.
+The base URL is behind LSParanoid, but it does not have to be decoded: the
+server sends it. `config/toggles` carries `kodikAdIframeUrl` and
+`iframeEmbedUrl`, and the app reads the base from there, so this asks the live
+config first and only falls back to guessing. Guessing is what wasted the last
+round -- every `anixart-app.com` path answered with the same 183083-char
+single-page app, because none of them was the wrapper.
 
     python3 Tools/probe-kodik-wrapper.py
 """
 
 import argparse
+import json
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -28,9 +32,12 @@ USER_AGENT = (
 VERSION = "26101718"
 TIMEOUT = 20
 
-# `anixart-app.com` is the only app domain in the APK's resources, so the paths
-# are guesses; the match criterion is not.
-CANDIDATES = [
+ANIXART_API = "https://api-s.anixsekai.com"
+
+# Only reached if the live config cannot be read. `anixart-app.com` is the one
+# app domain in the APK's resources, so these paths are guesses; the match
+# criterion below is not.
+FALLBACK = [
     "https://anixart-app.com/?url=",
     "https://anixart-app.com/ad?url=",
     "https://anixart-app.com/ad/?url=",
@@ -48,6 +55,27 @@ CANDIDATES = [
 MARKERS = ["KodikInterface", "advertEnded", "adsbygoogle"]
 
 
+def live_bases() -> list[tuple[str, str]]:
+    """The wrapper bases the server itself hands the app."""
+    request = urllib.request.Request(
+        f"{ANIXART_API}/config/toggles", headers={"User-Agent": USER_AGENT}
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            toggles = json.loads(response.read())
+    except Exception as error:  # noqa: BLE001 - diagnostics
+        print(f"wrapper| config/toggles unreadable: {error}")
+        return []
+
+    bases = []
+    for key in ("kodikAdIframeUrl", "iframeEmbedUrl"):
+        value = toggles.get(key)
+        if isinstance(value, str) and value:
+            print(f"wrapper| config {key} = {value}")
+            bases.append((key, value))
+    return bases
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -62,7 +90,11 @@ def main() -> int:
     encoded = urllib.parse.quote(stripped, safe="")
     print(f"wrapper| episode {stripped}")
 
-    for base in CANDIDATES:
+    bases = live_bases()
+    if not bases:
+        bases = [("guess", base) for base in FALLBACK]
+
+    for label, base in bases:
         url = f"{base}{encoded}&v={VERSION}"
         request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
         try:
@@ -70,15 +102,22 @@ def main() -> int:
                 status = response.status
                 body = response.read(300_000).decode("utf-8", "replace")
         except urllib.error.HTTPError as error:
-            print(f"wrapper| {base} -> HTTP {error.code}")
+            print(f"wrapper| {label} {base} -> HTTP {error.code}")
             continue
         except Exception as error:  # noqa: BLE001 - diagnostics
-            print(f"wrapper| {base} -> {error}")
+            print(f"wrapper| {label} {base} -> {error}")
             continue
 
         found = [marker for marker in MARKERS if marker in body]
         verdict = f"mentions {found}" if found else "no marker"
-        print(f"wrapper| {base} -> HTTP {status} {len(body)} chars, {verdict}")
+        print(f"wrapper| {label} {base} -> HTTP {status} {len(body)} chars, {verdict}")
+        # Whether the wrapper actually embeds the episode is the other half of
+        # the question: a page that shows an advert and never loads the player
+        # is no more use than the 404 was.
+        if stripped in body or urllib.parse.quote(stripped, safe="") in body:
+            print("wrapper|   the page carries the episode URL")
+        for frame in re.findall(r"<iframe[^>]+src=[\"\']([^\"\']+)", body)[:5]:
+            print(f"wrapper|   iframe {frame}")
         if found:
             print(f"wrapper|   FOUND {url}")
 

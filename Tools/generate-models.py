@@ -47,6 +47,24 @@ TYPE_OVERRIDE = {
     ("CollectionComment", "profile"): "ProfileCompact",
 }
 
+# Types whose decoder coerces scalars instead of trusting the JSON type.
+#
+# The config responses are grab-bags of flags edited by hand on the server, and
+# it already sends `searchBarIconTint` as the string "false" among two dozen real
+# booleans. The synthesised init turned that one field into a failure of the
+# whole response, so the app silently lost `kodikAdIframeUrl` with it. See
+# Networking/LooseScalars.swift.
+LENIENT = {"TogglesResponse", "ConfigUrlsResponse"}
+
+# Swift type -> the loose accessor that reads it.
+LOOSE = {
+    "Bool": "looseBool",
+    "Int": "looseInt",
+    "Double": "looseDouble",
+    "String": "looseString",
+    "[String]": "looseStrings",
+}
+
 PRIM = {
     "long": "Int", "Long": "Int", "int": "Int", "Integer": "Int",
     "short": "Int", "byte": "Int",
@@ -154,6 +172,23 @@ def gen(cls, emit_name=None, extra_parents=()):
         else:
             L.append('        case %s = "%s"' % (sn, jk))
     L.append("    }")
+    if name in LENIENT:
+        L.append("")
+        L.append("    // Hand-rolled rather than synthesised, so that one mistyped flag")
+        L.append("    // costs that flag and not the whole response. See LENIENT in")
+        L.append("    // Tools/generate-models.py.")
+        L.append("    public init(from decoder: any Decoder) throws {")
+        L.append("        let c = try decoder.container(keyedBy: CodingKeys.self)")
+        if is_response:
+            L.append("        code = c.looseInt(.code)")
+        for sn, st, jk, raw in rows:
+            accessor = LOOSE.get(st)
+            if accessor is None:
+                raise SystemExit(
+                    "!! %s.%s is %s; LooseScalars has no accessor for it" % (name, sn, st)
+                )
+            L.append("        %s = c.%s(.%s)" % (sn, accessor, sn.strip("`")))
+        L.append("    }")
     L.append("}")
     if skipped:
         L.append("")

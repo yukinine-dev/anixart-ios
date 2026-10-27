@@ -233,6 +233,32 @@ bounce the user to a store page. These pages change their anti-embedding behavio
 expect this file to need maintenance. The Android app also carries an adblock list
 (`assets/adblock.txt`) that is not ported.
 
+### «Режим улучшения видео +»
+
+The APK runs an Anime4K-derived GLSL shader as an ExoPlayer effect. Here the same kernel is a
+Core Image kernel (`Anixart/Resources/Shaders/VideoEnhance.ci.metal`) over frames pulled off the
+player with `AVPlayerItemVideoOutput` — a video composition cannot touch an HLS stream, and HLS is
+all the built-in player ever gets.
+
+Three things in it are deliberately *not* the APK's:
+
+* The APK's gradient is `(r - l, l + 2c + r)`. The second term is a sum, not a derivative, so it
+  reads 91% vertical on a vertical edge and exactly vertical on a flat patch — it was blending
+  every pixel with the one below it. Replaced with a real 3×3 Sobel, and the result is clamped to
+  the neighbourhood's own min/max, which is what a halo cannot survive.
+* Sharpening is luma-only. Per-channel sharpening moves the hue at an edge, which on flat anime
+  fills shows up as a coloured rim.
+* The chain is restore → Lanczos upscale → restore, as Anime4K's own is. 480p and 720p are most of
+  what the hostings serve, so the frame is stretched roughly 2× on the way to a phone screen;
+  everything the first pass recovers at the decoded grid is resampled soft again, and only a
+  second pass at the display's grid puts the edge back. The second pass runs at 60% strength,
+  because it is working on interpolated pixels — there is no detail there to recover, only an edge
+  to keep.
+
+The three-way dial (Слабо / Средне / Сильно) scales the deblur and sharpening amounts only.
+Средне is the APK's own numbers. The edge threshold and the anti-ringing clamp are never scaled:
+those are what keep it from breaking.
+
 ## Known risks
 
 **`NSAllowsArbitraryLoadsInWebContent` is on.** Some hostings still serve player assets over
@@ -244,9 +270,22 @@ the exception: `Anixart/Support/ImageLoader.swift` keeps decoded posters in memo
 in a `URLCache` on disk, downsamples to the size actually drawn, and falls back to
 `mirror-static.anixart.tv` when the primary host does not answer.
 
-**`versionCode` is hardcoded to 1050** in `AnixartEnvironment`, matching the Android build this
-was read from. `config/toggles` and `config/urls` both receive it, and the server uses it to
-gate features and force updates — bump it when tracking a newer Android release.
+**`versionCode` is hardcoded** in `AnixartEnvironment`, at `26101718` — the manifest's value for
+10.5, confirmed against the live `lastVersionCode`. `config/toggles` and `config/urls` both
+receive it, the Kodik wrapper URL carries it, and the server gates features and forced updates on
+it, so bump it when tracking a newer Android release. It was `1050` for most of this port — a
+number derived from the version *name*, which meant the client announced itself as years out of
+date on every launch.
+
+**The config responses decode leniently, everything else does not.** `config/toggles` sends
+`"searchBarIconTint": "false"` — a string among two dozen real booleans. Jackson coerces that
+silently, so the Android app never noticed; Swift's synthesised `init(from:)` threw, and one
+mistyped flag cost the *whole* response, including `kodikAdIframeUrl`, `kodikVideoLinksUrl` and
+`kodikIframeAd`. The player kept opening Kodik's page directly and getting «данной страницы не
+существует». `TogglesResponse` and `ConfigUrlsResponse` are now generated with a decoder built on
+`Networking/LooseScalars.swift`, which coerces scalars; the catalogue models are left strict, so a
+real shape change there still fails loudly. Both are fetched and decoded by the `probe` job now,
+which is the check that was missing.
 
 **Inferred enum values.** Season order and comment sort values were read off the UI rather than
 from a constant. They are commented as inferred in the Swift source; if sorting looks wrong,

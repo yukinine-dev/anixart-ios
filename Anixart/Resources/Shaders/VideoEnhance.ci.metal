@@ -102,11 +102,23 @@ inline float4 directional_refine(Neighbourhood n, float2 gradient, float weight)
     return mix(n.c, target, weight);
 }
 
-/// Adaptive unsharp mask: gentle on flat areas, full strength on detail.
+/// Adaptive unsharp mask, on luma only.
+///
+/// Sharpening each colour channel on its own is what puts a coloured rim around
+/// a red line crossing a blue fill: every channel overshoots by its own amount
+/// and the hue at the edge moves. Anime is flat fills bounded by dark lines, so
+/// everything worth recovering is in luma -- take the overshoot from luma and
+/// add that one number to all three channels, and the colour stays where the
+/// artist put it.
+///
+/// The old floor of half strength on flat areas was sharpening the one thing
+/// there that is not detail: the stream's own block noise and banding. Held near
+/// zero until the detector actually sees an edge.
 inline float4 unsharp(Neighbourhood n, float4 color, float edge, float strength) {
     float4 blur = (n.t + n.b + n.l + n.r + n.tl + n.tr + n.bl + n.br) / 8.0;
-    float adaptive = mix(strength * 0.5, strength, min(edge * 3.0, 1.0));
-    return color + (color - blur) * adaptive;
+    float adaptive = mix(strength * 0.1, strength, smoothstep(0.0, 0.25, edge));
+    float delta = get_luma(color) - get_luma(blur);
+    return float4(color.rgb + delta * adaptive, color.a);
 }
 
 /// Keeps the result inside the range of the pixels around it.
