@@ -137,9 +137,13 @@ struct KodikAdView: UIViewRepresentable {
             };
 
             // Catches what the hooks cannot: a native `<video src>`, a worker,
-            // anything loaded by an API this script did not wrap. Telemetry and
-            // adverts are skipped so the interesting rows are not buried.
-            var boring = /mc[.]yandex[.]ru|adsbygoogle|googlesyndication|doubleclick|[.]css|[.]woff|[.]png|[.]jpg|[.]svg|[.]gif/;
+            // anything loaded by an API this script did not wrap.
+            //
+            // The advert hosts were in this filter while they were noise. They
+            // are the signal now -- the stream is only asked for once the advert
+            // has run, so whether the advert loads at all is the question -- so
+            // only fonts and images are skipped.
+            var boring = /[.]css|[.]woff|[.]woff2|[.]ttf|[.]png|[.]jpg|[.]jpeg|[.]svg|[.]gif|[.]ico/;
             try {
                 new PerformanceObserver(function (list) {
                     var entries = list.getEntries();
@@ -354,8 +358,12 @@ struct KodikAdView: UIViewRepresentable {
         private static func isInteresting(_ url: String) -> Bool {
             if isMedia(url) { return true }
             let lowered = url.lowercased()
-            for marker in ["solodcdn", "kodik", "/ftor", "cloud.", "manifest", "/get_", "video"]
-            where lowered.contains(marker) {
+            for marker in [
+                "solodcdn", "kodik", "/ftor", "cloud.", "manifest", "/get_", "video",
+                // The advert has to run before the stream is requested, so its
+                // hosts say whether the chain even starts.
+                "adsbygoogle", "googlesyndication", "doubleclick", "adservice"
+            ] where lowered.contains(marker) {
                 return true
             }
             return false

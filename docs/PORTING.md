@@ -131,6 +131,25 @@ circumventing the hosting's protection. That was wrong twice over, and the corre
   four regexes, prefixing `https:` on a protocol-relative one and rewriting the host with two
   string replaces. Ordinary reading of a public page.
 
+**What a Kodik page actually does**, measured from a WKWebView in the simulator
+(`-anixart-screen kodik`, or Настройки → Диагностика on a device):
+
+    3 frames: kodikplayer.com/seria/<id>/<hash>/720p, about:blank, ls.kodikres.com/storage.html
+    xhr   cloud.solodcdn.com/test/<32 hex>:<YYYYMMDDHH>/g?_=<ms>
+    load  kodikplayer.com/assets/js/app.player_single.<hash>.js
+    load  ls.kodikres.com/local-storage.min.js
+    fetch mc.yandex.ru/watch   (site-info carries "domain":"anixart-app.com")
+    fetch mc.yandex.ru/clmap   (pointer-click — the synthetic tap registers)
+    advert finished: no       media URLs: 0
+
+So the page loads in full, performs one dated CDN reachability check against
+`cloud.solodcdn.com`, and stops. No `/ftor`, no manifest, no media. Together with
+`advert finished: no` that says the stream is only requested *after* the advert
+has run — which is exactly the order `KodikAdActivity` implies, since it waits
+for `advertEnded` before playing anything. The advert is AdSense, and it does not
+serve a simulator on a datacentre address, so this is as far as CI can measure:
+the rest needs a real device.
+
 And `KodikAdActivity` shows what the flow really is. It loads Kodik's page in a WebView, taps the
 centre once on `onPageFinished` (autoplay needs a gesture), and registers a JavaScript bridge as
 **`KodikInterface`** — which Kodik's own player then calls back as `advertEnded()`. Kodik built
