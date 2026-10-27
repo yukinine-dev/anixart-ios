@@ -136,6 +136,20 @@ struct KodikAdView: UIViewRepresentable {
                 return open0.apply(this, arguments);
             };
 
+            // Catches what the hooks cannot: a native `<video src>`, a worker,
+            // anything loaded by an API this script did not wrap. Telemetry and
+            // adverts are skipped so the interesting rows are not buried.
+            var boring = /mc\.yandex\.ru|adsbygoogle|googlesyndication|doubleclick|\.css|\.woff|\.png|\.jpg|\.svg|\.gif/;
+            try {
+                new PerformanceObserver(function (list) {
+                    var entries = list.getEntries();
+                    for (var i = 0; i < entries.length; i++) {
+                        var name = entries[i].name;
+                        if (!boring.test(name)) { note("load", name); }
+                    }
+                }).observe({ type: "resource", buffered: true });
+            } catch (error) { /* older WebKit */ }
+
             var look = function () {
                 var videos = document.querySelectorAll("video");
                 for (var i = 0; i < videos.length; i++) {
@@ -184,7 +198,7 @@ struct KodikAdView: UIViewRepresentable {
 
         /// Long enough for an advert, short enough not to look broken. A page
         /// that never calls back still has to let the user through.
-        private static let patience: Duration = .seconds(45)
+        private static let patience: Duration = .seconds(90)
 
         private let onResolved: ([URL], Diagnosis) -> Void
         private let onFailure: (String) -> Void
@@ -267,8 +281,12 @@ struct KodikAdView: UIViewRepresentable {
             case "request":
                 let raw = body["url"] as? String ?? ""
                 let kind = body["kind"] as? String ?? "?"
-                if requests.count < 40 {
+                if requests.count < 160 {
                     requests.append("\(kind) \(raw)")
+                }
+                if Self.isInteresting(raw) {
+                    // Logged as it happens, because this is the row that matters
+                    // and it arrives after a crowd of telemetry.
                     Self.log.notice("page asked \(kind, privacy: .public) \(raw, privacy: .public)")
                 }
                 if Self.isMedia(raw), !raw.hasPrefix("blob:"), let url = URL(string: raw) {
@@ -330,6 +348,17 @@ struct KodikAdView: UIViewRepresentable {
             stop()
             Self.log.error("kodik page failed: \(failure, privacy: .public)")
             onFailure(failure)
+        }
+
+        /// Worth a log line of its own: the stream, or the CDN that serves it.
+        private static func isInteresting(_ url: String) -> Bool {
+            if isMedia(url) { return true }
+            let lowered = url.lowercased()
+            for marker in ["solodcdn", "kodik", "/ftor", "cloud.", "manifest", "/get_", "video"]
+            where lowered.contains(marker) {
+                return true
+            }
+            return false
         }
 
         private static func isMedia(_ url: String) -> Bool {

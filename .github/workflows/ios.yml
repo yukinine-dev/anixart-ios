@@ -357,7 +357,7 @@ jobs:
             case "$screen" in
               # The advert screen waits on Kodik's own player, so give it longer
               # than a screen that only has to render.
-              kodik) sleep 60 ;;
+              kodik) sleep 105 ;;
               player) sleep 30 ;;
               *) sleep 18 ;;
             esac

@@ -35,7 +35,14 @@ struct KodikProbeScreen: View {
                         for frame in result.frames.prefix(6) {
                             Self.log.notice("smoke kodik frame: \(frame, privacy: .public)")
                         }
-                        for request in result.requests.prefix(10) {
+                        // Telemetry crowds the front of the list, so the rows that
+                        // could be the stream are reported first.
+                        let ranked = result.requests.sorted { lhs, rhs in
+                            let left = lhs.contains("solodcdn") || lhs.contains(".m3u8") || lhs.contains(".mp4")
+                            let right = rhs.contains("solodcdn") || rhs.contains(".m3u8") || rhs.contains(".mp4")
+                            return left && !right
+                        }
+                        for request in ranked.prefix(14) {
                             Self.log.notice("smoke kodik request: \(request, privacy: .public)")
                         }
                         for url in urls.prefix(8) {
