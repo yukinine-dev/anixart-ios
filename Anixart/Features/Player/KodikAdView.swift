@@ -40,12 +40,7 @@ struct KodikAdView: UIViewRepresentable {
         // name comes from addJavascriptInterface; here it has to be shimmed onto
         // the message handler, under the same name the page expects.
         controller.addUserScript(WKUserScript(
-            source: """
-            window.KodikInterface = window.KodikInterface || {};
-            window.KodikInterface.advertEnded = function () {
-                window.webkit.messageHandlers.\(Bridge.channel).postMessage({ event: "advertEnded" });
-            };
-            """,
+            source: Self.reporter(channel: Bridge.channel),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: false
         ))
@@ -76,6 +71,90 @@ struct KodikAdView: UIViewRepresentable {
 
     func updateUIView(_ view: WKWebView, context: Context) {}
 
+    /// Runs in every frame, not just the main one.
+    ///
+    /// The first attempt read `document.querySelector("video")` and the resource
+    /// timings from the main frame after the fact, and got nothing at all --
+    /// not even a timing -- which is what a player living in a child frame looks
+    /// like. A frame can only see its own document and its own timings, so the
+    /// reporting has to happen inside each of them, as it happens.
+    ///
+    /// It watches rather than drives: the URLs the frame asks for, and whatever
+    /// a `<video>` ends up playing. Nothing here reimplements the player's own
+    /// request -- it is the same information the browser would show in its
+    /// network panel.
+    private static func reporter(channel: String) -> String {
+        """
+        (function () {
+            var post = function (payload) {
+                try {
+                    window.webkit.messageHandlers.\(channel).postMessage(payload);
+                } catch (error) { /* a frame without the handler is fine */ }
+            };
+
+            // Kodik's player calls this when its advert is over; on Android the
+            // name comes from addJavascriptInterface.
+            window.KodikInterface = window.KodikInterface || {};
+            window.KodikInterface.advertEnded = function () {
+                post({ event: "advertEnded" });
+            };
+
+            var seen = {};
+            var note = function (kind, url) {
+                if (!url || seen[url]) { return; }
+                seen[url] = true;
+                post({ event: "request", kind: kind, url: String(url) });
+            };
+
+            // Every URL the frame asks for. Reported in full while the count is
+            // small, because which request comes first is the diagnostic: no
+            // `/ftor` at all means the page stalled before resolving anything.
+            var fetch0 = window.fetch;
+            if (fetch0) {
+                window.fetch = function (input) {
+                    note("fetch", typeof input === "string" ? input : (input && input.url));
+                    return fetch0.apply(this, arguments);
+                };
+            }
+            var open0 = XMLHttpRequest.prototype.open;
+            XMLHttpRequest.prototype.open = function (method, url) {
+                note("xhr", url);
+                return open0.apply(this, arguments);
+            };
+
+            var look = function () {
+                var videos = document.querySelectorAll("video");
+                for (var i = 0; i < videos.length; i++) {
+                    note("video", videos[i].currentSrc || videos[i].src);
+                }
+            };
+            new MutationObserver(look).observe(document.documentElement || document, {
+                childList: true, subtree: true, attributes: true, attributeFilter: ["src"]
+            });
+            document.addEventListener("loadedmetadata", look, true);
+            setInterval(look, 2000);
+
+            // An advert will not start without a gesture, and the Android client
+            // dispatches one tap in the centre. Each frame nudges its own.
+            var nudge = function () {
+                try {
+                    var el = document.elementFromPoint(
+                        Math.floor(window.innerWidth / 2),
+                        Math.floor(window.innerHeight / 2)
+                    );
+                    if (el && el.click) { el.click(); }
+                } catch (error) { /* nothing to click yet */ }
+            };
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", nudge);
+            } else {
+                nudge();
+            }
+            setTimeout(nudge, 1500);
+        })();
+        """
+    }
+
     static func dismantleUIView(_ view: WKWebView, coordinator: Bridge) {
         coordinator.stop()
         view.navigationDelegate = nil
@@ -98,6 +177,11 @@ struct KodikAdView: UIViewRepresentable {
         private weak var view: WKWebView?
         private var timeout: Task<Void, Never>?
         private var hasFinished = false
+        /// Media URLs the frames reported, in the order they asked for them.
+        private var media: [URL] = []
+        /// Every request, for the diagnostic: whether the page got as far as
+        /// resolving its links at all.
+        private var requests: [String] = []
 
         init(onResolved: @escaping ([URL]) -> Void, onFailure: @escaping (String) -> Void) {
             self.onResolved = onResolved
@@ -149,10 +233,26 @@ struct KodikAdView: UIViewRepresentable {
             didReceive message: WKScriptMessage
         ) {
             guard let body = message.body as? [String: Any],
-                  body["event"] as? String == "advertEnded"
+                  let event = body["event"] as? String
             else { return }
-            Self.log.notice("advert finished")
-            Task { await finish() }
+
+            switch event {
+            case "advertEnded":
+                Self.log.notice("advert finished")
+                Task { await finish() }
+            case "request":
+                let raw = body["url"] as? String ?? ""
+                let kind = body["kind"] as? String ?? "?"
+                if requests.count < 40 {
+                    requests.append("\(kind) \(raw)")
+                    Self.log.notice("page asked \(kind, privacy: .public) \(raw, privacy: .public)")
+                }
+                if Self.isMedia(raw), !raw.hasPrefix("blob:"), let url = URL(string: raw) {
+                    media.append(url)
+                }
+            default:
+                break
+            }
         }
 
         /// Asks the page what it is playing.
@@ -163,49 +263,41 @@ struct KodikAdView: UIViewRepresentable {
         /// fetched, which is where an `.m3u8` or `.mp4` shows up without
         /// touching the player's internals.
         private func finish() async {
-            guard !hasFinished, let view else { return }
+            guard !hasFinished else { return }
             hasFinished = true
             stop()
 
-            let script = """
-            (function () {
-                var video = document.querySelector("video");
-                var current = video ? (video.currentSrc || video.src || "") : "";
-                var loaded = [];
-                try {
-                    loaded = performance.getEntriesByType("resource")
-                        .map(function (entry) { return entry.name; })
-                        .filter(function (name) { return /\\.m3u8|\\.mp4|\\.ts(\\?|$)/.test(name); });
-                } catch (error) { loaded = []; }
-                return JSON.stringify({ current: current, loaded: loaded });
-            })();
-            """
-
-            let raw = try? await view.evaluateJavaScript(script) as? String
-            guard let raw,
-                  let data = raw.data(using: .utf8),
-                  let answer = try? JSONDecoder().decode(PageAnswer.self, from: data)
-            else {
-                report(failure: "страница не ответила, что воспроизводит")
-                return
-            }
-
-            var candidates: [URL] = []
-            if !answer.current.isEmpty, !answer.current.hasPrefix("blob:"),
-               let url = URL(string: answer.current) {
-                candidates.append(url)
-            }
-            candidates += answer.loaded.compactMap(URL.init(string:))
-
             Self.log.notice("""
-            page played current=\(answer.current, privacy: .public) \
-            loaded=\(answer.loaded.count, privacy: .public)
+            page asked for \(requests.count, privacy: .public) urls, \
+            \(media.count, privacy: .public) of them media
             """)
-            for name in answer.loaded.prefix(6) {
-                Self.log.notice("page loaded \(name, privacy: .public)")
+            if media.isEmpty, !requests.isEmpty {
+                // Which requests did happen says where it stopped: no `/ftor`
+                // means the links were never resolved.
+                for line in requests.prefix(12) {
+                    Self.log.notice("page request \(line, privacy: .public)")
+                }
             }
 
-            onResolved(candidates)
+            // The frames report as they go, so this only fills in a player that
+            // set a plain `src` before the script was injected.
+            if media.isEmpty, let view {
+                let script = """
+                (function () {
+                    var video = document.querySelector("video");
+                    return video ? (video.currentSrc || video.src || "") : "";
+                })();
+                """
+                if let current = try? await view.evaluateJavaScript(script) as? String,
+                   let current,
+                   !current.isEmpty,
+                   !current.hasPrefix("blob:"),
+                   let url = URL(string: current) {
+                    media.append(url)
+                }
+            }
+
+            onResolved(media)
         }
 
         private func report(failure: String) {
@@ -216,9 +308,12 @@ struct KodikAdView: UIViewRepresentable {
             onFailure(failure)
         }
 
-        private struct PageAnswer: Decodable {
-            var current: String
-            var loaded: [String]
+        private static func isMedia(_ url: String) -> Bool {
+            let lowered = url.lowercased()
+            for marker in [".m3u8", ".mp4", ".mpd"] where lowered.contains(marker) {
+                return true
+            }
+            return false
         }
     }
 }

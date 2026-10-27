@@ -31,7 +31,7 @@ struct KodikProbeScreen: View {
                     url: episodeURL,
                     onResolved: { urls in
                         report("нашлось \(urls.count) ссылок")
-                        for url in urls.prefix(6) {
+                        for url in urls.prefix(8) {
                             Self.log.notice("smoke kodik url: \(url.absoluteString, privacy: .public)")
                         }
                     },
