@@ -267,10 +267,7 @@ struct KodikAdView: UIViewRepresentable {
             hasFinished = true
             stop()
 
-            Self.log.notice("""
-            page asked for \(requests.count, privacy: .public) urls, \
-            \(media.count, privacy: .public) of them media
-            """)
+            Self.log.notice("page asked for \(self.requests.count, privacy: .public) urls, \(self.media.count, privacy: .public) of them media")
             if media.isEmpty, !requests.isEmpty {
                 // Which requests did happen says where it stopped: no `/ftor`
                 // means the links were never resolved.
@@ -289,7 +286,6 @@ struct KodikAdView: UIViewRepresentable {
                 })();
                 """
                 if let current = try? await view.evaluateJavaScript(script) as? String,
-                   let current,
                    !current.isEmpty,
                    !current.hasPrefix("blob:"),
                    let url = URL(string: current) {
