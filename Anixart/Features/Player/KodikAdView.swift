@@ -203,7 +203,12 @@ struct KodikAdView: UIViewRepresentable {
             setInterval(look, 2000);
 
             // An advert will not start without a gesture, and the Android client
-            // dispatches one tap in the centre. Each frame nudges its own.
+            // dispatches one tap, in its own view. One. This used to run in
+            // every frame, which meant synthetic clicks landing inside each ad
+            // network's own player -- a click-through nobody made, and a good
+            // way to have an advert restart or navigate away under you. Only the
+            // top frame gets the gesture now; the reporting still runs
+            // everywhere.
             var nudge = function () {
                 try {
                     var el = document.elementFromPoint(
@@ -213,12 +218,14 @@ struct KodikAdView: UIViewRepresentable {
                     if (el && el.click) { el.click(); }
                 } catch (error) { /* nothing to click yet */ }
             };
-            if (document.readyState === "loading") {
-                document.addEventListener("DOMContentLoaded", nudge);
-            } else {
-                nudge();
+            if (window.top === window) {
+                if (document.readyState === "loading") {
+                    document.addEventListener("DOMContentLoaded", nudge);
+                } else {
+                    nudge();
+                }
+                setTimeout(nudge, 1500);
             }
-            setTimeout(nudge, 1500);
         })();
         """
     }
@@ -238,7 +245,11 @@ struct KodikAdView: UIViewRepresentable {
 
         /// Long enough for an advert, short enough not to look broken. A page
         /// that never calls back still has to let the user through.
-        private static let patience: Duration = .seconds(90)
+        /// Long enough for a waterfall to fill and an advert to run, and no
+        /// longer. The measured fill took about fourteen seconds and a pre-roll
+        /// is fifteen to thirty; ninety was a minute and a half of staring at a
+        /// page that was never going to call back.
+        private static let patience: Duration = .seconds(60)
 
         private let onResolved: ([Media], Diagnosis) -> Void
         private let onFailure: (String) -> Void

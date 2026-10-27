@@ -57,7 +57,10 @@ struct PlayerScreen: View {
                     unavailable
                 }
             case .web:
-                if let page = webPage {
+                // Never the advert wrapper once the gate has already shown one:
+                // falling back into it played a second advert, which is what
+                // made it feel endless.
+                if let page = webPage(withAdvert: !kodikGaveUp) {
                     EmbedPlayerView(url: page, title: episode.displayName)
                         .ignoresSafeArea()
                         .overlay(alignment: .topLeading) { closeButton }
@@ -93,7 +96,8 @@ struct PlayerScreen: View {
         // over, which is what the Android client's `KodikInterface.advertEnded`
         // callback is for. So the built-in player is reachable here; it just
         // costs the advert first, exactly as it does in the original app.
-        if choice == .embedded, !kodikGaveUp, let page = webPage, KodikWrapper.handles(page) {
+        if choice == .embedded, !kodikGaveUp,
+           let page = webPage(), KodikWrapper.handles(page) {
             return .kodik
         }
         return .web
@@ -106,7 +110,7 @@ struct PlayerScreen: View {
     /// read from what the page itself then loads.
     @ViewBuilder
     private var kodikGate: some View {
-        if let page = webPage {
+        if let page = webPage() {
             ZStack {
                 KodikAdView(
                     url: page,
@@ -121,14 +125,27 @@ struct PlayerScreen: View {
                 )
                 .ignoresSafeArea()
 
-                VStack {
+                VStack(spacing: 14) {
                     Spacer()
                     Text("Реклама источника. Серия откроется во встроенном плеере.")
                         .font(.ax(.caption))
                         .foregroundStyle(.white.opacity(0.85))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
-                        .padding(.bottom, 32)
+
+                    // A waterfall of ad networks can take a while before one
+                    // fills, and nobody should be held in it with no way out.
+                    // This leaves for the source's own player -- it does not
+                    // skip anyone's advert.
+                    Button("Открыть плеер источника") {
+                        kodikGaveUp = true
+                    }
+                    .font(.ax(.subheadline, .medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(.white.opacity(0.18), in: Capsule())
+                    .padding(.bottom, 32)
                 }
             }
             .overlay(alignment: .topLeading) { closeButton }
@@ -143,12 +160,12 @@ struct PlayerScreen: View {
     /// "данной страницы не существует" to one -- so it goes through the wrapper
     /// the server names, which is what the Android client loads. With the advert
     /// wrapper when the server asks for it, the plain one otherwise.
-    private var webPage: URL? {
+    private func webPage(withAdvert: Bool = true) -> URL? {
         guard let page = target.pageURL ?? target.variants.first?.url else { return nil }
         guard KodikWrapper.handles(page) else { return page }
 
         let toggles = env.session.toggles
-        let base = (toggles?.kodikIframeAd ?? false)
+        let base = (withAdvert && (toggles?.kodikIframeAd ?? false))
             ? toggles?.kodikAdIframeUrl
             : toggles?.iframeEmbedUrl
         return KodikWrapper.url(for: page, base: base) ?? page
