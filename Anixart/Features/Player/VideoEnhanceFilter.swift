@@ -131,7 +131,7 @@ struct VideoEnhanceFilter {
         // No debanding here: the pixels are interpolated, so a terrace has
         // already been smeared into a ramp and there is nothing left to flatten
         // -- only real detail to lose.
-        run(image, scale: strength.scale * 0.5, deband: 0.0)
+        return run(image, scale: strength.scale * 0.5, deband: 0.0)
     }
 
     /// Lanczos rather than the default resample.
