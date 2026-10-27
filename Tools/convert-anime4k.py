@@ -32,18 +32,26 @@ CHAINS = [
     ("Anime4K_Upscale_CNN_x2_S.glsl", "upscaleX2"),
 ]
 
-GLSL_TYPES = [
-    ("mat4(", "float4x4("),
-    ("vec4(", "float4("),
-    ("vec3(", "float3("),
-    ("vec2(", "float2("),
-    ("ivec2(", "int2("),
-    ("ivec4(", "int4("),
-    ("vec4 ", "float4 "),
-    ("vec3 ", "float3 "),
-    ("vec2 ", "float2 "),
-    ("ivec2 ", "int2 "),
-]
+# Substituted in one pass on whole words. Done as a list of string replacements
+# it is not a list of replacements, it is a pipeline: `vec2(` -> `float2(` runs
+# first and turns `ivec2(` into `ifloat2(`, which is what happened.
+GLSL_TYPES = {
+    "mat2": "float2x2",
+    "mat3": "float3x3",
+    "mat4": "float4x4",
+    "vec2": "float2",
+    "vec3": "float3",
+    "vec4": "float4",
+    "ivec2": "int2",
+    "ivec3": "int3",
+    "ivec4": "int4",
+}
+GLSL_TYPE_RE = re.compile(r"\b(" + "|".join(sorted(GLSL_TYPES, key=len, reverse=True)) + r")\b")
+
+# Nothing GLSL-shaped may survive the translation. A leftover token compiles to
+# a confusing error at best and to something that silently means the wrong thing
+# at worst.
+LEFTOVER_RE = re.compile(r"\b(\w*vec[234]|mat[234]|texOff|_pt|_pos|_size|hook)\b")
 
 
 class Pass:
@@ -122,15 +130,22 @@ def translate(body: list[str], binds: list[str], prefix: str) -> str:
 
     for old, new in patterns:
         text = text.replace(old, new)
-    for old, new in GLSL_TYPES:
-        text = text.replace(old, new)
+    text = GLSL_TYPE_RE.sub(lambda match: GLSL_TYPES[match.group(1)], text)
 
     # `hook()` becomes the kernel's body; its own `#define`s stay as they are.
     text = text.replace("float4 hook() {", "// --- body ---")
     lines = [line for line in text.splitlines() if line.strip()]
     if lines and lines[-1].strip() == "}":
         lines = lines[:-1]
-    return "\n".join(lines)
+    translated = "\n".join(lines)
+
+    leftover = LEFTOVER_RE.search(translated)
+    if leftover:
+        raise SystemExit(
+            f"!! {prefix}: {leftover.group(0)!r} survived the translation at "
+            f"{translated[max(0, leftover.start() - 60):leftover.end() + 20]!r}"
+        )
+    return translated
 
 
 def emit_metal(path: pathlib.Path, chains: list[tuple[str, list[Pass]]]) -> str:

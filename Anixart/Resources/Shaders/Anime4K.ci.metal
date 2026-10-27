@@ -359,7 +359,7 @@ extern "C" float4 a4k_upscaleX2_4(
     (void)pt1;
 // --- body ---
     float2 f0 = fract(npos * size1);
-    ifloat2 i0 = ifloat2(f0 * float2(2.0));
+    int2 i0 = int2(f0 * float2(2.0));
     float c0 = a4k_upscaleX2_4_at1((float2(0.5) - f0) * pt1 + npos)[i0.y * 2 + i0.x];
     float c1 = c0;
     float c2 = c1;
