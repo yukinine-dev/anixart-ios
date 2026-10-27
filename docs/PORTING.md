@@ -114,11 +114,30 @@ real playlist. No title matching and no scraping of anyone's player.
 Anixart's own URL when it really is a stream, otherwise a source's, otherwise nothing and only
 the web player is offered.
 
-**The gap is titles AniLibria does not carry.** A Kodik-only release still has no stream, so the
-built-in player is not offered for it and the picker says why. Closing that means another
-source, and the APK's own Kodik parser runs its strings through a decryption routine —
-circumventing that hosting's deliberate access protection, which is a different thing from using
-Anixart's open API, and is deliberately **not** ported.
+**The gap is Kodik, and it is most of the catalogue.** Measured in the `probe` job: «Киберпанк:
+Бегущие по краю» lists 25 voice-overs, and the hostings are `{Kodik: 25, Libria: 1, Sibnet: 1}`;
+«Ванпанчмен» lists 19, `{Kodik: 17, Libria: 1, Sibnet: 1, Sovet: 2}`. So a voice-over almost
+always lives on Kodik alone, and a source like AniLibria supplies its *own* dub rather than
+unlocking anyone else's — it cannot stand in for a Kodik entry.
+
+Two routes were examined and neither is taken:
+
+* The APK's own Kodik parser runs its strings through a decryption routine. That circumvents the
+  hosting's deliberate access protection, which is a different thing from using Anixart's open
+  API, and is **not** ported.
+* ShikiApp, suggested as a place to take sources from, does not contain any. Its binary holds no
+  provider hostnames at all: it embeds the whole of `yggdrasil-go` (plus gvisor's netstack and a
+  SOCKS/CONNECT proxy), carries the string `at least one yggdrasil peer is required`, and its
+  only ATS exception is a single Yggdrasil address, `201:601c:…`, over plain HTTP. Its
+  `KodikParser`, `CollapsParser`, `AksorParser` and `CvhParser` run against whatever that overlay
+  peer serves. Those sources are a service someone runs, not code that can be lifted, and
+  pointing this app at it would be using a third party's private infrastructure.
+
+Services that publish their own dubs through a public API are the remaining avenue. AniLibria is
+one and is implemented. Shikimori (needed as the bridge, since Anixart carries no external ids at
+all) answered a CI runner with HTTP 522, and AnimeLib with a Cloudflare 403; dressing the request
+up as a browser to get past that would be the same circumvention as above, so the probe records
+the refusal and stops. Whether those APIs answer an ordinary phone is untested.
 
 **Quality comes from the source, not a fixed list.** A source that publishes one playlist per
 quality decides the rungs, so "Ванпанчмен" offers 480p and 720p and no 1080p. Switching replaces

@@ -25,8 +25,13 @@ TIMEOUT = 25
 
 ANIXART_API = "https://api-s.anixsekai.com"
 SHIKIMORI_API = "https://shikimori.one/api"
+# Shikimori's API asks callers to name themselves in the User-Agent.
+SHIKIMORI_HEADERS = {"Accept": "application/json", "User-Agent": "anixart-ios-port"}
 # The host the AnimeLib clients talk to; Site-Id 5 is its anime catalogue.
-ANIMELIB_API = "https://api.cdnlibs.org/api"
+ANIMELIB_HOSTS = [
+    "https://api.cdnlibs.org/api",
+    "https://api.lib.social/api",
+]
 ANIMELIB_HEADERS = {"Accept": "application/json", "Site-Id": "5"}
 
 
@@ -99,7 +104,7 @@ def shikimori(release) -> int | None:
             continue
         url = f"{SHIKIMORI_API}/animes?search={urllib.parse.quote(query)}&limit=5"
         print(f"  shikimori search by {key}: {query!r}")
-        items = get_json(url)
+        items = get_json(url, SHIKIMORI_HEADERS)
         if not items:
             continue
         for item in items:
@@ -119,8 +124,17 @@ def animelib(release, shikimori_id: int | None):
     """AnimeLib publishes its own dubs, several teams per title."""
     query = release.get("title_original") or release.get("title_ru")
     print(f"  animelib search: {query!r}")
-    found = get_json(f"{ANIMELIB_API}/anime?q={urllib.parse.quote(query)}", ANIMELIB_HEADERS)
+
+    found = None
+    api = None
+    for host in ANIMELIB_HOSTS:
+        print(f"    via {host}")
+        found = get_json(f"{host}/anime?q={urllib.parse.quote(query)}", ANIMELIB_HEADERS)
+        if found:
+            api = host
+            break
     if not found:
+        print("    no AnimeLib host answered this client")
         return
     items = found.get("data") if isinstance(found, dict) else found
     if not items:
@@ -142,14 +156,14 @@ def animelib(release, shikimori_id: int | None):
             print(f"    -> no candidate names shikimori id {shikimori_id}; taking the first")
 
     slug = chosen.get("slug_url")
-    episodes = get_json(f"{ANIMELIB_API}/episodes?anime_id={urllib.parse.quote(str(slug))}", ANIMELIB_HEADERS)
+    episodes = get_json(f"{api}/episodes?anime_id={urllib.parse.quote(str(slug))}", ANIMELIB_HEADERS)
     rows = (episodes or {}).get("data") if isinstance(episodes, dict) else episodes
     if not rows:
         print("    no episode list")
         return
     print(f"    {len(rows)} episodes; first keys: {sorted(rows[0].keys())}")
 
-    detail = get_json(f"{ANIMELIB_API}/episodes/{rows[0].get('id')}", ANIMELIB_HEADERS)
+    detail = get_json(f"{api}/episodes/{rows[0].get('id')}", ANIMELIB_HEADERS)
     data = (detail or {}).get("data") if isinstance(detail, dict) else detail
     if not data:
         print("    no episode detail")
