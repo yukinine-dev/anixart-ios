@@ -35,7 +35,8 @@ struct KodikProbeScreen: View {
             if let episodeURL {
                 KodikAdView(
                     url: episodeURL,
-                    onResolved: { urls, result in
+                    onResolved: { media, result in
+                        let urls = media.map(\.url)
                         report("фреймов \(result.frames.count), запросов \(result.requests.count), "
                                + "реклама \(result.advertFinished ? "да" : "нет"), ссылок \(urls.count)")
                         for frame in result.frames.prefix(6) {
@@ -50,6 +51,9 @@ struct KodikProbeScreen: View {
                         }
                         for request in ranked.prefix(14) {
                             Self.log.notice("smoke kodik request: \(request, privacy: .public)")
+                        }
+                        if let stream = KodikAdView.episodeStream(from: media) {
+                            Self.log.notice("smoke kodik stream: \(stream.absoluteString, privacy: .public)")
                         }
                         for url in urls.prefix(8) {
                             Self.log.notice("smoke kodik url: \(url.absoluteString, privacy: .public)")

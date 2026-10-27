@@ -154,6 +154,9 @@ struct EpisodePlaybackModifier: ViewModifier {
                     preferences: launcher.preferences,
                     supportsDirectPlayback: target?.supportsDirectPlayback ?? false,
                     streamSourceName: target?.streamSourceName,
+                    embeddedNeedsAdvert: KodikWrapper.handles(
+                        target?.pageURL ?? URL(string: "about:blank")!
+                    ),
                     alternativeSourceName: alternativeSourceName,
                     onContinue: { launcher.choose($0) }
                 )

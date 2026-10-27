@@ -28,6 +28,11 @@ enum KodikWrapper {
     /// Hostings this applies to, as `Parser.KODIK_URL` lists them.
     static let hosts = ["kodik.cc", "kodik.info", "aniqit.com", "kodikplayer.com"]
 
+    /// What the CDN wants to see on a request for the episode's own stream.
+    ///
+    /// The page is served from here, so this is the origin its own player sends.
+    static let referer = URL(string: "https://kodikplayer.com/")!
+
     static func handles(_ url: URL) -> Bool {
         guard let host = url.host()?.lowercased() else { return false }
         return hosts.contains { host == $0 || host.hasSuffix("." + $0) }

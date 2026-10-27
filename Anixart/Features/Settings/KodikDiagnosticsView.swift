@@ -24,6 +24,8 @@ struct KodikDiagnosticsView: View {
     @State private var what = ""
     @State private var note = "Ищем серию на Kodik…"
     @State private var found: [URL] = []
+    /// Which of them the picker chose as the episode, as opposed to the advert.
+    @State private var stream: URL?
     @State private var diagnosis: KodikAdView.Diagnosis?
     @State private var isRunning = false
     /// What the server says about the Kodik path. Everything here comes from
@@ -79,6 +81,7 @@ struct KodikDiagnosticsView: View {
                     row("Живых фреймов", "\(diagnosis.frames.count)")
                     row("Запросов", "\(diagnosis.requests.count)")
                     row("Ссылок на видео", "\(found.count)")
+                    row("Поток серии", stream == nil ? "не найден" : "найден")
                 }
 
                 if !diagnosis.frames.isEmpty {
@@ -124,8 +127,9 @@ struct KodikDiagnosticsView: View {
                 Section {
                     KodikAdView(
                         url: episodeURL,
-                        onResolved: { urls, result in
-                            found = urls
+                        onResolved: { media, result in
+                            found = media.map(\.url)
+                            stream = KodikAdView.episodeStream(from: media)
                             diagnosis = result
                             isRunning = false
                         },
@@ -169,6 +173,7 @@ struct KodikDiagnosticsView: View {
             lines += diagnosis.frames.map { "  frame \($0)" }
             lines.append("requests: \(diagnosis.requests.count)")
             lines += diagnosis.requests.map { "  \($0)" }
+            lines.append("stream: \(stream?.absoluteString ?? "—")")
             lines.append("media: \(found.count)")
             lines += found.map { "  \($0.absoluteString)" }
         }

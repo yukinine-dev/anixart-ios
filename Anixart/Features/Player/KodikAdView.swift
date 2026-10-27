@@ -25,7 +25,43 @@ struct KodikAdView: UIViewRepresentable {
     /// reports finished -- or once the wait runs out, since a page that never
     /// calls back should not strand the user. The second argument is what the
     /// page was seen doing, so a screen can show why nothing was found.
-    let onResolved: ([URL], Diagnosis) -> Void
+    let onResolved: ([Media], Diagnosis) -> Void
+
+    /// A media URL the page loaded, and whether the advert had already finished
+    /// when it did.
+    ///
+    /// That flag is the whole difference between the advert and the episode:
+    /// both arrive as video, from hosts that change, and nothing else
+    /// distinguishes them without a list of ad networks that would be wrong by
+    /// next month.
+    struct Media: Equatable, Sendable {
+        var url: URL
+        var afterAdvert: Bool
+    }
+
+    /// Which of them is the episode.
+    ///
+    /// Ranked rather than filtered, so a page that behaves unusually still
+    /// yields its best candidate instead of nothing: after the advert beats
+    /// before it, and a manifest beats a bare file, because Kodik serves the
+    /// episode as HLS and the advert as a plain mp4.
+    static func episodeStream(from media: [Media]) -> URL? {
+        func rank(_ item: Media) -> Int {
+            var score = 0
+            if item.afterAdvert { score += 2 }
+            if item.url.absoluteString.contains(".m3u8") { score += 1 }
+            return score
+        }
+        // Ties go to the later request: the episode is loaded after everything
+        // else the page wanted.
+        var best: Media?
+        var bestRank = Int.min
+        for item in media where rank(item) >= bestRank {
+            best = item
+            bestRank = rank(item)
+        }
+        return best?.url
+    }
 
     /// What the page was observed doing, for when it yields nothing.
     struct Diagnosis: Equatable {
@@ -204,21 +240,23 @@ struct KodikAdView: UIViewRepresentable {
         /// that never calls back still has to let the user through.
         private static let patience: Duration = .seconds(90)
 
-        private let onResolved: ([URL], Diagnosis) -> Void
+        private let onResolved: ([Media], Diagnosis) -> Void
         private let onFailure: (String) -> Void
         private weak var view: WKWebView?
         private var timeout: Task<Void, Never>?
+        /// The short wait after the advert for the episode's own request.
+        private var grace: Task<Void, Never>?
         private var hasFinished = false
         private var advertFinished = false
         /// Media URLs the frames reported, in the order they asked for them.
-        private var media: [URL] = []
+        private var media: [Media] = []
         /// Every request, for the diagnostic: whether the page got as far as
         /// resolving its links at all.
         private var requests: [String] = []
         /// Frames whose copy of the script checked in.
         private(set) var frames: [String] = []
 
-        init(onResolved: @escaping ([URL], Diagnosis) -> Void, onFailure: @escaping (String) -> Void) {
+        init(onResolved: @escaping ([Media], Diagnosis) -> Void, onFailure: @escaping (String) -> Void) {
             self.onResolved = onResolved
             self.onFailure = onFailure
             super.init()
@@ -235,6 +273,8 @@ struct KodikAdView: UIViewRepresentable {
         }
 
         func stop() {
+            grace?.cancel()
+            grace = nil
             timeout?.cancel()
             timeout = nil
         }
@@ -281,7 +321,16 @@ struct KodikAdView: UIViewRepresentable {
             case "advertEnded":
                 advertFinished = true
                 Self.log.notice("advert finished")
-                Task { await finish() }
+                // Not immediately: the page asks for the episode only once the
+                // advert is out of the way, so finishing on this callback would
+                // hand back the advert and nothing else. The next media request
+                // ends the wait early; this is only the backstop.
+                grace?.cancel()
+                grace = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(10))
+                    guard !Task.isCancelled else { return }
+                    await self?.finish()
+                }
             case "request":
                 let raw = body["url"] as? String ?? ""
                 let kind = body["kind"] as? String ?? "?"
@@ -294,7 +343,11 @@ struct KodikAdView: UIViewRepresentable {
                     Self.log.notice("page asked \(kind, privacy: .public) \(raw, privacy: .public)")
                 }
                 if Self.isMedia(raw), !raw.hasPrefix("blob:"), let url = URL(string: raw) {
-                    media.append(url)
+                    media.append(Media(url: url, afterAdvert: advertFinished))
+                    // The thing the wait was for.
+                    if advertFinished {
+                        Task { await finish() }
+                    }
                 }
             default:
                 break
@@ -335,7 +388,7 @@ struct KodikAdView: UIViewRepresentable {
                    !current.isEmpty,
                    !current.hasPrefix("blob:"),
                    let url = URL(string: current) {
-                    media.append(url)
+                    media.append(Media(url: url, afterAdvert: advertFinished))
                 }
             }
 

@@ -12,6 +12,11 @@ struct PlayerPickerSheet: View {
     let supportsDirectPlayback: Bool
     /// Where the stream came from, when it is not the hosting the user picked.
     let streamSourceName: String?
+    /// True for Kodik, which does serve the episode but only tells its own page,
+    /// and only once its advert has played. So the built-in player is reachable
+    /// -- at the cost of watching the advert first, exactly as in the original
+    /// app -- even though nothing was resolved ahead of time.
+    let embeddedNeedsAdvert: Bool
     /// A hosting of the same voice-over that does hand over a stream, if there
     /// is one. Naming it beats telling the user playback is simply impossible.
     let alternativeSourceName: String?
@@ -83,7 +88,7 @@ struct PlayerPickerSheet: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(option.title).font(.ax(.title3, .medium))
-                Text(available ? option.summary : unavailableReason)
+                Text(summary(for: option, available: available))
                     .font(.ax(.subheadline))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -107,7 +112,16 @@ struct PlayerPickerSheet: View {
     /// Only the web player can show a hosting's own page; the other two need a
     /// stream they can hand to AVFoundation.
     private func isAvailable(_ option: PlayerChoice) -> Bool {
-        option == .web || supportsDirectPlayback
+        if option == .web || supportsDirectPlayback { return true }
+        return option == .embedded && embeddedNeedsAdvert
+    }
+
+    private func summary(for option: PlayerChoice, available: Bool) -> String {
+        guard available else { return unavailableReason }
+        if option == .embedded, !supportsDirectPlayback, embeddedNeedsAdvert {
+            return "Сначала реклама источника, затем серия здесь"
+        }
+        return option.summary
     }
 
     private var unavailableReason: String {

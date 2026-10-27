@@ -27,14 +27,22 @@ struct PlayerScreen: View {
     /// What was found for this episode: the streams, and the page behind them.
     let target: PlaybackTarget
 
+    /// What the Kodik advert screen handed over, once it has.
+    @State private var kodikStream: StreamVariant?
+    /// Set when the advert screen came back with nothing, so the web player can
+    /// take over rather than leaving a blank screen.
+    @State private var kodikGaveUp = false
+
     var body: some View {
         Group {
             switch resolvedChoice {
+            case .kodik:
+                kodikGate
             case .embedded:
                 EmbeddedPlayerView(
-                    variants: target.variants,
-                    referer: target.referer,
-                    streamSourceName: target.streamSourceName,
+                    variants: kodikStream.map { [$0] } ?? target.variants,
+                    referer: kodikStream == nil ? target.referer : KodikWrapper.referer,
+                    streamSourceName: kodikStream == nil ? target.streamSourceName : "Kodik",
                     releaseTitle: releaseTitle,
                     episodeTitle: episode.displayName,
                     startAt: episode.resumePosition,
@@ -66,9 +74,67 @@ struct PlayerScreen: View {
     }
 
     /// The embedded and external players need a stream. Without one only the
-    /// web player can show anything, whatever the user picked.
-    private var resolvedChoice: PlayerChoice {
-        target.supportsDirectPlayback ? choice : .web
+    /// web player can show anything -- except on Kodik, where the stream exists
+    /// but only the page knows it, and the advert has to be watched first.
+    private enum Route {
+        case embedded, external, web, kodik
+    }
+
+    private var resolvedChoice: Route {
+        if kodikStream != nil { return .embedded }
+        if target.supportsDirectPlayback {
+            switch choice {
+            case .embedded: return .embedded
+            case .external: return .external
+            case .web: return .web
+            }
+        }
+        // Kodik does serve the episode -- the page fetches it once its advert is
+        // over, which is what the Android client's `KodikInterface.advertEnded`
+        // callback is for. So the built-in player is reachable here; it just
+        // costs the advert first, exactly as it does in the original app.
+        if choice == .embedded, !kodikGaveUp, let page = webPage, KodikWrapper.handles(page) {
+            return .kodik
+        }
+        return .web
+    }
+
+    /// The advert, then the episode in the built-in player.
+    ///
+    /// The page runs for real -- the advert plays, and Kodik's own callback is
+    /// what says when it is over. Nothing here goes around it; the stream is
+    /// read from what the page itself then loads.
+    @ViewBuilder
+    private var kodikGate: some View {
+        if let page = webPage {
+            ZStack {
+                KodikAdView(
+                    url: page,
+                    onResolved: { media, _ in
+                        if let url = KodikAdView.episodeStream(from: media) {
+                            kodikStream = StreamVariant(url: url)
+                        } else {
+                            kodikGaveUp = true
+                        }
+                    },
+                    onFailure: { _ in kodikGaveUp = true }
+                )
+                .ignoresSafeArea()
+
+                VStack {
+                    Spacer()
+                    Text("Реклама источника. Серия откроется во встроенном плеере.")
+                        .font(.ax(.caption))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 32)
+                }
+            }
+            .overlay(alignment: .topLeading) { closeButton }
+        } else {
+            unavailable
+        }
     }
 
     /// What the web player opens.
