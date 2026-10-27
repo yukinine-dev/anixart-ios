@@ -148,7 +148,13 @@ jobs:
       # looks for other hostings whose URL carries an id their own API would
       # accept, the way the Libria one does.
       - name: Look for other id bridges
-        run: python3 Tools/probe-source-bridges.py --releases 12
+        run: |
+          python3 Tools/probe-source-bridges.py --releases 12
+          # A random sample missed RuTube for twelve releases; «Магическая
+          # битва» lists one, and «Клинок» a hosting called "Источник 1". Named
+          # titles are how a rare hosting gets measured at all.
+          python3 Tools/probe-source-bridges.py --titles \
+            "Магическая битва" "Клинок, рассекающий демонов"
 
       # Most voice-overs sit on Kodik, whose player guards its stream, so the
       # question is which other services publish their own dubs through an API.

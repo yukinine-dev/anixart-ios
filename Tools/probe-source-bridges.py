@@ -97,6 +97,14 @@ def rutube(video_id: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--releases", type=int, default=12)
+    parser.add_argument(
+        "--titles",
+        nargs="*",
+        default=[],
+        help="look at these titles instead of random releases; a random sample "
+             "misses a hosting that only a few titles use, which is how RuTube "
+             "went unnoticed for twelve releases",
+    )
     args = parser.parse_args()
 
     # host -> (hosting name, example url, how many episodes seen)
@@ -105,12 +113,24 @@ def main() -> int:
     # for each one would be most of the run for no new information.
     known_hostings: set[str] = set()
 
-    for _ in range(args.releases):
-        random = anixart("release/random?extended_mode=true")
-        release = (random or {}).get("release") or {}
+    def releases():
+        for title in args.titles:
+            found = anixart("search/releases/0", {"query": title, "searchBy": 0})
+            content = (found or {}).get("content") or []
+            if content:
+                yield content[0]
+        if args.titles:
+            return
+        for _ in range(args.releases):
+            random = anixart("release/random?extended_mode=true")
+            yield (random or {}).get("release") or {}
+
+    for release in releases():
         release_id = release.get("id")
         if not release_id:
             continue
+        if args.titles:
+            print(f"-- {release.get('title_ru')!r} (id {release_id})")
 
         for voice in (anixart(f"episode/{release_id}") or {}).get("types") or []:
             for source in (anixart(f"episode/{release_id}/{voice['id']}") or {}).get("sources") or []:

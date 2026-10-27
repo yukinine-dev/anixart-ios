@@ -134,10 +134,27 @@ Two routes were examined and neither is taken:
   pointing this app at it would be using a third party's private infrastructure.
 
 Services that publish their own dubs through a public API are the remaining avenue. AniLibria is
-one and is implemented. Shikimori (needed as the bridge, since Anixart carries no external ids at
-all) answered a CI runner with HTTP 522, and AnimeLib with a Cloudflare 403; dressing the request
-up as a browser to get past that would be the same circumvention as above, so the probe records
-the refusal and stops. Whether those APIs answer an ordinary phone is untested.
+one and is implemented.
+
+**AnimeLib is not.** `api.lib.social` answers where `api.cdnlibs.org` returns a Cloudflare page,
+and it names its teams per episode and carries the Shikimori id itself, so it needs no bridge.
+But measured over four titles that matched -- «Ванпанчмен» (14 players), «Стальной алхимик:
+Братство» (5), «Клинок, рассекающий демонов» (11), and «Магическая битва» (no match at all) --
+*every* player is `player: "Kodik"` with an empty `video.quality`. AnimeLib embeds Kodik rather
+than hosting the video, so it is the same wall one step further out.
+
+**Shikimori** answered the runner with HTTP 522 on every attempt. It is only needed as a bridge
+for a source that identifies titles by Shikimori id; nothing currently does.
+
+Dressing a request up as a browser to get past a Cloudflare 403 would be the same circumvention
+as the Kodik parser, so the probes record a refusal and stop there.
+
+**RuTube is the open question.** A twelve-release random sample found no RuTube hosting at all,
+but «Магическая битва» lists one -- `{Kodik: 28, Libria: 1, RuTube: 1, Sovet: 2}` -- so a random
+sample is the wrong instrument for a rare hosting, and `probe-source-bridges.py` now takes
+`--titles` for that reason. RuTube publishes `rutube.ru/api/play/options/{id}`, which names an
+HLS playlist directly, so if Anixart's RuTube URL carries that id it is the same clean bridge the
+Libria one is. «Клинок» also lists a hosting called `Источник 1`, not yet looked at.
 
 **Quality comes from the source, not a fixed list.** A source that publishes one playlist per
 quality decides the rungs, so "Ванпанчмен" offers 480p and 720p and no 1080p. Switching replaces
