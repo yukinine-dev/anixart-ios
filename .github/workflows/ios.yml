@@ -183,7 +183,7 @@ jobs:
           grep '^live ' "$RUNNER_TEMP/decode.log" || echo "no decode summary"
           echo
           echo "--- what the probes found ---"
-          grep -E 'hostings:|libria id|anilibria releases/|rutube id|play/options|body says|m3u8:|players:|none of them carries|stream:|verdict|^[a-z0-9.-]+\\.(ru|com|cc|me)  ' \
+          grep -E 'hostings:|libria id|anilibria releases/|rutube id|play/options|body says|m3u8:|players:|none of them carries|stream:|verdict|^[a-z0-9.-]+[.][a-z]{2,6}  |^ +(path|query|e[.]g[.]) ' \
             "$RUNNER_TEMP/probe.log" || echo "no probe findings"
 
       # Keeps the responses for the next round of model work; they are public

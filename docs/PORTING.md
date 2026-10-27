@@ -149,12 +149,17 @@ for a source that identifies titles by Shikimori id; nothing currently does.
 Dressing a request up as a browser to get past a Cloudflare 403 would be the same circumvention
 as the Kodik parser, so the probes record a refusal and stop there.
 
-**RuTube is the open question.** A twelve-release random sample found no RuTube hosting at all,
-but «Магическая битва» lists one -- `{Kodik: 28, Libria: 1, RuTube: 1, Sovet: 2}` -- so a random
-sample is the wrong instrument for a rare hosting, and `probe-source-bridges.py` now takes
-`--titles` for that reason. RuTube publishes `rutube.ru/api/play/options/{id}`, which names an
-HLS playlist directly, so if Anixart's RuTube URL carries that id it is the same clean bridge the
-Libria one is. «Клинок» also lists a hosting called `Источник 1`, not yet looked at.
+**RuTube works as a bridge but has nothing to offer.** Anixart's RuTube URL does carry RuTube's
+own video id — `f2910dcbe135717a6f5e90141592bb22`, the right shape — and
+`rutube.ru/api/play/options/{id}` answers with JSON, so the mechanism is the same one-request
+bridge the Libria URL gives. The one sample available comes back
+`{"detail": {"type": "blocking_rule", … "Видео недоступно по решению п…"}}` under HTTP 244: the
+API is working and saying that video is blocked. And RuTube is rare — absent from twelve random
+releases, one voice-over out of «Магической битвы»'s thirty. A source worth perhaps one
+voice-over per title where it appears, whose only observed video is blocked, is not worth the
+code; the probe keeps asking, so if that changes it will show up in the job summary.
+
+`Источник 1`, listed once by «Клинок», has not been looked at yet.
 
 **Quality comes from the source, not a fixed list.** A source that publishes one playlist per
 quality decides the rungs, so "Ванпанчмен" offers 480p and 720p and no 1080p. Switching replaces
