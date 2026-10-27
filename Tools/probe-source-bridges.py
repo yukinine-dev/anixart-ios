@@ -75,13 +75,21 @@ def rutube(video_id: str) -> None:
     """RuTube publishes play options, which name the HLS playlist directly."""
     status, content_type, body = get(f"https://rutube.ru/api/play/options/{video_id}/?no_404=true")
     print(f"      play/options: {status} {content_type}")
-    if status != 200 or not body:
+    # It answered 244 the first time -- not a status this probe expected, and
+    # bailing on anything but 200 threw away the only explanation on offer. Any
+    # body is worth reading; a non-200 one usually says why.
+    if not body:
+        print("      empty body")
         return
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
-        print("      not JSON")
+        print(f"      not JSON: {body[:200]!r}")
         return
+    if not 200 <= status < 300 or "video_balancer" not in data:
+        print(f"      body says: {json.dumps(data, ensure_ascii=False)[:300]}")
+        if "video_balancer" not in data:
+            return
 
     playlist = ((data.get("video_balancer") or {}).get("m3u8")
                 or (data.get("video_balancer") or {}).get("default"))
