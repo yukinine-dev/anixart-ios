@@ -147,14 +147,20 @@ jobs:
       # One source is not enough: AniLibria does not carry every title. This
       # looks for other hostings whose URL carries an id their own API would
       # accept, the way the Libria one does.
+      # Everything these probes print is also kept, because the step that
+      # repeats the findings at the end of the job is the only part of this log
+      # that can be reached without paging through thousands of lines.
       - name: Look for other id bridges
         run: |
-          python3 Tools/probe-source-bridges.py --releases 12
+          set -o pipefail
+          python3 Tools/probe-source-bridges.py --releases 12 \
+            2>&1 | tee -a "$RUNNER_TEMP/probe.log"
           # A random sample missed RuTube for twelve releases; «Магическая
           # битва» lists one, and «Клинок» a hosting called "Источник 1". Named
           # titles are how a rare hosting gets measured at all.
           python3 Tools/probe-source-bridges.py --titles \
-            "Магическая битва" "Клинок, рассекающий демонов"
+            "Магическая битва" "Клинок, рассекающий демонов" \
+            2>&1 | tee -a "$RUNNER_TEMP/probe.log"
 
       # Most voice-overs sit on Kodik, whose player guards its stream, so the
       # question is which other services publish their own dubs through an API.
@@ -162,16 +168,23 @@ jobs:
       # this reports every hop's candidates so the match can be judged.
       - name: Look for services that publish their own dubs
         run: |
+          set -o pipefail
           for title in "Киберпанк: Бегущие по краю" "Ванпанчмен" \
                        "Стальной алхимик" "Магическая битва" "Клинок, рассекающий демонов"; do
-            python3 Tools/probe-extra-sources.py "$title"
+            python3 Tools/probe-extra-sources.py "$title" \
+              2>&1 | tee -a "$RUNNER_TEMP/probe.log"
           done
 
       # The compile output buries what this job is for, and the logs are only
       # readable from the end. This repeats the findings where they can be read.
       - name: What the live responses said
         if: always()
-        run: grep '^live ' "$RUNNER_TEMP/decode.log" || echo "no decode summary"
+        run: |
+          grep '^live ' "$RUNNER_TEMP/decode.log" || echo "no decode summary"
+          echo
+          echo "--- what the probes found ---"
+          grep -E 'hostings:|libria id|anilibria releases/|rutube id|play/options|m3u8:|players:|none of them carries|stream:|verdict' \
+            "$RUNNER_TEMP/probe.log" || echo "no probe findings"
 
       # Keeps the responses for the next round of model work; they are public
       # API reads with no token attached.
