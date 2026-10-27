@@ -114,12 +114,6 @@ final class EmbeddedPlayerModel {
 
     private var hasPendingSeek: Bool { pendingSeek != nil }
 
-    /// Whether the stream will play faster than 1x at all.
-    ///
-    /// AVPlayer silently refuses a rate the item cannot do, which looked exactly
-    /// like a broken menu. Read off the item once it is ready, so the menu can
-    /// say so instead.
-    private(set) var canPlayFaster = true
 
     var isPictureInPictureSupported: Bool {
         AVPictureInPictureController.isPictureInPictureSupported()
@@ -225,11 +219,6 @@ final class EmbeddedPlayerModel {
                     // The smoke test greps for this: it is the only line that
                     // says AVFoundation actually opened the stream.
                     Self.log.notice("playback ready, duration \(Int(self.duration), privacy: .public)s")
-                    self.canPlayFaster = item.canPlayFastForward
-                    if !self.canPlayFaster {
-                        Self.log.notice("stream cannot play faster than 1x")
-                        if self.rate > 1 { self.setRate(1) }
-                    }
                     if self.hasPendingSeek {
                         await self.finishQualitySwitch()
                     } else {

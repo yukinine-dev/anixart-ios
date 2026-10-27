@@ -99,8 +99,14 @@ struct EmbeddedPlayerView: View {
         .persistentSystemOverlays(.hidden)
         // The Android player is landscape; ask for it rather than forcing it, so
         // a device with rotation locked still plays.
-        .onAppear { Orientation.request(.landscape) }
-        .onDisappear { Orientation.request(.all) }
+        .onAppear { Orientation.pin(.landscape) }
+        .onDisappear { Orientation.pin(.all) }
+        // The padlock is an orientation lock as well as a control lock, which is
+        // what it is in the Android player: once it is on, tilting the phone
+        // must not turn the picture.
+        .onChange(of: model.isLocked) { _, locked in
+            Orientation.pin(locked ? Orientation.currentMask : .landscape)
+        }
         .sheet(isPresented: $isShowingEnhanceExplainer) {
             VideoEnhanceExplainer {
                 preferences.markEnhanceExplained()
@@ -145,13 +151,13 @@ struct EmbeddedPlayerView: View {
     }
 
     private var topBar: some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: 22) {
             if !model.isLocked {
                 Button {
                     model.stop()
                     dismiss()
                 } label: {
-                    Image(systemName: "arrow.left").font(.ax(.title3))
+                    Image(systemName: "arrow.left").font(.ax(.title3)).playerHitArea()
                 }
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -180,7 +186,7 @@ struct EmbeddedPlayerView: View {
         }
         .foregroundStyle(.white)
         .padding(.horizontal)
-        .padding(.vertical, 12)
+        .padding(.vertical, 6)
     }
 
     private var speedMenu: some View {
@@ -195,9 +201,6 @@ struct EmbeddedPlayerView: View {
                         Text(EmbeddedPlayerModel.label(for: speed))
                     }
                 }
-                // AVPlayer refuses a rate the stream cannot do, which is
-                // indistinguishable from a menu that does not work.
-                .disabled(!model.canPlayFaster && speed > 1)
             }
         } label: {
             HStack(spacing: 6) {
@@ -205,6 +208,7 @@ struct EmbeddedPlayerView: View {
                 Text(EmbeddedPlayerModel.label(for: model.rate)).font(.ax(.subheadline))
                 Image(systemName: "chevron.down").font(.ax(.caption))
             }
+            .playerHitHeight()
         }
     }
 
@@ -253,6 +257,7 @@ struct EmbeddedPlayerView: View {
                 Text(model.quality.title).font(.ax(.subheadline))
                 Image(systemName: "chevron.down").font(.ax(.caption))
             }
+            .playerHitHeight()
         }
     }
 
@@ -263,20 +268,22 @@ struct EmbeddedPlayerView: View {
             Image(systemName: model.isLocked ? "lock.fill" : "lock.open")
                 .font(.ax(.title3))
                 .foregroundStyle(.white)
-                .padding(8)
+                .playerHitArea()
         }
     }
 
     private var centreControls: some View {
-        HStack(spacing: 48) {
+        HStack(spacing: 56) {
             Button { model.seek(by: -10) } label: {
-                Image(systemName: "gobackward.10").font(.ax(fixed: 34))
+                Image(systemName: "gobackward.10").font(.ax(fixed: 34)).playerHitArea(64)
             }
             Button { model.togglePlayback() } label: {
-                Image(systemName: model.isPlaying ? "pause.fill" : "play.fill").font(.ax(fixed: 44))
+                Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.ax(fixed: 44))
+                    .playerHitArea(72)
             }
             Button { model.seek(by: 10) } label: {
-                Image(systemName: "goforward.10").font(.ax(fixed: 34))
+                Image(systemName: "goforward.10").font(.ax(fixed: 34)).playerHitArea(64)
             }
         }
         .foregroundStyle(.white)
@@ -295,7 +302,7 @@ struct EmbeddedPlayerView: View {
             .tint(.white)
             .disabled(model.isLocked)
 
-            HStack {
+            HStack(spacing: 20) {
                 Text("\(Format.duration(model.scrubPosition)) / \(Format.duration(model.duration))")
                     .font(.ax(.subheadline))
                     .monospacedDigit()
@@ -307,30 +314,50 @@ struct EmbeddedPlayerView: View {
                     Button {
                         model.seek(by: TimeInterval(preferences.rewindSeconds))
                     } label: {
-                        Image(systemName: "forward.fill").font(.ax(.title3))
+                        Image(systemName: "forward.fill").font(.ax(.title3)).playerHitArea()
                     }
                     .help("Пропустить заставку")
 
                     Button { model.startPictureInPicture() } label: {
-                        Image(systemName: "pip.enter").font(.ax(.title3))
+                        Image(systemName: "pip.enter").font(.ax(.title3)).playerHitArea()
                     }
                     .disabled(!model.isPictureInPictureSupported)
 
+                    // Enabled while enhanced too: the Metal surface applies the
+                    // same geometry the player layer does, so there is nothing
+                    // left for this to break.
                     Button { model.isFilling.toggle() } label: {
                         Image(systemName: model.isFilling
                               ? "arrow.down.right.and.arrow.up.left"
                               : "arrow.up.left.and.arrow.down.right")
                             .font(.ax(.title3))
+                            .playerHitArea()
                     }
-                    // The enhanced picture is composed at the video's own size,
-                    // so scaling it is the limitation the explainer names.
-                    .disabled(model.isEnhanced)
                 }
             }
             .foregroundStyle(.white)
         }
         .padding(.horizontal)
-        .padding(.bottom, 12)
+        .padding(.bottom, 4)
+    }
+}
+
+extension View {
+    /// Gives a player control a real target.
+    ///
+    /// These were all the size of their own glyph, which is a small thing to hit
+    /// on a moving picture; 48pt is above the 44pt minimum and the extra also
+    /// opens the gaps between them up.
+    func playerHitArea(_ side: CGFloat = 48) -> some View {
+        frame(minWidth: side, minHeight: side)
+            .contentShape(.rect)
+    }
+
+    /// For a control that is already wide enough -- a menu with a text label --
+    /// where only the height and the tappable shape need opening up.
+    func playerHitHeight(_ side: CGFloat = 48) -> some View {
+        frame(minHeight: side)
+            .contentShape(.rect)
     }
 }
 
@@ -434,17 +461,55 @@ struct VideoSurface: UIViewRepresentable {
     }
 }
 
-/// Asks the scene for an orientation. iOS 16 replaced the old
-/// `UIDevice.setValue(_:forKey:)` trick with this, and a refusal is fine -- the
-/// player works either way.
+/// Holds the interface to an orientation.
+///
+/// `requestGeometryUpdate` only rotates once. The moment the device is tilted,
+/// the window's own supported set -- everything the Info.plist lists, portrait
+/// included -- takes over again, which is why the player kept dropping back to
+/// portrait and why the padlock did not hold it. The system intersects the app
+/// delegate's mask with the view controller's, so the delegate is the part that
+/// actually restricts; the geometry request just performs the rotation.
 @MainActor
 enum Orientation {
-    static func request(_ mask: UIInterfaceOrientationMask) {
+    static func pin(_ mask: UIInterfaceOrientationMask) {
+        OrientationGate.mask = mask
         guard let scene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first
         else { return }
-        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask))
         scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask))
+    }
+
+    /// Just the orientation on screen right now, which is what the padlock pins
+    /// to: locking should keep what the user is holding, not pick for them.
+    static var currentMask: UIInterfaceOrientationMask {
+        let orientation = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .interfaceOrientation
+        switch orientation {
+        case .landscapeLeft: return .landscapeLeft
+        case .landscapeRight: return .landscapeRight
+        case .portraitUpsideDown: return .portraitUpsideDown
+        default: return .portrait
+        }
+    }
+}
+
+/// The app delegate exists only to answer the orientation question.
+///
+/// A SwiftUI app has no view controller of its own to override, and this is the
+/// one hook the system consults before the window's.
+final class OrientationGate: NSObject, UIApplicationDelegate {
+    // Read and written on the main actor only -- UIKit asks on the main thread
+    // and `Orientation.pin` is main-actor isolated.
+    nonisolated(unsafe) static var mask: UIInterfaceOrientationMask = .all
+
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        Self.mask
     }
 }

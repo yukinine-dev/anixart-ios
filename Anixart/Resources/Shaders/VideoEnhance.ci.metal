@@ -1,10 +1,23 @@
-// "Режим улучшения видео +", ported from the APK's AnixAnime4KShaderProgram.
+// "Режим улучшения видео +", after the APK's AnixAnime4KShaderProgram.
 //
-// The Android build runs this as a GLSL ExoPlayer effect; this is the same
-// algorithm as a Core Image kernel so it can sit in an AVPlayerItem's video
-// composition. The maths is unchanged -- an Anime4K-style directional deblur
-// driven by a luma Sobel, then an adaptive unsharp mask, then a guard that
-// backs both off where they would invent detail.
+// Not a line-by-line port any more, and deliberately so. The APK's shader has
+// two faults that make it produce artefacts rather than detail:
+//
+//   * Its gradient is `(r - l, l + 2c + r)`. The second term is a *sum*, not a
+//     derivative, so it measures local brightness. Normalised, that direction
+//     reads 91% vertical even on a strong vertical edge, and exactly vertical
+//     on a flat patch -- so the directional pass blended every pixel with the
+//     one above or below it. A vertical smear over the whole picture.
+//   * `dValue` then folds that into `-ty + by` where both terms are the same
+//     number, so the y component is identically zero and only horizontal
+//     differences were detected at all -- at four times their size, which
+//     saturated the detector at a luma step of 0.25.
+//
+// So the gradient here is a real 3x3 Sobel on both axes, and the result is
+// clamped to the neighbourhood's own range at the end. That clamp is what stops
+// the halos: an unsharp mask creates them by overshooting past the brightest
+// and darkest pixels around it, and this cannot. Anime4K's power curve and the
+// coefficients the APK sets are unchanged.
 //
 // Compiled with -fcikernel / -cikernel (see project.yml); the result is loaded
 // from the target's default.metallib by VideoEnhanceFilter.
@@ -17,10 +30,11 @@ using namespace metal;
 namespace {
 
 inline float get_luma(float4 rgba) {
-    return dot(float4(0.299, 0.587, 0.114, 0.0), rgba);
+    return dot(float3(0.299, 0.587, 0.114), rgba.rgb);
 }
 
-/// The polynomial Anime4K uses to turn a Sobel norm into a blend weight.
+/// The polynomial Anime4K uses to turn a gradient magnitude into a blend
+/// weight: ~0 below a luma step of about 0.1, rising to ~0.73 by 0.5.
 inline float anime4k_power_function(float x) {
     const float P5 =  11.68129591;
     const float P4 = -42.46906057;
@@ -37,141 +51,74 @@ inline float anime4k_power_function(float x) {
     return P5 * x5 + P4 * x4 + P3 * x3 + P2 * x2 + P1 * x + P0;
 }
 
-inline float2 initialLumaGradients(coreimage::sampler src, float2 pos, float2 d) {
-    float l = get_luma(src.sample(pos + float2(-d.x, 0.0)));
-    float c = get_luma(src.sample(pos));
-    float r = get_luma(src.sample(pos + float2( d.x, 0.0)));
+/// The 3x3 neighbourhood, sampled once.
+///
+/// The original sampled around twenty-five times for nine distinct pixels,
+/// because every helper re-fetched what the one before it already had.
+struct Neighbourhood {
+    float4 c;
+    float4 t, b, l, r;
+    float4 tl, tr, bl, br;
+};
 
-    float xgrad = r - l;
-    float ygrad = l + c + c + r;
-
-    return float2(xgrad, ygrad);
+inline Neighbourhood gather(coreimage::sampler src, float2 pos, float2 d) {
+    Neighbourhood n;
+    n.c  = src.sample(pos);
+    n.t  = src.sample(pos + float2( 0.0, -d.y));
+    n.b  = src.sample(pos + float2( 0.0,  d.y));
+    n.l  = src.sample(pos + float2(-d.x,  0.0));
+    n.r  = src.sample(pos + float2( d.x,  0.0));
+    n.tl = src.sample(pos + float2(-d.x, -d.y));
+    n.tr = src.sample(pos + float2( d.x, -d.y));
+    n.bl = src.sample(pos + float2(-d.x,  d.y));
+    n.br = src.sample(pos + float2( d.x,  d.y));
+    return n;
 }
 
-inline float dValue(float2 initialGrad, float refineStrength, float refineBias) {
-    float tx = initialGrad.x;
-    float cx = initialGrad.x;
-    float bx = initialGrad.x;
+/// A 3x3 Sobel on luma, scaled so a full black-to-white edge reads 1.
+inline float2 luma_gradient(Neighbourhood n) {
+    float tl = get_luma(n.tl), t = get_luma(n.t), tr = get_luma(n.tr);
+    float l  = get_luma(n.l),                     r  = get_luma(n.r);
+    float bl = get_luma(n.bl), b = get_luma(n.b), br = get_luma(n.br);
 
-    float ty = initialGrad.y;
-    float by = initialGrad.y;
+    float gx = (tr + 2.0 * r + br) - (tl + 2.0 * l + bl);
+    float gy = (bl + 2.0 * b + br) - (tl + 2.0 * t + tr);
 
-    float xgrad = (tx + cx + cx + bx);
-    float ygrad = (-ty + by);
-
-    float sobelNorm = clamp(sqrt(xgrad * xgrad + ygrad * ygrad), 0.0, 1.0);
-
-    return clamp(anime4k_power_function(sobelNorm) * refineStrength + refineBias, 0.0, 1.0);
+    return float2(gx, gy) * 0.25;
 }
 
-inline float2 normalizeGradients(float2 dirGrad) {
-    float norm = sqrt(dirGrad.x * dirGrad.x + dirGrad.y * dirGrad.y);
-    if (norm <= 0.001) {
-        return float2(0.0, 0.0);
-    }
-    return dirGrad / norm;
+/// Pulls an edge pixel toward the neighbour on the darker side of the gradient,
+/// which is the line-thinning the Anime4K family is built around. With a real
+/// gradient this finally moves along the edge instead of always downwards.
+inline float4 directional_refine(Neighbourhood n, float2 gradient, float weight) {
+    float2 dir = gradient / max(length(gradient), 1e-4);
+
+    float4 across_x = dir.x > 0.0 ? n.l : n.r;
+    float4 across_y = dir.y > 0.0 ? n.t : n.b;
+
+    float ratio = abs(dir.x) / max(abs(dir.x) + abs(dir.y), 1e-4);
+    float4 target = mix(across_y, across_x, ratio);
+
+    return mix(n.c, target, weight);
 }
 
-inline float4 advancedDeblur(coreimage::sampler src, float2 pos, float2 d, float sharpeningStrength) {
-    float4 center = src.sample(pos);
-
-    float4 top    = src.sample(pos + float2( 0.0, -d.y));
-    float4 bottom = src.sample(pos + float2( 0.0,  d.y));
-    float4 left   = src.sample(pos + float2(-d.x,  0.0));
-    float4 right  = src.sample(pos + float2( d.x,  0.0));
-
-    float4 laplacian = (top + bottom + left + right) - 4.0 * center;
-
-    float blurStrength = length(laplacian.rgb);
-    float adaptiveDeblur = mix(sharpeningStrength, sharpeningStrength * 2.0,
-                               min(blurStrength * 5.0, 1.0));
-
-    return clamp(center - laplacian * adaptiveDeblur, 0.0, 1.0);
+/// Adaptive unsharp mask: gentle on flat areas, full strength on detail.
+inline float4 unsharp(Neighbourhood n, float4 color, float edge, float strength) {
+    float4 blur = (n.t + n.b + n.l + n.r + n.tl + n.tr + n.bl + n.br) / 8.0;
+    float adaptive = mix(strength * 0.5, strength, min(edge * 3.0, 1.0));
+    return color + (color - blur) * adaptive;
 }
 
-inline float4 directionalDeblur(
-    coreimage::sampler src, float2 pos, float2 d,
-    float refineStrength, float refineBias, float edgeThreshold,
-    float deblurIntensity, float sharpeningStrength
-) {
-    float4 originalColor = src.sample(pos);
-
-    float2 initialGrad = initialLumaGradients(src, pos, d);
-    float dval = dValue(initialGrad, refineStrength, refineBias);
-
-    if (dval < edgeThreshold) {
-        return mix(originalColor, advancedDeblur(src, pos, d, sharpeningStrength), deblurIntensity * 0.3);
-    }
-
-    // Above the threshold the GLSL recomputes the same gradients it already has,
-    // so this reuses them rather than sampling twice for the same numbers.
-    float2 normalizedGrad = normalizeGradients(initialGrad);
-
-    if (abs(normalizedGrad.x) + abs(normalizedGrad.y) <= 0.0001) {
-        return mix(originalColor, advancedDeblur(src, pos, d, sharpeningStrength), deblurIntensity * 0.5);
-    }
-
-    float xpos = -sign(normalizedGrad.x);
-    float ypos = -sign(normalizedGrad.y);
-
-    float4 xval = src.sample(pos + float2(d.x * xpos, 0.0));
-    float4 yval = src.sample(pos + float2(0.0, d.y * ypos));
-
-    float xyratio = abs(normalizedGrad.x) / (abs(normalizedGrad.x) + abs(normalizedGrad.y));
-
-    float4 interpolated = xyratio * xval + (1.0 - xyratio) * yval;
-    float4 deblurred = advancedDeblur(src, pos, d, sharpeningStrength);
-    float4 anime4kResult = interpolated * dval + originalColor * (1.0 - dval);
-
-    return mix(anime4kResult, deblurred, deblurIntensity);
-}
-
-inline float4 enhanceSharpness(
-    coreimage::sampler src, float4 color, float2 pos, float2 d, float sharpeningStrength
-) {
-    float4 blur = (
-        src.sample(pos + float2(-d.x, -d.y)) +
-        src.sample(pos + float2( 0.0, -d.y)) +
-        src.sample(pos + float2( d.x, -d.y)) +
-        src.sample(pos + float2(-d.x,  0.0)) +
-        src.sample(pos + float2( d.x,  0.0)) +
-        src.sample(pos + float2(-d.x,  d.y)) +
-        src.sample(pos + float2( 0.0,  d.y)) +
-        src.sample(pos + float2( d.x,  d.y))
-    ) / 8.0;
-
-    float4 highFreq = color - blur;
-
-    float edgeStrength = length(initialLumaGradients(src, pos, d));
-    float adaptiveSharpness = mix(sharpeningStrength * 0.5, sharpeningStrength,
-                                  min(edgeStrength * 3.0, 1.0));
-
-    return clamp(color + highFreq * adaptiveSharpness, 0.0, 1.0);
-}
-
-inline float4 artifactProtection(
-    coreimage::sampler src, float4 enhanced, float4 original, float2 pos, float2 d
-) {
-    float centerLuma = get_luma(original);
-
-    float variation = 0.0;
-    variation += abs(get_luma(src.sample(pos + float2( d.x, 0.0))) - centerLuma);
-    variation += abs(get_luma(src.sample(pos + float2(-d.x, 0.0))) - centerLuma);
-    variation += abs(get_luma(src.sample(pos + float2(0.0,  d.y))) - centerLuma);
-    variation += abs(get_luma(src.sample(pos + float2(0.0, -d.y))) - centerLuma);
-    variation /= 4.0;
-
-    float lumaChange = abs(get_luma(enhanced) - get_luma(original));
-
-    if (variation < 0.05 && lumaChange > 0.2) {
-        return mix(original, enhanced, 0.5);
-    }
-
-    if (any(enhanced.rgb > float3(0.95))) {
-        return mix(enhanced, original, 0.3);
-    }
-
-    return enhanced;
+/// Keeps the result inside the range of the pixels around it.
+///
+/// Overshoot past the local maximum is exactly what a halo is, so forbidding it
+/// removes them without taking the sharpening away.
+inline float4 anti_ringing(Neighbourhood n, float4 value) {
+    float4 lo = min(min(min(n.tl, n.t), min(n.tr, n.l)),
+                    min(min(n.c, n.r), min(n.bl, min(n.b, n.br))));
+    float4 hi = max(max(max(n.tl, n.t), max(n.tr, n.l)),
+                    max(max(n.c, n.r), max(n.bl, max(n.b, n.br))));
+    return clamp(value, lo, hi);
 }
 
 } // namespace
@@ -188,19 +135,31 @@ extern "C" float4 anixVideoEnhance(
     // The GLSL offsets by uTexelSize = 1/size. A Core Image sampler's space is
     // not the pixel grid, so guessing at the step is how this went wrong the
     // first time: every neighbour landed a whole image away and came back as
-    // the clamped edge, which is what produced the artefacts. Ask Core Image
-    // for the mapping instead -- one destination pixel, expressed in sampler
-    // space, is correct whatever that space turns out to be.
+    // the clamped edge. Ask Core Image for the mapping instead -- one
+    // destination pixel, expressed in sampler space, is correct whatever that
+    // space turns out to be.
     float2 dc = dest.coord();
     float2 pos = src.transform(dc);
     // abs() because the transform may flip an axis; the kernel samples both
     // +d and -d, so the sign carries no information.
     float2 d = abs(src.transform(dc + float2(1.0, 1.0)) - pos);
 
-    float4 originalColor = src.sample(pos);
-    float4 deblurred = directionalDeblur(
-        src, pos, d, refineStrength, refineBias, edgeThreshold, deblurIntensity, sharpeningStrength
+    Neighbourhood n = gather(src, pos, d);
+
+    float2 gradient = luma_gradient(n);
+    float edge = min(length(gradient), 1.0);
+    float weight = clamp(
+        anime4k_power_function(edge) * refineStrength + refineBias,
+        0.0,
+        1.0
     );
-    float4 sharpened = enhanceSharpness(src, deblurred, pos, d, sharpeningStrength);
-    return artifactProtection(src, sharpened, originalColor, pos, d);
+
+    float4 result = n.c;
+    if (edge > edgeThreshold) {
+        result = directional_refine(n, gradient, weight * deblurIntensity);
+    }
+    result = unsharp(n, result, edge, sharpeningStrength);
+    result = anti_ringing(n, result);
+
+    return float4(clamp(result.rgb, 0.0, 1.0), n.c.a);
 }

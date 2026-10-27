@@ -150,6 +150,15 @@ jobs:
       - name: Look for other id bridges
         run: python3 Tools/probe-source-bridges.py --releases 12
 
+      # Most voice-overs sit on Kodik, whose player guards its stream, so the
+      # question is which other services publish their own dubs through an API.
+      # Anixart carries no external ids, so Shikimori's search is the bridge --
+      # this reports every hop's candidates so the match can be judged.
+      - name: Look for services that publish their own dubs
+        run: |
+          python3 Tools/probe-extra-sources.py "Киберпанк: Бегущие по краю"
+          python3 Tools/probe-extra-sources.py "Ванпанчмен"
+
       # The compile output buries what this job is for, and the logs are only
       # readable from the end. This repeats the findings where they can be read.
       - name: What the live responses said
