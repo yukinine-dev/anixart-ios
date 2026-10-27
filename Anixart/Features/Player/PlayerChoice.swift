@@ -40,6 +40,7 @@ final class PlaybackPreferences {
         static let acceptedDisclaimer = "playback.acceptedDisclaimer"
         static let enhanceExplained = "playback.enhanceExplained"
         static let rewindSeconds = "playback.rewindSeconds"
+        static let enhanceStrength = "playback.enhanceStrength"
     }
 
     private let defaults: UserDefaults
@@ -51,6 +52,9 @@ final class PlaybackPreferences {
     private(set) var hasSeenEnhanceExplainer: Bool
     /// "Пропустить заставку" jumps this far. The Android hint recommends 1:25.
     private(set) var rewindSeconds: Int
+    /// How hard the enhancement pushes. The APK has no such setting; this is
+    /// here because how sharp is too sharp is a matter of taste.
+    private(set) var enhanceStrength: VideoEnhanceFilter.Strength
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -59,6 +63,9 @@ final class PlaybackPreferences {
         self.hasAcceptedDisclaimer = defaults.bool(forKey: Key.acceptedDisclaimer)
         self.hasSeenEnhanceExplainer = defaults.bool(forKey: Key.enhanceExplained)
         self.rewindSeconds = defaults.object(forKey: Key.rewindSeconds) as? Int ?? 85
+        self.enhanceStrength = VideoEnhanceFilter.Strength(
+            rawValue: defaults.object(forKey: Key.enhanceStrength) as? Int ?? 1
+        ) ?? .medium
     }
 
     func save(choice: PlayerChoice, alwaysAsk: Bool) {
@@ -81,5 +88,10 @@ final class PlaybackPreferences {
     func setRewindSeconds(_ seconds: Int) {
         rewindSeconds = seconds
         defaults.set(seconds, forKey: Key.rewindSeconds)
+    }
+
+    func setEnhanceStrength(_ strength: VideoEnhanceFilter.Strength) {
+        enhanceStrength = strength
+        defaults.set(strength.rawValue, forKey: Key.enhanceStrength)
     }
 }

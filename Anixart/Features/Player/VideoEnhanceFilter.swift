@@ -25,6 +25,37 @@ struct VideoEnhanceFilter {
     static let deblurIntensity: Float = 0.8
     static let sharpeningStrength: Float = 0.3
 
+    /// How hard to push it.
+    ///
+    /// The APK has one setting and no dial. A dial is the honest answer to "it
+    /// could be better and I don't know how": `medium` is the APK's own numbers,
+    /// and the other two scale the two strengths that decide how much new
+    /// contrast is invented. The edge detector and the anti-ringing clamp are
+    /// left alone, because those are what keep it from breaking.
+    enum Strength: Int, CaseIterable, Identifiable, Sendable {
+        case light = 0
+        case medium = 1
+        case strong = 2
+
+        var id: Int { rawValue }
+
+        var title: String {
+            switch self {
+            case .light: return "Слабо"
+            case .medium: return "Средне"
+            case .strong: return "Сильно"
+            }
+        }
+
+        var scale: Float {
+            switch self {
+            case .light: return 0.55
+            case .medium: return 1.0
+            case .strong: return 1.6
+            }
+        }
+    }
+
     private static let kernel: CIKernel? = {
         guard let url = Bundle.main.url(forResource: "default", withExtension: "metallib") else {
             log.notice("no default.metallib in the bundle; video enhancement is unavailable")
@@ -41,8 +72,9 @@ struct VideoEnhanceFilter {
 
     static var isAvailable: Bool { kernel != nil }
 
-    static func apply(to image: CIImage) -> CIImage {
+    static func apply(to image: CIImage, strength: Strength = .medium) -> CIImage {
         guard let kernel else { return image }
+        let scale = strength.scale
 
         // The kernel reads a one-pixel neighbourhood, so the ROI grows by one on
         // each side; clamping first keeps the edge rows from sampling nothing.
@@ -54,9 +86,12 @@ struct VideoEnhanceFilter {
                 clamped,
                 refineStrength,
                 refineBias,
+                // Left at the APK's value: this is the threshold the detector
+                // fires at, not the amount, and moving it changes what counts as
+                // an edge rather than how firmly it is treated.
                 edgeThreshold,
-                deblurIntensity,
-                sharpeningStrength
+                min(deblurIntensity * scale, 1.0),
+                min(sharpeningStrength * scale, 1.0)
             ]
         )
         return output?.cropped(to: image.extent) ?? image

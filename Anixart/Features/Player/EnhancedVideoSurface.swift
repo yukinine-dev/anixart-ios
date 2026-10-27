@@ -19,6 +19,8 @@ import os
 struct EnhancedVideoSurface: UIViewRepresentable {
     let player: AVPlayer
     var isFilling: Bool
+    /// How hard the kernel pushes, from the user's own setting.
+    var strength: VideoEnhanceFilter.Strength
     /// Called when the kernel cannot be run at all, so the toggle is not left
     /// on over a black screen.
     var onFailure: (String) -> Void
@@ -44,11 +46,13 @@ struct EnhancedVideoSurface: UIViewRepresentable {
         view.isPaused = false
         view.preferredFramesPerSecond = 60
         context.coordinator.isFilling = isFilling
+        context.coordinator.strength = strength
         return view
     }
 
     func updateUIView(_ view: MTKView, context: Context) {
         context.coordinator.isFilling = isFilling
+        context.coordinator.strength = strength
     }
 
     static func dismantleUIView(_ view: MTKView, coordinator: Renderer) {
@@ -63,6 +67,7 @@ struct EnhancedVideoSurface: UIViewRepresentable {
 
         let device: MTLDevice?
         var isFilling = false
+        var strength: VideoEnhanceFilter.Strength = .medium
 
         private let player: AVPlayer
         private let onFailure: (String) -> Void
@@ -157,7 +162,7 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             else { return }
 
             let source = CIImage(cvPixelBuffer: buffer)
-            let enhanced = VideoEnhanceFilter.apply(to: source)
+            let enhanced = VideoEnhanceFilter.apply(to: source, strength: strength)
             let size = CGSize(width: drawable.texture.width, height: drawable.texture.height)
             let placed = Self.place(enhanced, in: size, filling: isFilling)
 

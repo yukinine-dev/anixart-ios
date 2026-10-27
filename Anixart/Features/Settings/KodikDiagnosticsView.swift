@@ -19,6 +19,9 @@ struct KodikDiagnosticsView: View {
     private let releaseID = 18846
 
     @State private var episodeURL: URL?
+    /// Named on screen, because "which release is this even?" was a fair
+    /// question to have to ask.
+    @State private var what = ""
     @State private var note = "Ищем серию на Kodik…"
     @State private var found: [URL] = []
     @State private var diagnosis: KodikAdView.Diagnosis?
@@ -27,6 +30,9 @@ struct KodikDiagnosticsView: View {
     var body: some View {
         List {
             Section {
+                if !what.isEmpty {
+                    Text(what).font(.ax(.subheadline))
+                }
                 if let episodeURL {
                     Text(episodeURL.absoluteString)
                         .font(.ax(.caption)).monospaced()
@@ -131,7 +137,7 @@ struct KodikDiagnosticsView: View {
     }
 
     private var summary: String {
-        var lines = ["kodik: \(episodeURL?.absoluteString ?? "—")"]
+        var lines = [what, "kodik: \(episodeURL?.absoluteString ?? "—")"]
         if let diagnosis {
             lines.append("advert finished: \(diagnosis.advertFinished)")
             lines.append("frames: \(diagnosis.frames.count)")
@@ -167,6 +173,7 @@ struct KodikDiagnosticsView: View {
                 }) else { continue }
 
                 episodeURL = url
+                what = "«Киберпанк: Бегущие по краю» · \(type.displayName) / \(source.displayName)"
                 isRunning = true
                 return
             }

@@ -46,6 +46,7 @@ struct EmbeddedPlayerView: View {
                 EnhancedVideoSurface(
                     player: model.player,
                     isFilling: model.isFilling,
+                    strength: preferences.enhanceStrength,
                     onFailure: { model.reportEnhancementFailure($0) }
                 )
                 .ignoresSafeArea()
@@ -245,6 +246,19 @@ struct EmbeddedPlayerView: View {
                         "Режим улучшения видео +",
                         systemImage: model.isEnhanced ? "checkmark.circle.fill" : "wand.and.stars"
                     )
+                }
+
+                if model.isEnhanced {
+                    // How sharp is too sharp is a matter of taste, and the only
+                    // way to settle it is to change it while watching.
+                    Picker("Сила улучшения", selection: Binding(
+                        get: { preferences.enhanceStrength },
+                        set: { preferences.setEnhanceStrength($0) }
+                    )) {
+                        ForEach(VideoEnhanceFilter.Strength.allCases) { level in
+                            Text(level.title).tag(level)
+                        }
+                    }
                 }
             }
         } label: {
