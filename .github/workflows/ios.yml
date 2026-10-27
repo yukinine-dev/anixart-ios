@@ -73,13 +73,22 @@ jobs:
           DIR="$RUNNER_TEMP/live"
           mkdir -p "$DIR"
 
-          get() { curl -sS --max-time 30 "$2" -o "$DIR/$1.json" || echo "::warning::$1 failed"; }
+          get() {
+            curl -sS --max-time 30 "$2" -o "$DIR/$1.json" || echo "::warning::$1 failed"
+            # An empty body reaches the decoder as "not valid JSON", which says
+            # nothing about why. Say it here instead.
+            [ -s "$DIR/$1.json" ] || echo "::warning::$1 came back empty: $2"
+          }
 
           # The one response nobody was decoding, which is how a string where a
           # bool belonged (`searchBarIconTint: "false"`) threw away the whole
           # config -- and with it the Kodik wrapper URL the player needs.
-          get toggles-config "$API/config/toggles"
-          get urls-config    "$API/config/urls"
+          # With the query the kit itself sends. Without `version_code` the
+          # server answers with nothing at all, which is how both of these
+          # arrived as empty files the first time.
+          V=26101718
+          get toggles-config "$API/config/toggles?version_code=$V&is_beta=false&is_api_alt=false"
+          get urls-config    "$API/config/urls?version_code=$V&is_beta=false"
 
           get release-random "$API/release/random?extended_mode=true"
           RID=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["release"]["id"])' "$DIR/release-random.json")

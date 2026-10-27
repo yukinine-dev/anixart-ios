@@ -57,8 +57,11 @@ MARKERS = ["KodikInterface", "advertEnded", "adsbygoogle"]
 
 def live_bases() -> list[tuple[str, str]]:
     """The wrapper bases the server itself hands the app."""
+    # `version_code` is not optional: without it the server answers with an
+    # empty body rather than an error.
+    query = f"version_code={VERSION}&is_beta=false&is_api_alt=false"
     request = urllib.request.Request(
-        f"{ANIXART_API}/config/toggles", headers={"User-Agent": USER_AGENT}
+        f"{ANIXART_API}/config/toggles?{query}", headers={"User-Agent": USER_AGENT}
     )
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
