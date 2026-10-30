@@ -72,6 +72,7 @@ final class EmbeddedPlayerModel {
 
     private(set) var isPlaying = false
     private(set) var isBuffering = true
+    private(set) var playbackError: String?
     private(set) var duration: TimeInterval = 0
     private(set) var position: TimeInterval = 0
     private(set) var rate: Float = 1
@@ -99,6 +100,7 @@ final class EmbeddedPlayerModel {
     @ObservationIgnored private var statusObservation: NSKeyValueObservation?
     @ObservationIgnored private var bufferObservation: NSKeyValueObservation?
     @ObservationIgnored private var endObserver: NSObjectProtocol?
+    @ObservationIgnored private var failedEndObserver: NSObjectProtocol?
     @ObservationIgnored private var hideControlsTask: Task<Void, Never>?
     @ObservationIgnored private var seekFeedbackTask: Task<Void, Never>?
     @ObservationIgnored private var pictureInPicture: AVPictureInPictureController?
@@ -108,12 +110,16 @@ final class EmbeddedPlayerModel {
     @ObservationIgnored private var hasReportedFinish = false
     @ObservationIgnored private var asset: AVURLAsset?
     @ObservationIgnored private var referer: URL?
-    /// Where to land once the replaced item is ready, during a quality change.
+    @ObservationIgnored private var isStopped = false
+    @ObservationIgnored private var retryPosition: TimeInterval = 0
+    /// Where to land once a replacement item is ready, during a quality change or retry.
     @ObservationIgnored private var pendingSeek: CMTime?
+    @ObservationIgnored private var isSeekingReplacement = false
     @ObservationIgnored private var resumeAfterSeek = false
 
     private var hasPendingSeek: Bool { pendingSeek != nil }
 
+    var canRetry: Bool { playbackError != nil && asset != nil && !isStopped }
 
     var isPictureInPictureSupported: Bool {
         AVPictureInPictureController.isPictureInPictureSupported()
@@ -128,15 +134,28 @@ final class EmbeddedPlayerModel {
         onProgress: @escaping (TimeInterval) -> Void,
         onFinished: @escaping () -> Void
     ) async {
-        guard asset == nil, let first = variants.first else { return }
+        guard !isStopped, asset == nil, let first = variants.first else { return }
         self.onProgress = onProgress
         self.onFinished = onFinished
         self.referer = referer
+        if let startAt, startAt.isFinite, startAt > 1 {
+            retryPosition = startAt
+            position = startAt
+            scrubPosition = startAt
+            pendingSeek = CMTime(seconds: startAt, preferredTimescale: 600)
+            resumeAfterSeek = true
+        }
 
-        install(first.url)
+        let item = install(first.url)
 
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
+
+        guard canContinuePlayback(with: item) else { return }
+        isPlaying = true
+        if !hasPendingSeek { player.play() }
+        applyRate()
+        scheduleControlsHide()
 
         if variants.count > 1 {
             // A source that publishes one playlist per quality decides the menu
@@ -146,19 +165,12 @@ final class EmbeddedPlayerModel {
         } else if let asset {
             await loadQualities(from: asset)
         }
-
-        if let startAt, startAt > 1 {
-            await player.seek(to: CMTime(seconds: startAt, preferredTimescale: 600))
-        }
-        player.play()
-        isPlaying = true
-        applyRate()
-        scheduleControlsHide()
     }
 
     /// Points the player at one URL, keeping the observations attached to the
     /// item that is actually playing.
-    private func install(_ url: URL) {
+    @discardableResult
+    private func install(_ url: URL) -> AVPlayerItem {
         // Several hostings refuse a request without a Referer, the same way they
         // do for the web player.
         let headers = ["Referer": (referer ?? AnixartEnvironment.webBaseURL).absoluteString]
@@ -168,16 +180,79 @@ final class EmbeddedPlayerModel {
         let item = AVPlayerItem(asset: asset)
         player.replaceCurrentItem(with: item)
         observe(item)
+        return item
     }
 
     func stop() {
+        guard !isStopped else { return }
+        isStopped = true
         report()
         player.pause()
         isPlaying = false
+        isBuffering = false
         hideControlsTask?.cancel()
         seekFeedbackTask?.cancel()
+        pendingSeek = nil
+        isSeekingReplacement = false
+        resumeAfterSeek = false
         detachObservations()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// Reopens the same source, preserving the selected quality, speed and last position.
+    func retry() {
+        guard canRetry, let url = asset?.url else { return }
+        player.pause()
+        detachObservations()
+        playbackError = nil
+        isBuffering = true
+        isPlaying = true
+        pendingSeek = retryPosition > 0
+            ? CMTime(seconds: retryPosition, preferredTimescale: 600) : nil
+        isSeekingReplacement = false
+        resumeAfterSeek = hasPendingSeek
+        install(url)
+        player.currentItem?.preferredPeakBitRate = quality.peakBitRate
+        if !hasPendingSeek { player.play() }
+        applyRate()
+        scheduleControlsHide()
+    }
+
+    /// Both AVFoundation failure callbacks use this; stale items must not break a retry.
+    func handlePlaybackFailure(_ message: String?, for item: AVPlayerItem) {
+        guard !isStopped, player.currentItem === item, playbackError == nil else { return }
+        let currentPosition = player.currentTime().seconds
+        if let seconds = pendingSeek?.seconds, seconds.isFinite, seconds >= 0 {
+            retryPosition = seconds
+        } else if currentPosition.isFinite, currentPosition > 0 {
+            retryPosition = currentPosition
+        } else if position > 0 {
+            retryPosition = position
+        }
+        let detail = message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        playbackError = detail.flatMap { $0.isEmpty ? nil : $0 }
+            ?? "Источник не удалось воспроизвести. Попробуйте ещё раз или откройте веб-плеер."
+        Self.log.error("playback failed: \(playbackError ?? "unknown", privacy: .public)")
+        player.pause()
+        isPlaying = false
+        isBuffering = false
+        isScrubbing = false
+        pendingSeek = nil
+        isSeekingReplacement = false
+        resumeAfterSeek = false
+        hideControlsTask?.cancel()
+        seekFeedbackTask?.cancel()
+        seekFeedback = nil
+        areControlsVisible = true
+    }
+
+    private func canContinuePlayback(with item: AVPlayerItem) -> Bool {
+        guard !isStopped, player.currentItem === item, playbackError == nil else { return false }
+        if item.status == .failed {
+            handlePlaybackFailure(item.error?.localizedDescription, for: item)
+            return false
+        }
+        return true
     }
 
     /// Lets go of the item that is being replaced or put away. Each `install`
@@ -193,6 +268,10 @@ final class EmbeddedPlayerModel {
             NotificationCenter.default.removeObserver(endObserver)
             self.endObserver = nil
         }
+        if let failedEndObserver {
+            NotificationCenter.default.removeObserver(failedEndObserver)
+            self.failedEndObserver = nil
+        }
     }
 
     private func observe(_ item: AVPlayerItem) {
@@ -201,8 +280,10 @@ final class EmbeddedPlayerModel {
             queue: .main
         ) { [weak self] time in
             MainActor.assumeIsolated {
-                guard let self else { return }
+                guard let self, !self.isStopped, self.player.currentItem === item,
+                      self.playbackError == nil, !self.hasPendingSeek else { return }
                 self.position = time.seconds.isFinite ? time.seconds : 0
+                self.retryPosition = self.position
                 if !self.isScrubbing { self.scrubPosition = self.position }
                 self.reportIfFinished()
             }
@@ -213,20 +294,20 @@ final class EmbeddedPlayerModel {
             let seconds = item.duration.seconds
             let failure = item.error?.localizedDescription
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, !self.isStopped, self.player.currentItem === item else { return }
                 if status == .readyToPlay {
+                    guard self.playbackError == nil else { return }
                     self.duration = seconds.isFinite ? seconds : 0
                     // The smoke test greps for this: it is the only line that
                     // says AVFoundation actually opened the stream.
                     Self.log.notice("playback ready, duration \(Int(self.duration), privacy: .public)s")
                     if self.hasPendingSeek {
-                        await self.finishQualitySwitch()
+                        await self.finishPendingSeek(for: item)
                     } else {
                         self.isBuffering = false
                     }
                 } else if status == .failed {
-                    Self.log.error("playback failed: \(failure ?? "unknown", privacy: .public)")
-                    self.isBuffering = false
+                    self.handlePlaybackFailure(failure, for: item)
                 }
             }
         }
@@ -234,7 +315,8 @@ final class EmbeddedPlayerModel {
         bufferObservation = item.observe(\.isPlaybackLikelyToKeepUp, options: [.new]) { [weak self] item, _ in
             let keepsUp = item.isPlaybackLikelyToKeepUp
             Task { @MainActor [weak self] in
-                guard let self, !self.hasPendingSeek else { return }
+                guard let self, !self.isStopped, self.player.currentItem === item,
+                      self.playbackError == nil, !self.hasPendingSeek else { return }
                 self.isBuffering = !keepsUp
             }
         }
@@ -245,9 +327,21 @@ final class EmbeddedPlayerModel {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self else { return }
+                guard let self, !self.isStopped, self.player.currentItem === item,
+                      self.playbackError == nil else { return }
                 self.isPlaying = false
                 self.finish()
+            }
+        }
+
+        failedEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] notification in
+            let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+            MainActor.assumeIsolated {
+                self?.handlePlaybackFailure(error?.localizedDescription, for: item)
             }
         }
     }
@@ -255,13 +349,17 @@ final class EmbeddedPlayerModel {
     // MARK: - Transport
 
     func togglePlayback() {
-        if isPlaying {
-            player.pause()
-        } else {
-            player.play()
-        }
+        guard !isStopped, playbackError == nil else { return }
         isPlaying.toggle()
-        if isPlaying { applyRate() }
+        if hasPendingSeek {
+            resumeAfterSeek = isPlaying
+            if !isPlaying { player.pause() }
+        } else if isPlaying {
+            player.play()
+            applyRate()
+        } else {
+            player.pause()
+        }
         scheduleControlsHide()
     }
 
@@ -269,6 +367,7 @@ final class EmbeddedPlayerModel {
         let target = max(0, min(duration > 0 ? duration : .greatestFiniteMagnitude, position + offset))
         player.seek(to: CMTime(seconds: target, preferredTimescale: 600))
         position = target
+        retryPosition = target
         scrubPosition = target
         showSeekFeedback(offset >= 0 ? "+\(Int(offset)) с" : "\(Int(offset)) с")
         scheduleControlsHide()
@@ -279,6 +378,7 @@ final class EmbeddedPlayerModel {
         if !scrubbing {
             player.seek(to: CMTime(seconds: scrubPosition, preferredTimescale: 600))
             position = scrubPosition
+            retryPosition = scrubPosition
         }
         scheduleControlsHide()
     }
@@ -298,11 +398,11 @@ final class EmbeddedPlayerModel {
     /// 1x on its own. Both are set, which is what makes a chosen speed stick.
     private func applyRate() {
         player.defaultRate = rate
-        if isPlaying { player.rate = rate }
+        if isPlaying, !hasPendingSeek { player.rate = rate }
     }
 
     func setQuality(_ newQuality: VideoQuality) {
-        guard newQuality != quality else { return }
+        guard !isStopped, playbackError == nil, newQuality != quality else { return }
         quality = newQuality
 
         guard let url = newQuality.url else {
@@ -314,7 +414,10 @@ final class EmbeddedPlayerModel {
         // Its own playlist, so the item is replaced and the position carried
         // over. The seek has to wait for the new item to be ready -- seeking a
         // fresh item before that silently lands wherever it can.
-        pendingSeek = player.currentTime()
+        let current = player.currentTime()
+        pendingSeek = pendingSeek ?? (current.seconds.isFinite && current.seconds >= 0
+            ? current : CMTime(seconds: retryPosition, preferredTimescale: 600))
+        isSeekingReplacement = false
         resumeAfterSeek = isPlaying
         isBuffering = true
         player.pause()
@@ -329,12 +432,21 @@ final class EmbeddedPlayerModel {
     /// land on the nearest segment boundary, which on an HLS stream is several
     /// seconds earlier -- so changing quality visibly rewound the episode.
     /// Exact seeking takes longer and is what the buffering spinner is for.
-    private func finishQualitySwitch() async {
-        guard let target = pendingSeek else { return }
-        pendingSeek = nil
+    private func finishPendingSeek(for item: AVPlayerItem) async {
+        guard let target = pendingSeek, !isSeekingReplacement else { return }
+        isSeekingReplacement = true
 
-        await player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-        position = target.seconds.isFinite ? target.seconds : position
+        // Keep the target until completion: a failure during this await must
+        // retry it, not the new item's initial zero-second position.
+        let completed = await player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        guard canContinuePlayback(with: item) else { return }
+        pendingSeek = nil
+        isSeekingReplacement = false
+        if completed {
+            let seconds = player.currentTime().seconds
+            position = seconds.isFinite ? seconds : position
+            retryPosition = position
+        }
         scrubPosition = position
         isBuffering = false
 
@@ -351,6 +463,7 @@ final class EmbeddedPlayerModel {
     /// the menu becomes a label.
     private func loadQualities(from asset: AVURLAsset) async {
         if let variants = try? await asset.load(.variants), !variants.isEmpty {
+            guard !isStopped, self.asset === asset else { return }
             var rungs = variants.map(VideoQuality.init(variant:))
             // Several variants can share a height (different codecs); keep the
             // highest bitrate of each and sort tallest first.
@@ -365,9 +478,11 @@ final class EmbeddedPlayerModel {
         guard let track = try? await asset.loadTracks(withMediaType: .video).first,
               let size = try? await track.load(.naturalSize)
         else {
+            guard !isStopped, self.asset === asset else { return }
             qualities = [.auto]
             return
         }
+        guard !isStopped, self.asset === asset else { return }
         let height = Int(abs(size.height))
         let single = VideoQuality(id: "native", title: height > 0 ? "\(height)p" : "Исходное", peakBitRate: 0)
         qualities = [single]
@@ -432,6 +547,7 @@ final class EmbeddedPlayerModel {
     }
 
     private func scheduleControlsHide() {
+        guard !isStopped, playbackError == nil else { return }
         hideControlsTask?.cancel()
         hideControlsTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(4))

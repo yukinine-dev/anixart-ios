@@ -1,12 +1,13 @@
 name: Build
 
 # The port was written in a Linux container with no Swift toolchain, so this
-# workflow is where it actually gets compiled and run. Four jobs:
+# workflow is where it actually gets compiled and run. Six jobs:
 #   kit       - AnixartKit unit tests, no simulator needed
-#   app       - build the app and run Kodik routing tests in the simulator
+#   probe     - decode live API responses and probe hosting bridges
+#   app       - build the app and run player regression tests in the simulator
 #   smoke     - boot a simulator, install, launch, and fail on a launch crash
 #   ipa       - unsigned .ipa for sideloading, uploaded as an artifact
-#   release   - publishes that .ipa as an alpha pre-release, gated on smoke
+#   release   - publishes that .ipa as an alpha pre-release after all checks pass
 on:
   push:
     branches: ["**"]
@@ -247,7 +248,7 @@ jobs:
           if-no-files-found: warn
 
   app:
-    name: iOS app build and Kodik tests
+    name: iOS app build and player tests
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -296,7 +297,7 @@ jobs:
             exit "$status"
           fi
 
-      - name: Test production Kodik routing
+      - name: Test player recovery and routing
         run: |
           set -o pipefail
           UDID=$(xcrun simctl list devices available -j | jq -r '
@@ -311,19 +312,20 @@ jobs:
             -scheme Anixart \
             -destination "id=$UDID" \
             -configuration Debug \
-            -only-testing:AnixartTests/KodikRoutingTests \
-            -resultBundlePath "$RUNNER_TEMP/KodikRoutingTests.xcresult" \
+            -only-testing:AnixartTests \
+            -parallel-testing-enabled NO \
+            -resultBundlePath "$RUNNER_TEMP/PlayerTests.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee "$RUNNER_TEMP/kodik-tests.log"
+            2>&1 | tee "$RUNNER_TEMP/player-tests.log"
 
-      - name: Upload Kodik test results
+      - name: Upload player test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Kodik-routing-tests
+          name: Player-regression-tests
           path: |
-            ${{ runner.temp }}/KodikRoutingTests.xcresult
-            ${{ runner.temp }}/kodik-tests.log
+            ${{ runner.temp }}/PlayerTests.xcresult
+            ${{ runner.temp }}/player-tests.log
           if-no-files-found: warn
 
   smoke:
@@ -590,7 +592,7 @@ jobs:
   release:
     name: Publish alpha
     runs-on: ubuntu-latest
-    needs: [ipa, smoke]
+    needs: [kit, probe, app, smoke, ipa]
     # Only from the development branch, and never from a pull request. Point this at
     # the default branch when the work moves there.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/claude/ios-port-d6ttd5'

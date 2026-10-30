@@ -32,6 +32,7 @@ struct PlayerScreen: View {
     /// Set when the advert screen came back with nothing, so the web player can
     /// take over rather than leaving a blank screen.
     @State private var kodikGaveUp = false
+    @State private var prefersWebFallback = false
 
     var body: some View {
         Group {
@@ -48,7 +49,8 @@ struct PlayerScreen: View {
                     startAt: episode.resumePosition,
                     preferences: preferences,
                     onProgress: onProgress,
-                    onFinished: onFinished
+                    onFinished: onFinished,
+                    onWebFallback: webFallbackAction
                 )
             case .external:
                 if let url = target.variants.first?.url {
@@ -60,7 +62,9 @@ struct PlayerScreen: View {
                 // Never the advert wrapper once the gate has already shown one:
                 // falling back into it played a second advert, which is what
                 // made it feel endless.
-                if let page = webPage(withAdvert: !kodikGaveUp) {
+                if let page = webPage(withAdvert: Self.shouldUseWebAdvert(
+                    kodikGaveUp: kodikGaveUp, hasKodikStream: kodikStream != nil
+                )) {
                     EmbedPlayerView(url: page, title: episode.displayName)
                         .ignoresSafeArea()
                         .overlay(alignment: .topLeading) { closeButton }
@@ -81,31 +85,53 @@ struct PlayerScreen: View {
         target.pageURL ?? target.variants.first?.url
     }
 
+    private var webFallbackAction: (() -> Void)? {
+        guard hostingURL != nil else { return nil }
+        return { prefersWebFallback = true }
+    }
+
+    static func shouldUseWebAdvert(kodikGaveUp: Bool, hasKodikStream: Bool) -> Bool {
+        !kodikGaveUp && !hasKodikStream
+    }
+
     /// The embedded and external players need a stream. Without one only the
     /// web player can show anything -- except on Kodik, where the stream exists
     /// but only the page knows it, and the advert has to be watched first.
     enum Route: Equatable {
         case embedded, external, web, kodik
+
+        static func resolve(
+            choice: PlayerChoice,
+            supportsDirectPlayback: Bool,
+            hostingURL: URL?,
+            hasKodikStream: Bool,
+            kodikGaveUp: Bool,
+            prefersWebFallback: Bool
+        ) -> Route {
+            if prefersWebFallback { return .web }
+            if hasKodikStream { return .embedded }
+            if supportsDirectPlayback {
+                switch choice {
+                case .embedded: return .embedded
+                case .external: return .external
+                case .web: return .web
+                }
+            }
+            if choice == .embedded, !kodikGaveUp,
+               let hostingURL, KodikWrapper.handles(hostingURL) { return .kodik }
+            return .web
+        }
     }
 
     var resolvedChoice: Route {
-        if kodikStream != nil { return .embedded }
-        if target.supportsDirectPlayback {
-            switch choice {
-            case .embedded: return .embedded
-            case .external: return .external
-            case .web: return .web
-            }
-        }
-        // Kodik does serve the episode -- the page fetches it once its advert is
-        // over, which is what the Android client's `KodikInterface.advertEnded`
-        // callback is for. So the built-in player is reachable here; it just
-        // costs the advert first, exactly as it does in the original app.
-        if choice == .embedded, !kodikGaveUp,
-           let page = hostingURL, KodikWrapper.handles(page) {
-            return .kodik
-        }
-        return .web
+        Route.resolve(
+            choice: choice,
+            supportsDirectPlayback: target.supportsDirectPlayback,
+            hostingURL: hostingURL,
+            hasKodikStream: kodikStream != nil,
+            kodikGaveUp: kodikGaveUp,
+            prefersWebFallback: prefersWebFallback
+        )
     }
 
     /// The advert, then the episode in the built-in player.

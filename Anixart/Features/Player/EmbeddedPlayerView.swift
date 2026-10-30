@@ -25,6 +25,7 @@ struct EmbeddedPlayerView: View {
     let preferences: PlaybackPreferences
     let onProgress: (TimeInterval) -> Void
     let onFinished: () -> Void
+    var onWebFallback: (() -> Void)? = nil
 
     @State private var model = EmbeddedPlayerModel()
     @State private var isShowingEnhanceExplainer = false
@@ -42,7 +43,7 @@ struct EmbeddedPlayerView: View {
 
             // Over the player layer, not instead of it: the layer keeps
             // decoding, keeps the audio and keeps picture in picture working.
-            if model.isEnhanced {
+            if model.isEnhanced, model.playbackError == nil {
                 EnhancedVideoSurface(
                     player: model.player,
                     isFilling: model.isFilling,
@@ -58,16 +59,16 @@ struct EmbeddedPlayerView: View {
                 .ignoresSafeArea()
                 .onTapGesture { model.toggleControls() }
 
-            if model.isBuffering {
+            if model.isBuffering, model.playbackError == nil {
                 ProgressView()
                     .controlSize(.large)
                     .tint(.white)
             }
 
-            if model.areControlsVisible {
+            if model.playbackError == nil, model.areControlsVisible {
                 controls
                     .transition(.opacity)
-            } else if model.isLocked {
+            } else if model.playbackError == nil, model.isLocked {
                 // Locked still needs a way out, so the padlock stays reachable.
                 lockButton
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -94,6 +95,10 @@ struct EmbeddedPlayerView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(.black.opacity(0.6), in: Capsule())
+            }
+
+            if let error = model.playbackError {
+                playbackError(error)
             }
         }
         .statusBarHidden()
@@ -124,6 +129,53 @@ struct EmbeddedPlayerView: View {
             )
         }
         .onDisappear { model.stop() }
+    }
+
+    private func playbackError(_ message: String) -> some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.ax(fixed: 36))
+                Text("Не удалось воспроизвести видео")
+                    .font(.ax(.title3, .medium))
+                Text(message)
+                    .font(.ax(.body))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button("Попробовать снова") { model.retry() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.white)
+                    .foregroundStyle(.black)
+                    .disabled(!model.canRetry)
+                    .accessibilityIdentifier("player.retry")
+
+                if let onWebFallback {
+                    Button("Открыть веб-плеер") {
+                        model.stop()
+                        onWebFallback()
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.white)
+                    .accessibilityIdentifier("player.webFallback")
+                }
+                Button("Закрыть") {
+                    model.stop()
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+                .tint(.white)
+                .accessibilityIdentifier("player.closeError")
+            }
+            .multilineTextAlignment(.center)
+            .foregroundStyle(.white)
+            .frame(maxWidth: 480)
+            .padding(24)
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.black.opacity(0.9).ignoresSafeArea())
+        .accessibilityIdentifier("player.error")
     }
 
     // MARK: - Controls
