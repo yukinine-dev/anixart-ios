@@ -76,14 +76,19 @@ struct PlayerScreen: View {
         .background(.black)
     }
 
+    /// Keep the hosting URL separate from the wrapper loaded by the web player.
+    private var hostingURL: URL? {
+        target.pageURL ?? target.variants.first?.url
+    }
+
     /// The embedded and external players need a stream. Without one only the
     /// web player can show anything -- except on Kodik, where the stream exists
     /// but only the page knows it, and the advert has to be watched first.
-    private enum Route {
+    enum Route: Equatable {
         case embedded, external, web, kodik
     }
 
-    private var resolvedChoice: Route {
+    var resolvedChoice: Route {
         if kodikStream != nil { return .embedded }
         if target.supportsDirectPlayback {
             switch choice {
@@ -97,7 +102,7 @@ struct PlayerScreen: View {
         // callback is for. So the built-in player is reachable here; it just
         // costs the advert first, exactly as it does in the original app.
         if choice == .embedded, !kodikGaveUp,
-           let page = webPage(), KodikWrapper.handles(page) {
+           let page = hostingURL, KodikWrapper.handles(page) {
             return .kodik
         }
         return .web
@@ -161,7 +166,7 @@ struct PlayerScreen: View {
     /// the server names, which is what the Android client loads. With the advert
     /// wrapper when the server asks for it, the plain one otherwise.
     private func webPage(withAdvert: Bool = true) -> URL? {
-        guard let page = target.pageURL ?? target.variants.first?.url else { return nil }
+        guard let page = hostingURL else { return nil }
         guard KodikWrapper.handles(page) else { return page }
 
         let toggles = env.session.toggles

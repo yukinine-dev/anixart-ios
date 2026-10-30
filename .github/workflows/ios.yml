@@ -3,7 +3,7 @@ name: Build
 # The port was written in a Linux container with no Swift toolchain, so this
 # workflow is where it actually gets compiled and run. Four jobs:
 #   kit       - AnixartKit unit tests, no simulator needed
-#   app       - type-check the app for the simulator (fastest signal)
+#   app       - build the app and run Kodik routing tests in the simulator
 #   smoke     - boot a simulator, install, launch, and fail on a launch crash
 #   ipa       - unsigned .ipa for sideloading, uploaded as an artifact
 #   release   - publishes that .ipa as an alpha pre-release, gated on smoke
@@ -247,10 +247,15 @@ jobs:
           if-no-files-found: warn
 
   app:
-    name: iOS app build
+    name: iOS app build and Kodik tests
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check patch whitespace
+        run: git diff --check HEAD^ HEAD
 
       # The runner ships several Xcodes and defaults to a 16.x one, whose SDK has no
       # Liquid Glass. Pick the newest 26.x so the iOS 26 SDK is what we build against;
@@ -290,6 +295,36 @@ jobs:
               | sort -u | head -40
             exit "$status"
           fi
+
+      - name: Test production Kodik routing
+        run: |
+          set -o pipefail
+          UDID=$(xcrun simctl list devices available -j | jq -r '
+            [ .devices | to_entries[]
+              | select(.key | test("iOS"))
+              | .value[]
+              | select(.name | startswith("iPhone"))
+              | .udid ] | last // empty')
+          test -n "$UDID" || { echo "::error::no available iPhone simulator"; exit 1; }
+          xcodebuild test \
+            -project Anixart.xcodeproj \
+            -scheme Anixart \
+            -destination "id=$UDID" \
+            -configuration Debug \
+            -only-testing:AnixartTests/KodikRoutingTests \
+            -resultBundlePath "$RUNNER_TEMP/KodikRoutingTests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$RUNNER_TEMP/kodik-tests.log"
+
+      - name: Upload Kodik test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kodik-routing-tests
+          path: |
+            ${{ runner.temp }}/KodikRoutingTests.xcresult
+            ${{ runner.temp }}/kodik-tests.log
+          if-no-files-found: warn
 
   smoke:
     name: Simulator launch test
