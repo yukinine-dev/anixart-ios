@@ -230,9 +230,10 @@ final class EmbeddedPlayerModel {
             retryPosition = position
         }
         let detail = message?.trimmingCharacters(in: .whitespacesAndNewlines)
-        playbackError = detail.flatMap { $0.isEmpty ? nil : $0 }
+        let description = detail.flatMap { $0.isEmpty ? nil : $0 }
             ?? "Источник не удалось воспроизвести. Попробуйте ещё раз или откройте веб-плеер."
-        Self.log.error("playback failed: \(playbackError ?? "unknown", privacy: .public)")
+        playbackError = description
+        Self.log.error("playback failed: \(description, privacy: .public)")
         player.pause()
         isPlaying = false
         isBuffering = false

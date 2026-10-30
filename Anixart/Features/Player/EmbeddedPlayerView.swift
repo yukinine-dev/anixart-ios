@@ -174,7 +174,7 @@ struct EmbeddedPlayerView: View {
             .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.black.opacity(0.9).ignoresSafeArea())
+        .background { Color.black.opacity(0.9).ignoresSafeArea() }
         .accessibilityIdentifier("player.error")
     }
 
