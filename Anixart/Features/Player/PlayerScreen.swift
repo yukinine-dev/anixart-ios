@@ -29,8 +29,8 @@ struct PlayerScreen: View {
 
     /// What the Kodik advert screen handed over, once it has.
     @State private var kodikStream: StreamVariant?
-    /// Set when the advert screen came back with nothing, so the web player can
-    /// take over rather than leaving a blank screen.
+    /// Set when the advert screen gives up or is left for the source's player,
+    /// so the web player takes over and late advert results cannot undo it.
     @State private var kodikGaveUp = false
     @State private var prefersWebFallback = false
 
@@ -108,7 +108,9 @@ struct PlayerScreen: View {
             kodikGaveUp: Bool,
             prefersWebFallback: Bool
         ) -> Route {
-            if prefersWebFallback { return .web }
+            // Leaving the advert gate is final, even if its page returns a
+            // stream after the source's web player has already opened.
+            if prefersWebFallback || kodikGaveUp { return .web }
             if hasKodikStream { return .embedded }
             if supportsDirectPlayback {
                 switch choice {
@@ -117,7 +119,7 @@ struct PlayerScreen: View {
                 case .web: return .web
                 }
             }
-            if choice == .embedded, !kodikGaveUp,
+            if choice == .embedded,
                let hostingURL, KodikWrapper.handles(hostingURL) { return .kodik }
             return .web
         }
@@ -146,13 +148,17 @@ struct PlayerScreen: View {
                 KodikAdView(
                     url: page,
                     onResolved: { media, _ in
+                        guard resolvedChoice == .kodik else { return }
                         if let url = KodikAdView.episodeStream(from: media) {
                             kodikStream = StreamVariant(url: url)
                         } else {
                             kodikGaveUp = true
                         }
                     },
-                    onFailure: { _ in kodikGaveUp = true }
+                    onFailure: { _ in
+                        guard resolvedChoice == .kodik else { return }
+                        kodikGaveUp = true
+                    }
                 )
                 .ignoresSafeArea()
 
@@ -169,6 +175,7 @@ struct PlayerScreen: View {
                     // This leaves for the source's own player -- it does not
                     // skip anyone's advert.
                     Button("Открыть плеер источника") {
+                        prefersWebFallback = true
                         kodikGaveUp = true
                     }
                     .font(.ax(.subheadline, .medium))

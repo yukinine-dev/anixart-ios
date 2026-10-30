@@ -234,6 +234,8 @@ struct KodikAdView: UIViewRepresentable {
         coordinator.stop()
         view.navigationDelegate = nil
         view.configuration.userContentController.removeScriptMessageHandler(forName: Bridge.channel)
+        view.stopLoading()
+        view.pauseAllMediaPlayback()
     }
 
     /// Carries the advert's callback back from the page, and reads off what it
@@ -258,6 +260,8 @@ struct KodikAdView: UIViewRepresentable {
         /// The short wait after the advert for the episode's own request.
         private var grace: Task<Void, Never>?
         private var hasFinished = false
+        /// Teardown is separate from resolution, which may be awaiting WebKit.
+        private var isStopped = false
         private var advertFinished = false
         /// Media URLs the frames reported, in the order they asked for them.
         private var media: [Media] = []
@@ -274,16 +278,23 @@ struct KodikAdView: UIViewRepresentable {
         }
 
         func adopt(_ view: WKWebView) {
+            guard !isStopped, !hasFinished else { return }
             self.view = view
             timeout = Task { [weak self] in
                 try? await Task.sleep(for: Self.patience)
-                guard let self, !self.hasFinished else { return }
+                guard !Task.isCancelled, let self, !self.isStopped, !self.hasFinished else { return }
                 Self.log.notice("advert did not report finished; reading the page anyway")
                 await self.finish()
             }
         }
 
         func stop() {
+            isStopped = true
+            cancelPendingTasks()
+            view = nil
+        }
+
+        private func cancelPendingTasks() {
             grace?.cancel()
             grace = nil
             timeout?.cancel()
@@ -291,6 +302,7 @@ struct KodikAdView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard !isStopped, !hasFinished else { return }
             // The Android client taps the centre once here, because an advert
             // will not start without a gesture. This is the same nudge.
             webView.evaluateJavaScript("""
@@ -318,8 +330,12 @@ struct KodikAdView: UIViewRepresentable {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            guard let body = message.body as? [String: Any],
-                  let event = body["event"] as? String
+            guard let body = message.body as? [String: Any] else { return }
+            receive(body)
+        }
+
+        func receive(_ body: [String: Any]) {
+            guard !isStopped, !hasFinished, let event = body["event"] as? String
             else { return }
 
             switch event {
@@ -357,7 +373,7 @@ struct KodikAdView: UIViewRepresentable {
                     media.append(Media(url: url, afterAdvert: advertFinished))
                     // The thing the wait was for.
                     if advertFinished {
-                        Task { await finish() }
+                        Task { [weak self] in await self?.finish() }
                     }
                 }
             default:
@@ -373,9 +389,9 @@ struct KodikAdView: UIViewRepresentable {
         /// fetched, which is where an `.m3u8` or `.mp4` shows up without
         /// touching the player's internals.
         private func finish() async {
-            guard !hasFinished else { return }
+            guard !isStopped, !hasFinished else { return }
             hasFinished = true
-            stop()
+            cancelPendingTasks()
 
             Self.log.notice("\(self.frames.count, privacy: .public) frames alive, \(self.requests.count, privacy: .public) urls asked, \(self.media.count, privacy: .public) media")
             if media.isEmpty, !requests.isEmpty {
@@ -395,7 +411,9 @@ struct KodikAdView: UIViewRepresentable {
                     return video ? (video.currentSrc || video.src || "") : "";
                 })();
                 """
-                if let current = try? await view.evaluateJavaScript(script) as? String,
+                let result = try? await view.evaluateJavaScript(script)
+                guard !isStopped else { return }
+                if let current = result as? String,
                    !current.isEmpty,
                    !current.hasPrefix("blob:"),
                    let url = URL(string: current) {
@@ -403,6 +421,7 @@ struct KodikAdView: UIViewRepresentable {
                 }
             }
 
+            guard !isStopped else { return }
             onResolved(media, Diagnosis(
                 frames: frames,
                 requests: requests,
@@ -411,9 +430,9 @@ struct KodikAdView: UIViewRepresentable {
         }
 
         private func report(failure: String) {
-            guard !hasFinished else { return }
+            guard !isStopped, !hasFinished else { return }
             hasFinished = true
-            stop()
+            cancelPendingTasks()
             Self.log.error("kodik page failed: \(failure, privacy: .public)")
             onFailure(failure)
         }

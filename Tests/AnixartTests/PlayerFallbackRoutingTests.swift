@@ -34,6 +34,26 @@ final class PlayerFallbackRoutingTests: XCTestCase {
     }
 
     @MainActor
+    func testAbandonedKodikGateStaysWebWhenStreamArrivesLate() {
+        XCTAssertEqual(resolve(kodikGaveUp: true), .web)
+        XCTAssertEqual(resolve(hasKodikStream: true, kodikGaveUp: true), .web)
+    }
+
+    @MainActor
+    func testSourcePlayerChoiceStaysWebAfterAdvertFinishes() {
+        for hasKodikStream in [false, true] {
+            XCTAssertEqual(resolve(
+                hasKodikStream: hasKodikStream,
+                kodikGaveUp: true,
+                prefersWebFallback: true
+            ), .web)
+            XCTAssertFalse(PlayerScreen.shouldUseWebAdvert(
+                kodikGaveUp: true, hasKodikStream: hasKodikStream
+            ))
+        }
+    }
+
+    @MainActor
     func testDirectStreamsKeepRequestedPlayerWithoutOverride() {
         let choices: [(PlayerChoice, PlayerScreen.Route)] = [
             (.embedded, .embedded), (.external, .external), (.web, .web)
