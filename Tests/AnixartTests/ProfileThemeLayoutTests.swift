@@ -117,7 +117,7 @@ final class ProfileThemeLayoutTests: XCTestCase {
         let other = ProfileThemeLayout(theme: try profileTestDecode(ProfileTheme.self, #"{"id":8}"#))
         XCTAssertNotEqual(normal.particles(in: size, displayScale: 3), other.particles(in: size, displayScale: 3))
         XCTAssertTrue(normal.particles(in: .zero, displayScale: 3).isEmpty)
-        XCTAssertTrue(normal.particles(in: CGSize(width: .infinity, height: 200), displayScale: 3).isEmpty)
+        XCTAssertTrue(normal.particles(in: CGSize(width: CGFloat.infinity, height: 200), displayScale: 3).isEmpty)
         XCTAssertEqual(normal.particles(in: CGSize(width: 360, height: 100_000), displayScale: 3).count, 256)
     }
 
