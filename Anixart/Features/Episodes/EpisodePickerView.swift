@@ -9,12 +9,20 @@ struct EpisodePickerView: View {
     @Environment(AppEnvironment.self) private var env
 
     let release: Release
+    @State private var viewer: ProfileViewerKey?
     @State private var model: EpisodePickerViewModel?
     @State private var isHintVisible = true
 
+    init(release: Release, viewer: ProfileViewerKey? = nil) {
+        self.release = release
+        _viewer = State(initialValue: viewer)
+    }
+
     var body: some View {
         Group {
-            if let model {
+            if let viewer, viewer != env.session.viewerKey {
+                ProfileViewerNotice(viewer: viewer)
+            } else if let model {
                 content(model)
             } else {
                 ProgressView()
@@ -29,13 +37,19 @@ struct EpisodePickerView: View {
                 } label: {
                     Image(systemName: "clock.arrow.circlepath")
                 }
+                .disabled(viewer != env.session.viewerKey)
             }
         }
         .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
             if model == nil {
-                model = EpisodePickerViewModel(release: release, client: env.client, session: env.session)
+                model = EpisodePickerViewModel(release: release, session: env.session, viewer: viewer)
             }
             await model?.loadTypes()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            if viewer != current { model?.invalidate() }
         }
     }
 
@@ -64,7 +78,7 @@ struct EpisodePickerView: View {
 
                     ForEach(model.visibleTypes) { type in
                         NavigationLink {
-                            EpisodeListView(release: release, type: type)
+                            EpisodeListView(release: release, type: type, viewer: viewer)
                         } label: {
                             typeRow(type, model: model)
                         }
@@ -204,13 +218,22 @@ struct EpisodeListView: View {
     let release: Release
     let type: EpisodeType
 
+    @State private var viewer: ProfileViewerKey?
     @State private var model: EpisodePickerViewModel?
     @State private var launcher: EpisodeLauncher?
     @State private var isHintVisible = true
 
+    init(release: Release, type: EpisodeType, viewer: ProfileViewerKey? = nil) {
+        self.release = release
+        self.type = type
+        _viewer = State(initialValue: viewer)
+    }
+
     var body: some View {
         Group {
-            if let model, let launcher {
+            if let viewer, viewer != env.session.viewerKey {
+                ProfileViewerNotice(viewer: viewer)
+            } else if let model, let launcher {
                 content(model)
                     .episodePlayback(
                         launcher,
@@ -247,6 +270,7 @@ struct EpisodeListView: View {
                     Image(systemName: "arrow.up.arrow.down")
                         .foregroundStyle(model?.sortDescending == true ? Theme.accent : .primary)
                 }
+                .disabled(viewer != env.session.viewerKey)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -269,15 +293,23 @@ struct EpisodeListView: View {
                 } label: {
                     Image(systemName: "ellipsis")
                 }
+                .disabled(viewer != env.session.viewerKey || model?.isUpdatingWatched == true)
             }
         }
         .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
             if model == nil {
-                let fresh = EpisodePickerViewModel(release: release, client: env.client, session: env.session)
+                let fresh = EpisodePickerViewModel(release: release, session: env.session, viewer: viewer)
                 model = fresh
                 launcher = EpisodeLauncher(preferences: PlaybackPreferences())
                 await fresh.select(type: type)
             }
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            guard viewer != current else { return }
+            launcher?.cancel()
+            model?.invalidate()
         }
     }
 

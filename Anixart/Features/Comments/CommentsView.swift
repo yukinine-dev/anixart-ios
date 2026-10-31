@@ -11,17 +11,25 @@ struct CommentsView: View {
 
     @State private var paginator: Paginator<ReleaseComment>?
     @State private var sort = 0
-    @State private var draft = ""
-    @State private var isSpoiler = false
-    @State private var isSending = false
-    @State private var sendError: String?
-    @State private var replyingTo: ReleaseComment?
+    @State private var composer: ProfileCommentDraft
+    @State private var votingIDs = Set<Int>()
+    @State private var actionError: String?
     @State private var openThread: ReleaseComment?
+
+    init(releaseID: Int, releaseTitle: String, viewer: ProfileViewerKey? = nil) {
+        self.releaseID = releaseID
+        self.releaseTitle = releaseTitle
+        _composer = State(initialValue: ProfileCommentDraft(viewer: viewer))
+    }
+
+    private var hasCurrentViewer: Bool { composer.viewer == env.session.viewerKey }
+    private var errorMessage: String? { actionError ?? composer.errorMessage }
 
     var body: some View {
         VStack(spacing: 0) {
             List {
-                if let paginator {
+                ProfileViewerNotice(viewer: composer.viewer)
+                if hasCurrentViewer, let paginator {
                     PaginatedContent(
                         paginator: paginator,
                         emptyTitle: "Нет комментариев",
@@ -29,21 +37,24 @@ struct CommentsView: View {
                     ) { comment in
                         CommentRow(
                             comment: comment,
-                            onReply: { replyingTo = comment },
+                            onReply: { if !composer.isSending { composer.replyingTo = ProfileComment(releaseComment: comment) } },
                             onVote: { vote in Task { await self.vote(comment, vote) } },
-                            onOpenReplies: { openThread = comment }
+                            onOpenReplies: { openThread = comment },
+                            isVoting: votingIDs.contains(comment.id),
+                            actionsEnabled: !composer.isSending
                         )
                     }
                 }
             }
             .listStyle(.plain)
+            .refreshable { await paginator?.reload() }
 
-            composer
+            composerView
         }
         .navigationTitle("Комментарии")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $openThread) { comment in
-            CommentThreadView(comment: comment, releaseID: releaseID)
+            CommentThreadView(comment: comment, releaseID: releaseID, viewer: composer.viewer)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -59,66 +70,77 @@ struct CommentsView: View {
             }
         }
         .task(id: sort) {
-            let client = env.client
+            let viewer = composer.captureViewer(env.session.viewerKey)
+            guard viewer == env.session.viewerKey else { return }
+            let session = env.session
             let id = releaseID
             let currentSort = sort
             paginator = Paginator { page in
-                try await client.send(CommentEndpoints.comments(releaseID: id, page: page, sort: currentSort))
+                try await session.sendViewerRequest(CommentEndpoints.comments(releaseID: id, page: page, sort: currentSort), for: viewer)
             }
             await paginator?.loadFirstPageIfNeeded()
         }
-        .alert("Не удалось отправить", isPresented: Binding(
-            get: { sendError != nil },
-            set: { if !$0 { sendError = nil } }
+        .onChange(of: env.session.viewerKey) { _, current in
+            composer.invalidate(for: current)
+            if composer.viewer != current { paginator = nil; openThread = nil; actionError = nil }
+        }
+        .alert("Комментарии", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { clearError() } }
         )) {
-            Button("Понятно", role: .cancel) { sendError = nil }
+            Button("Понятно", role: .cancel) { clearError() }
         } message: {
-            Text(sendError ?? "")
+            Text(errorMessage ?? "")
         }
     }
 
     /// The composer, laid out as the Android one is: the field, a Спойлер toggle
     /// and a Правила link, and a round send button on the right.
-    private var composer: some View {
+    private var composerView: some View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
-            if env.session.isSignedIn {
-                if let replyingTo {
+            if let viewer = composer.viewer, viewer != env.session.viewerKey {
+                Text("Сессия изменилась. Откройте комментарии заново.")
+                    .font(.ax(.subheadline)).foregroundStyle(.secondary).padding()
+            } else if composer.viewer?.account != nil {
+                if let replyingTo = composer.replyingTo {
                     HStack(spacing: 8) {
-                        Text("Ответ \(replyingTo.authorLogin)")
+                        Text("Ответ \(replyingTo.profile?.login ?? "Пользователь")")
                             .font(.ax(.caption))
                             .foregroundStyle(.secondary)
                         Button {
-                            self.replyingTo = nil
+                            composer.replyingTo = nil
                         } label: {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .disabled(composer.isSending)
                     }
                     .padding(.horizontal)
                 }
 
-                TextField("Ваш комментарий", text: $draft, axis: .vertical)
+                TextField("Ваш комментарий", text: $composer.message, axis: .vertical)
                     .font(.ax(.title3))
                     .lineLimit(1...4)
                     .padding(.horizontal)
+                    .disabled(composer.isSending)
 
                 HStack(spacing: 12) {
                     Button {
-                        isSpoiler.toggle()
+                        composer.isSpoiler.toggle()
                     } label: {
-                        Label("Спойлер", systemImage: isSpoiler ? "eye.slash.fill" : "eye.slash")
+                        Label("Спойлер", systemImage: composer.isSpoiler ? "eye.slash.fill" : "eye.slash")
                             .font(.ax(.subheadline))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 9)
                             .background {
-                                if isSpoiler {
+                                if composer.isSpoiler {
                                     Capsule().fill(Theme.accent.opacity(0.22))
                                 } else {
                                     Capsule().stroke(.quaternary, lineWidth: 1)
                                 }
                             }
-                            .foregroundStyle(isSpoiler ? Theme.accent : .primary)
+                            .foregroundStyle(composer.isSpoiler ? Theme.accent : .primary)
                     }
                     .buttonStyle(.plain)
 
@@ -137,7 +159,7 @@ struct CommentsView: View {
                         Task { await send() }
                     } label: {
                         Group {
-                            if isSending {
+                            if composer.isSending {
                                 ProgressView()
                             } else {
                                 Image(systemName: "arrow.up").font(.ax(.headline))
@@ -148,10 +170,11 @@ struct CommentsView: View {
                         .foregroundStyle(.primary)
                     }
                     .buttonStyle(.plain)
-                    .disabled(isSending || draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(composer.isSending || composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 8)
+                .disabled(composer.isSending)
             } else {
                 Button("Войдите, чтобы комментировать") { env.session.promptSignIn() }
                     .font(.ax(.subheadline))
@@ -165,40 +188,35 @@ struct CommentsView: View {
     /// Up- or down-votes a comment. `vote` is 1 or -1, and repeating the same
     /// vote clears it, which is what the Android arrows do.
     private func vote(_ comment: ReleaseComment, _ vote: Int) async {
-        guard env.session.isSignedIn else {
+        guard hasCurrentViewer, !votingIDs.contains(comment.id), comment.isDeleted != true, comment.canLike != false else { return }
+        guard let account = composer.viewer?.account else {
             env.session.promptSignIn()
             return
         }
+        votingIDs.insert(comment.id)
+        actionError = nil
+        let list = paginator
+        defer { votingIDs.remove(comment.id) }
         let value = (comment.vote ?? 0) == vote ? 0 : vote
-        _ = try? await env.client.send(CommentEndpoints.vote(commentID: comment.id, vote: value))
-        await paginator?.reload()
+        do {
+            try await env.session.sendConfirmedAccountRequest(CommentEndpoints.vote(commentID: comment.id, vote: value), for: account)
+            await list?.reload()
+        } catch {
+            if hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) { actionError = Paginator<Release>.message(for: error) }
+        }
     }
 
     private func send() async {
-        let message = draft.trimmingCharacters(in: .whitespaces)
-        guard !message.isEmpty else { return }
-        isSending = true
-        do {
-            _ = try await env.client.send(
-                CommentEndpoints.add(
-                    releaseID: releaseID,
-                    CommentAddRequest(
-                        message: message,
-                        parentCommentId: replyingTo?.id,
-                        replyToProfileId: replyingTo?.profile?.id,
-                        spoiler: isSpoiler
-                    )
-                )
-            )
-            draft = ""
-            isSpoiler = false
-            replyingTo = nil
-            await paginator?.reload()
-        } catch {
-            sendError = Paginator<Release>.message(for: error)
+        let list = paginator
+        let account = composer.viewer?.account
+        let location = ProfileCommentLocation(category: .releases, parentID: releaseID)
+        if await composer.send(at: location, parentCommentID: composer.replyingTo?.threadRootID, session: env.session) {
+            await list?.reload()
+            if let account { await env.session.refreshProfile(for: account) }
         }
-        isSending = false
     }
+
+    private func clearError() { actionError = nil; composer.errorMessage = nil }
 }
 
 /// One comment, laid out as the Android list lays it out: avatar beside the
@@ -211,6 +229,8 @@ struct CommentRow: View {
     var onReply: (() -> Void)?
     var onVote: ((Int) -> Void)?
     var onOpenReplies: (() -> Void)?
+    var isVoting = false
+    var actionsEnabled = true
 
     @State private var isSpoilerRevealed = false
 
@@ -233,7 +253,9 @@ struct CommentRow: View {
                     Text(release.displayTitle).font(.ax(.caption)).foregroundStyle(Theme.accent)
                 }
 
-                if comment.containsSpoiler && !isSpoilerRevealed {
+                if comment.isDeleted == true {
+                    Text("Комментарий удалён").font(.ax(.subheadline)).foregroundStyle(.secondary)
+                } else if comment.containsSpoiler && !isSpoilerRevealed {
                     Button {
                         withAnimation { isSpoilerRevealed = true }
                     } label: {
@@ -264,6 +286,7 @@ struct CommentRow: View {
                             .font(.ax(.subheadline))
                             .foregroundStyle(.secondary)
                             .buttonStyle(.plain)
+                            .disabled(!actionsEnabled || comment.isDeleted == true)
                     }
                     Spacer(minLength: 0)
                     voteControls
@@ -297,7 +320,7 @@ struct CommentRow: View {
                 Image(systemName: "chevron.down").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .disabled(onVote == nil)
+            .disabled(!actionsEnabled || onVote == nil || isVoting || comment.isDeleted == true || comment.canLike == false)
 
             Text(Format.count(comment.voteCount))
                 .font(.ax(.subheadline, .medium))
@@ -310,7 +333,7 @@ struct CommentRow: View {
                 Image(systemName: "chevron.up").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .disabled(onVote == nil)
+            .disabled(!actionsEnabled || onVote == nil || isVoting || comment.isDeleted == true || comment.canLike == false)
         }
     }
 
@@ -340,35 +363,13 @@ extension LabelStyle where Self == TrailingIconLabelStyle {
 /// The replies under one comment.
 @MainActor
 struct CommentThreadView: View {
-    @Environment(AppEnvironment.self) private var env
-
     let comment: ReleaseComment
     let releaseID: Int
-
-    @State private var paginator: Paginator<ReleaseComment>?
+    var viewer: ProfileViewerKey?
 
     var body: some View {
-        List {
-            CommentRow(comment: comment)
-            if let paginator {
-                PaginatedContent(paginator: paginator, emptyTitle: "Ответов пока нет") { reply in
-                    CommentRow(comment: reply)
-                        .padding(.leading, 28)
-                }
-            }
-        }
-        .listStyle(.plain)
-        .navigationTitle("Ответы")
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            if paginator == nil {
-                let client = env.client
-                let id = comment.id
-                paginator = Paginator { page in
-                    try await client.send(CommentEndpoints.replies(commentID: id, page: page))
-                }
-            }
-            await paginator?.loadFirstPageIfNeeded()
-        }
+        ProfileCommentDetailView(commentID: comment.id, category: .releases,
+                                 preloaded: ProfileComment(releaseComment: comment),
+                                 fallbackLocation: ProfileCommentLocation(category: .releases, parentID: releaseID), viewer: viewer)
     }
 }

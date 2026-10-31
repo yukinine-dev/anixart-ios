@@ -17,6 +17,8 @@ public struct Endpoint<Response: Decodable & Sendable>: Sendable {
         case json(any Encodable & Sendable)
         /// `application/x-www-form-urlencoded` -- used by every `auth/*` endpoint.
         case form([String: String])
+        /// `multipart/form-data` -- avatar and channel-cover uploads.
+        case multipart(MultipartBody)
     }
 
     public var method: Method
@@ -29,6 +31,9 @@ public struct Endpoint<Response: Decodable & Sendable>: Sendable {
     /// How the token is attached.
     public var auth: Auth
     public var headers: [String: String]
+    /// A few reads use a business code as a normal state (deletion status uses
+    /// `3` for "no request"). Mutations still accept only `0` by default.
+    public var acceptedStatusCodes: Set<Int>
 
     public enum Auth: Sendable {
         /// No token sent.
@@ -37,6 +42,8 @@ public struct Endpoint<Response: Decodable & Sendable>: Sendable {
         case optional
         /// Token required; the client throws `AnixartError.notAuthenticated` without one.
         case required
+        /// For session-sensitive mutations, refuse to use a newer account's token.
+        case matchingToken(String)
     }
 
     public init(
@@ -45,7 +52,8 @@ public struct Endpoint<Response: Decodable & Sendable>: Sendable {
         query: [String: String?] = [:],
         body: Body? = nil,
         auth: Auth = .optional,
-        headers: [String: String] = [:]
+        headers: [String: String] = [:],
+        acceptedStatusCodes: Set<Int> = [AnixartStatus.successful]
     ) {
         self.method = method
         self.path = path
@@ -53,5 +61,6 @@ public struct Endpoint<Response: Decodable & Sendable>: Sendable {
         self.body = body
         self.auth = auth
         self.headers = headers
+        self.acceptedStatusCodes = acceptedStatusCodes
     }
 }

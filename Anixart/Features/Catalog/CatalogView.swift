@@ -127,14 +127,21 @@ struct CatalogView: View {
 struct RelatedReleasesView: View {
     @Environment(AppEnvironment.self) private var env
     let related: Related
+    @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
+
+    init(related: Related, viewer: ProfileViewerKey? = nil) {
+        self.related = related
+        _viewer = State(initialValue: viewer)
+    }
 
     var body: some View {
         List {
-            if let paginator {
+            ProfileViewerNotice(viewer: viewer)
+            if viewer == env.session.viewerKey, let paginator {
                 PaginatedContent(paginator: paginator, emptyTitle: "Нет связанных релизов") { release in
                     NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release)
+                        ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
                     } label: {
                         RelatedReleaseRow(release: release)
                     }
@@ -143,15 +150,23 @@ struct RelatedReleasesView: View {
         }
         .listStyle(.plain)
         .navigationTitle(related.nameRu ?? "Франшиза")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .refreshable { await paginator?.reload() }
         .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
             if paginator == nil {
-                let client = env.client
+                let session = env.session
                 let relatedID = related.id
                 paginator = Paginator { page in
-                    try await client.send(ReleaseEndpoints.related(relatedID: relatedID, page: page))
+                    try await session.sendViewerRequest(ReleaseEndpoints.related(relatedID: relatedID, page: page), for: viewer)
                 }
             }
             await paginator?.loadFirstPageIfNeeded()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            if viewer != current { paginator = nil }
         }
     }
 }

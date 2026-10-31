@@ -52,7 +52,7 @@ struct PaginatedContent<Item: Identifiable & Codable & Sendable, Row: View>: Vie
                 title: "Не удалось загрузить",
                 message: error,
                 systemImage: "wifi.exclamationmark",
-                retry: { await paginator.reload() }
+                retry: { await paginator.retry() }
             )
         } else if paginator.items.isEmpty {
             StatusMessageView(title: emptyTitle, message: emptyMessage)
@@ -67,6 +67,9 @@ struct PaginatedContent<Item: Identifiable & Codable & Sendable, Row: View>: Vie
             }
             if paginator.state == .loading {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 16)
+            } else if let error = paginator.errorMessage {
+                StatusMessageView(title: paginator.failedPage == 0 ? "Не удалось обновить список" : "Не удалось загрузить следующую страницу", message: error,
+                                  systemImage: "wifi.exclamationmark", retry: { await paginator.retry() })
             }
         }
     }

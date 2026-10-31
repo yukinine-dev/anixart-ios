@@ -11,15 +11,23 @@ struct ReleaseDetailView: View {
     let releaseID: Int
     var preloaded: Release?
 
+    @State private var viewer: ProfileViewerKey?
     @State private var model: ReleaseDetailViewModel?
     @State private var isShowingListPicker = false
     @State private var isShowingRating = false
     @State private var isShowingCollectionPicker = false
     @State private var isDescriptionExpanded = false
 
+    init(releaseID: Int, preloaded: Release? = nil, viewer: ProfileViewerKey? = nil) {
+        self.releaseID = releaseID
+        self.preloaded = preloaded
+        _viewer = State(initialValue: viewer)
+    }
+
     var body: some View {
         ScrollView {
-            if let model {
+            ProfileViewerNotice(viewer: viewer)
+            if viewer == env.session.viewerKey, let model {
                 if let release = model.release {
                     content(for: release, model: model)
                 } else if let error = model.errorMessage {
@@ -36,16 +44,26 @@ struct ReleaseDetailView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
         .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
             if model == nil {
                 model = ReleaseDetailViewModel(
                     releaseID: releaseID,
                     preloaded: preloaded,
-                    client: env.client,
-                    session: env.session
+                    session: env.session,
+                    viewer: viewer
                 )
             }
             await model?.load()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            guard viewer != current else { return }
+            model?.invalidate()
+            isShowingListPicker = false
+            isShowingRating = false
+            isShowingCollectionPicker = false
         }
         .alert(
             "Не получилось",
@@ -113,6 +131,7 @@ struct ReleaseDetailView: View {
             ListPickerSheet(current: release.listStatus) { status in
                 Task { await model.setList(status) }
             }
+            .disabled(!model.hasCurrentViewer || model.isPerformingAction)
         }
         .sheet(isPresented: $isShowingRating) {
             RatingSheet(
@@ -121,6 +140,7 @@ struct ReleaseDetailView: View {
                 onVote: { score in Task { await model.vote(score) } },
                 onRemove: { Task { await model.removeVote() } }
             )
+            .disabled(!model.hasCurrentViewer || model.isPerformingAction)
         }
     }
 
@@ -218,6 +238,7 @@ struct ReleaseDetailView: View {
                 .foregroundStyle(release.listStatus.map { Theme.listColor($0) } ?? .primary)
             }
             .buttonStyle(.plain)
+            .disabled(model.isPerformingAction)
 
             Button {
                 Task { await model.toggleFavorite() }
@@ -235,9 +256,10 @@ struct ReleaseDetailView: View {
                 .foregroundStyle((release.isFavorite ?? false) ? Theme.accent : .primary)
             }
             .buttonStyle(.plain)
+            .disabled(model.isPerformingAction)
 
             NavigationLink {
-                CommentsView(releaseID: release.id, releaseTitle: release.displayTitle)
+                CommentsView(releaseID: release.id, releaseTitle: release.displayTitle, viewer: viewer)
             } label: {
                 Image(systemName: "text.bubble")
                     .font(.ax(.subheadline))
@@ -270,7 +292,7 @@ struct ReleaseDetailView: View {
             } else {
                 HStack(spacing: 12) {
                     NavigationLink {
-                        EpisodePickerView(release: release)
+                        EpisodePickerView(release: release, viewer: viewer)
                     } label: {
                         Label(
                             release.continueWatchingText == nil ? "Воспроизвести" : "Продолжить",
@@ -286,12 +308,12 @@ struct ReleaseDetailView: View {
 
                     Menu {
                         NavigationLink {
-                            EpisodePickerView(release: release)
+                            EpisodePickerView(release: release, viewer: viewer)
                         } label: {
                             Label("Выбрать озвучку", systemImage: "waveform")
                         }
                         NavigationLink {
-                            StreamingPlatformsView(release: release)
+                            StreamingPlatformsView(release: release, viewer: viewer)
                         } label: {
                             Label("Онлайн просмотр", systemImage: "play.rectangle.on.rectangle")
                         }
@@ -381,7 +403,7 @@ struct ReleaseDetailView: View {
         let list = release.genreList
         if !list.isEmpty {
             NavigationLink {
-                GenreReleasesView(genres: list)
+                GenreReleasesView(genres: list, viewer: viewer)
             } label: {
                 Text(underlinedJoin(list))
                     .font(.ax(.subheadline))
@@ -431,14 +453,14 @@ struct ReleaseDetailView: View {
     private func videoSection(_ release: Release, banners: [ReleaseVideoBanner]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             SectionHeader(title: "Видео") {
-                NavigationLink("Показать все") { ReleaseVideosView(release: release) }
+                NavigationLink("Показать все") { ReleaseVideosView(release: release, viewer: viewer) }
                     .font(.ax(.subheadline))
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.row) {
                     ForEach(Array(banners.enumerated()), id: \.offset) { _, banner in
                         NavigationLink {
-                            ReleaseVideosView(release: release, category: banner.name)
+                            ReleaseVideosView(release: release, category: banner.name, viewer: viewer)
                         } label: {
                             ZStack {
                                 CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
@@ -491,6 +513,7 @@ struct ReleaseDetailView: View {
                 },
                 onRemove: { Task { await model.removeVote() } }
             )
+            .disabled(model.isPerformingAction)
             .padding(.horizontal)
             .padding(.top, 4)
         }
@@ -558,7 +581,7 @@ struct ReleaseDetailView: View {
             SectionHeader(title: "Связанные релизы") {
                 if let related = release.related {
                     NavigationLink("Показать все") {
-                        RelatedReleasesView(related: related)
+                        RelatedReleasesView(related: related, viewer: viewer)
                     }
                     .font(.ax(.subheadline))
                 }
@@ -566,7 +589,7 @@ struct ReleaseDetailView: View {
             VStack(spacing: Theme.Spacing.row) {
                 ForEach(releases.prefix(3)) { item in
                     NavigationLink {
-                        ReleaseDetailView(releaseID: item.id, preloaded: item)
+                        ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
                     } label: {
                         RelatedReleaseRow(release: item)
                     }
@@ -580,7 +603,7 @@ struct ReleaseDetailView: View {
     private func collectionLinks(_ release: Release) -> some View {
         VStack(spacing: 0) {
             NavigationLink {
-                ReleaseCollectionsView(releaseID: release.id, title: release.displayTitle)
+                ReleaseCollectionsView(releaseID: release.id, title: release.displayTitle, viewer: viewer)
             } label: {
                 HStack {
                     Text("Показать в коллекциях").font(.ax(.title3, .medium))
@@ -618,7 +641,7 @@ struct ReleaseDetailView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
             .sheet(isPresented: $isShowingCollectionPicker) {
-                AddToCollectionSheet(releaseID: release.id)
+                AddToCollectionSheet(releaseID: release.id, viewer: viewer)
             }
         }
     }
@@ -630,7 +653,7 @@ struct ReleaseDetailView: View {
                 HStack(alignment: .top, spacing: Theme.Spacing.row) {
                     ForEach(releases) { item in
                         NavigationLink {
-                            ReleaseDetailView(releaseID: item.id, preloaded: item)
+                            ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
                         } label: {
                             ReleaseCard(release: item)
                         }
@@ -655,7 +678,7 @@ struct ReleaseDetailView: View {
                 }
                 Spacer()
                 NavigationLink("Показать все") {
-                    CommentsView(releaseID: release.id, releaseTitle: release.displayTitle)
+                    CommentsView(releaseID: release.id, releaseTitle: release.displayTitle, viewer: viewer)
                 }
                 .font(.ax(.subheadline, .medium))
                 .foregroundStyle(.primary)

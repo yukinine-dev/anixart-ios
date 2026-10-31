@@ -27,6 +27,8 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
 
     private var nextPage = 0
     private var generation = 0
+    private var hasLoadedFirstPage = false
+    private(set) var failedPage: Int?
 
     init(fetch: @escaping @Sendable (Int) async throws -> PageableResponse<Item>) {
         self.fetch = fetch
@@ -42,56 +44,73 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
 
     /// Loads the first page, unless it is already loaded or loading.
     func loadFirstPageIfNeeded() async {
-        guard items.isEmpty, state != .loading else { return }
+        guard !hasLoadedFirstPage, state == .idle else { return }
         await reload()
     }
 
-    /// Discards everything and loads page 0 again. Used by pull-to-refresh and
-    /// whenever the query behind the list changes.
+    /// Loads page 0 again, keeping existing results until the refresh succeeds.
+    /// Query changes create a new paginator instead of mixing two result sets.
     func reload() async {
         generation += 1
         let token = generation
-        nextPage = 0
-        hasMore = true
         state = .loading
+        failedPage = nil
 
         do {
             let page = try await fetch(0)
+            try Task.checkCancellation()
             guard token == generation else { return }
-            items = page.items
+            var seen = Set<Item.ID>()
+            items = page.items.filter { seen.insert($0.id).inserted }
             totalCount = page.totalCount
             hasMore = !page.isLastPage
             nextPage = 1
+            hasLoadedFirstPage = true
             state = .idle
         } catch {
             guard token == generation else { return }
-            items = []
-            hasMore = false
+            if ProfileRequestFailure.isCancellation(error) { state = .idle; return }
+            failedPage = 0
             state = .failed(Self.message(for: error))
         }
     }
 
     /// Loads the next page. Safe to call from `onAppear` of the last row.
     func loadNextPage() async {
+        guard state == .idle, hasLoadedFirstPage else { return }
+        await fetchNextPage()
+    }
+
+    /// Retry the failed page without discarding already displayed results.
+    func retry() async {
+        guard state != .loading else { return }
+        if failedPage == 0 || !hasLoadedFirstPage { await reload() }
+        else { await fetchNextPage() }
+    }
+
+    private func fetchNextPage() async {
         guard hasMore, state != .loading else { return }
         let token = generation
         let page = nextPage
         state = .loading
+        failedPage = nil
 
         do {
             let response = try await fetch(page)
+            try Task.checkCancellation()
             guard token == generation else { return }
             // The API can repeat an item across pages when the underlying list
             // changes mid-scroll; dropping duplicates keeps SwiftUI's diffing sane.
-            let known = Set(items.map(\.id))
-            items.append(contentsOf: response.items.filter { !known.contains($0.id) })
+            var known = Set(items.map(\.id))
+            items.append(contentsOf: response.items.filter { known.insert($0.id).inserted })
             totalCount = response.totalCount
             hasMore = !response.isLastPage
             nextPage = page + 1
             state = .idle
         } catch {
             guard token == generation else { return }
-            hasMore = false
+            if ProfileRequestFailure.isCancellation(error) { state = .idle; return }
+            failedPage = page
             state = .failed(Self.message(for: error))
         }
     }
@@ -103,8 +122,16 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
     }
 
     func remove(id: Item.ID) {
+        guard items.contains(where: { $0.id == id }) else { return }
         items.removeAll { $0.id == id }
         if let totalCount { self.totalCount = max(0, totalCount - 1) }
+    }
+
+    /// Removing from a positional list shifts all later pages. Rebase from page
+    /// zero and invalidate any load that started before the mutation completed.
+    func removeAndReload(id: Item.ID) async {
+        remove(id: id)
+        await reload()
     }
 
     nonisolated static func message(for error: any Error) -> String {

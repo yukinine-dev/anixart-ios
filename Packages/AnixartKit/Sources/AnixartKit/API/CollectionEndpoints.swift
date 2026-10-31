@@ -48,4 +48,11 @@ public enum CollectionEndpoints {
     public static func removeFavorite(collectionID: Int) -> Endpoint<StatusResponse> {
         Endpoint(path: "collectionFavorite/delete/\(collectionID)", auth: .required)
     }
+
+    /// The APK's ReleaseAddCollectionResponse has only Response's status code.
+    /// This mutation is a GET with `release_id`, not a JSON POST.
+    public static func addRelease(collectionID: Int, releaseID: Int) -> Endpoint<StatusResponse> {
+        Endpoint(path: "collectionMy/release/add/\(collectionID)",
+                 query: ["release_id": String(releaseID)], auth: .required)
+    }
 }

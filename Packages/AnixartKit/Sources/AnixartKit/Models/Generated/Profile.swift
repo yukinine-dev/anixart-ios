@@ -20,7 +20,7 @@ public struct Profile: Codable, Hashable, Sendable, Identifiable {
     public var collectionCount: Int?
     public var collectionsPreview: [ReleaseCollection]?
     public var commentCount: Int?
-    public var commentsPreview: [ReleaseComment]?
+    public var commentsPreview: [ProfileComment]?
     public var completedCount: Int?
     public var deletionDeleteAt: Int?
     public var deletionRequestedAt: Int?

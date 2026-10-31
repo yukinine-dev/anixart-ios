@@ -13,6 +13,7 @@ public struct ReleaseVideo: Codable, Hashable, Sendable, Identifiable {
     public var image: String?
     public var playerUrl: String?
     public var profile: Profile?
+    public var release: Embedded<Release>?
     public var timestamp: Int?
     public var title: String?
     public var url: String?
@@ -27,6 +28,7 @@ public struct ReleaseVideo: Codable, Hashable, Sendable, Identifiable {
         case image
         case playerUrl = "player_url"
         case profile
+        case release
         case timestamp
         case title
         case url

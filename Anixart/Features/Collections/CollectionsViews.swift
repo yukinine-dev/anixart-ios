@@ -5,18 +5,19 @@ import AnixartKit
 @MainActor
 struct FavoriteCollectionsList: View {
     @Environment(AppEnvironment.self) private var env
+    @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<ReleaseCollection>?
 
     var body: some View {
         List {
-            if let paginator {
+            if viewer == env.session.viewerKey, let paginator {
                 PaginatedContent(
                     paginator: paginator,
                     emptyTitle: "Нет сохранённых коллекций",
                     emptyMessage: "Добавляйте коллекции в закладки с их страницы"
                 ) { collection in
                     NavigationLink {
-                        CollectionDetailView(collection: collection)
+                        CollectionDetailView(collection: collection, viewer: viewer)
                     } label: {
                         CollectionRow(collection: collection)
                     }
@@ -25,14 +26,15 @@ struct FavoriteCollectionsList: View {
         }
         .listStyle(.plain)
         .refreshable { await paginator?.reload() }
-        .task {
-            if paginator == nil {
-                let client = env.client
-                paginator = Paginator { page in
-                    try await client.send(CollectionEndpoints.favorites(page: page))
-                }
+        .task(id: env.session.viewerKey) {
+            let viewer = env.session.viewerKey
+            self.viewer = viewer
+            let session = env.session
+            let list = Paginator<ReleaseCollection> { page in
+                try await session.sendViewerRequest(CollectionEndpoints.favorites(page: page), for: viewer)
             }
-            await paginator?.loadFirstPageIfNeeded()
+            paginator = list
+            await list.loadFirstPageIfNeeded()
         }
     }
 }
@@ -80,11 +82,21 @@ struct CollectionDetailView: View {
     @Environment(AppEnvironment.self) private var env
 
     let collection: ReleaseCollection
+    @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
     @State private var isFavorite: Bool?
+    @State private var isSavingFavorite = false
+    @State private var favoriteError: String?
+
+    init(collection: ReleaseCollection, viewer: ProfileViewerKey? = nil) {
+        self.collection = collection
+        _viewer = State(initialValue: viewer)
+    }
 
     var body: some View {
         List {
+            ProfileViewerNotice(viewer: viewer)
+            if viewer == env.session.viewerKey {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     if let description = collection.description, !description.isEmpty {
@@ -100,32 +112,65 @@ struct CollectionDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.accent)
+                    .disabled(isSavingFavorite)
                 }
+            }
+
+            Section {
+                if let creator = collection.creator {
+                    NavigationLink { ProfileView(profileID: creator.id, viewer: viewer) } label: {
+                        HStack(spacing: 12) {
+                            Avatar(url: AnixartURL.image(creator.avatar), size: 36)
+                            Text(creator.login ?? "Автор коллекции")
+                        }
+                    }
+                }
+                NavigationLink {
+                    ProfileCommentsAtLocationView(location: ProfileCommentLocation(category: .collections, parentID: collection.id), viewer: viewer)
+                } label: { Label("Комментарии · \(Format.count(collection.commentCount))", systemImage: "bubble.left") }
             }
 
             Section("Релизы") {
                 if let paginator {
                     PaginatedContent(paginator: paginator, emptyTitle: "В коллекции пока нет релизов") { release in
                         NavigationLink {
-                            ReleaseDetailView(releaseID: release.id, preloaded: release)
+                            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
                         } label: {
                             ReleaseRow(release: release)
                         }
                     }
                 }
             }
+            }
         }
-        .navigationTitle(collection.displayTitle)
+        .navigationTitle(viewer == env.session.viewerKey ? collection.displayTitle : "Коллекция")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .refreshable { await paginator?.reload() }
         .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
             if paginator == nil {
-                let client = env.client
+                let session = env.session
                 let id = collection.id
                 paginator = Paginator { page in
-                    try await client.send(CollectionEndpoints.releases(collectionID: id, page: page))
+                    try await session.sendViewerRequest(CollectionEndpoints.releases(collectionID: id, page: page), for: viewer)
                 }
             }
             await paginator?.loadFirstPageIfNeeded()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            guard viewer != current else { return }
+            paginator = nil
+            isFavorite = nil
+            favoriteError = nil
+        }
+        .alert("Не удалось изменить закладки", isPresented: Binding(
+            get: { favoriteError != nil }, set: { if !$0 { favoriteError = nil } }
+        )) {
+            Button("Понятно", role: .cancel) { favoriteError = nil }
+        } message: {
+            Text(favoriteError ?? "")
         }
     }
 
@@ -134,20 +179,26 @@ struct CollectionDetailView: View {
     }
 
     private func toggleFavorite() async {
-        guard env.session.isSignedIn else {
+        guard !isSavingFavorite, let viewer, viewer == env.session.viewerKey else { return }
+        guard let account = viewer.account else {
             env.session.promptSignIn()
             return
         }
         let wasFavorite = favoriteState
+        isSavingFavorite = true
+        favoriteError = nil
+        defer { isSavingFavorite = false }
         isFavorite = !wasFavorite
         do {
             if wasFavorite {
-                try await env.client.send(CollectionEndpoints.removeFavorite(collectionID: collection.id))
+                try await env.session.sendConfirmedAccountRequest(CollectionEndpoints.removeFavorite(collectionID: collection.id), for: account)
             } else {
-                try await env.client.send(CollectionEndpoints.addFavorite(collectionID: collection.id))
+                try await env.session.sendConfirmedAccountRequest(CollectionEndpoints.addFavorite(collectionID: collection.id), for: account)
             }
         } catch {
+            guard viewer == env.session.viewerKey else { return }
             isFavorite = wasFavorite
+            if !ProfileRequestFailure.isCancellation(error) { favoriteError = Paginator<Release>.message(for: error) }
         }
     }
 }

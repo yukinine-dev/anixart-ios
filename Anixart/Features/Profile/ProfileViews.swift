@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import AnixartKit
 
 /// The Profile tab: the signed-in user's own profile, or a sign-in prompt.
@@ -19,41 +20,73 @@ struct ProfileTabView: View {
                 }
             }
         }
+        .id(env.session.currentProfileID)
     }
 }
 
-/// Someone's profile, laid out as the Android `ProfileFragment` lays it out:
-/// a centred identity block, the action buttons, a friends row, then the
-/// statistics section with its legend and donut.
+/// Six interchangeable sections, followed by the same watch activity on every tab.
 @MainActor
 struct ProfileView: View {
     @Environment(AppEnvironment.self) private var env
 
     let profileID: Int
     var isOwnProfile = false
+    let viewer: ProfileViewerKey?
 
-    @State private var profile: Profile?
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    @State private var isConfirmingSignOut = false
+    @State private var model = ProfileViewModel()
     @State private var isShowingSettings = false
     @State private var isShowingSearch = false
-    @State private var section: ProfileSection = .statistics
+    @State private var searchViewer: ProfileViewerKey?
+    @State private var isShowingLoginHistory = false
+    @State private var loginHistoryViewer: ProfileViewerKey?
+    @State private var notice: String?
+    @State private var isChangingRelationship = false
+
+    init(profileID: Int, isOwnProfile: Bool = false, viewer: ProfileViewerKey? = nil) {
+        self.profileID = profileID
+        self.isOwnProfile = isOwnProfile
+        self.viewer = viewer
+    }
+
+    private var profile: Profile? { model.profile }
+    private var isLoading: Bool { model.isLoading }
+    private var errorMessage: String? { model.errorMessage }
+    private var coverURL: URL? { model.coverURL }
+    private var showcased: [Badge] { model.showcased }
+    private var section: ProfileSection {
+        get { model.section }
+        nonmutating set { model.section = newValue }
+    }
+
+    private var ownsProfile: Bool {
+        env.session.currentProfileID == profileID && (viewer == nil || viewer == env.session.viewerKey)
+    }
+    private var hasCurrentViewer: Bool { model.viewerKey == env.session.viewerKey }
 
     var body: some View {
         ScrollView {
-            if let profile {
+            if let viewer, viewer != env.session.viewerKey {
+                ProfileViewerNotice(viewer: viewer)
+            } else if hasCurrentViewer, let profile {
                 VStack(spacing: 0) {
                     identity(profile)
                     actions(profile)
+                    if !showcased.isEmpty {
+                        ProfileBadgeShowcase(profile: profile, badges: showcased, viewer: model.viewerKey)
+                    }
                     sectionDivider
-                    friendsRow(profile)
-                    sectionDivider
+                    if profile.isCountsHidden != true {
+                        friendsRow(profile)
+                        sectionDivider
+                    }
                     sectionChips
                     sectionContent(profile)
+                    if profile.isStatsHidden != true {
+                        ProfileActivitySection(profile: profile)
+                    }
                 }
                 .padding(.bottom, Theme.Spacing.section)
-            } else if isLoading {
+            } else if isLoading || model.viewerKey != env.session.viewerKey && errorMessage == nil {
                 ProgressView().padding(.vertical, 80)
             } else if let errorMessage {
                 StatusMessageView(
@@ -65,19 +98,28 @@ struct ProfileView: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            if isOwnProfile { searchHeader }
+            if ownsProfile { searchHeader }
         }
-        .toolbar(isOwnProfile ? .hidden : .visible, for: .navigationBar)
-        .navigationTitle(isOwnProfile ? "" : (profile?.displayLogin ?? "Профиль"))
+        .toolbar(ownsProfile ? .hidden : .visible, for: .navigationBar)
+        .navigationTitle(ownsProfile ? "" : (hasCurrentViewer ? profile?.displayLogin ?? "Профиль" : "Профиль"))
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await load(force: true) }
-        .task { await load() }
-        .navigationDestination(isPresented: $isShowingSearch) { UserSearchView() }
+        .task(id: ProfileReloadKey(profileID: profileID, profileRevision: env.session.profileRevision,
+                                  sessionRevision: env.session.sessionRevision,
+                                  viewerAccount: env.session.accountKey)) { await load(force: true) }
+        .onChange(of: env.session.viewerKey) { _, current in
+            model.invalidate(for: current)
+            notice = nil
+        }
+        .navigationDestination(isPresented: $isShowingSearch) { UserSearchView(viewer: searchViewer) }
+        .navigationDestination(isPresented: $isShowingLoginHistory) {
+            ProfileLoginHistoryView(profileID: profileID, viewer: loginHistoryViewer)
+        }
         .sheet(isPresented: $isShowingSettings) { SettingsView() }
-        .confirmationDialog("Выйти из аккаунта?", isPresented: $isConfirmingSignOut, titleVisibility: .visible) {
-            Button("Выйти", role: .destructive) {
-                Task { await env.session.signOut() }
-            }
+        .alert("Информация", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
+            Button("Понятно", role: .cancel) { notice = nil }
+        } message: {
+            Text(notice ?? "")
         }
     }
 
@@ -87,6 +129,7 @@ struct ProfileView: View {
         GlassGroup(spacing: 12) {
             HStack(spacing: 12) {
                 Button {
+                    searchViewer = model.viewerKey
                     isShowingSearch = true
                 } label: {
                     HStack(spacing: 8) {
@@ -100,6 +143,8 @@ struct ProfileView: View {
                     .glassPill()
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Поиск пользователей")
+                .disabled(!hasCurrentViewer)
 
                 Button {
                     isShowingSettings = true
@@ -108,6 +153,7 @@ struct ProfileView: View {
                         .font(.ax(.title3))
                         .foregroundStyle(.secondary)
                 }
+                .accessibilityLabel("Настройки приложения")
 
                 NavigationLink {
                     NotificationsView()
@@ -135,8 +181,19 @@ struct ProfileView: View {
 
     private func identity(_ profile: Profile) -> some View {
         VStack(spacing: 8) {
+            if let coverURL {
+                CachedAsyncImage(url: coverURL, maxPixelSize: 1200) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Rectangle().fill(.quaternary)
+                }
+                .frame(height: 150)
+                .clipped()
+                .padding(.bottom, -44)
+            }
             Avatar(url: profile.avatarURL, size: 112, isOnline: profile.isOnline ?? false)
-                .padding(.top, 8)
+                .padding(.top, coverURL == nil ? 28 : 0)
+                .padding(.bottom, 8)
 
             HStack(spacing: 6) {
                 Text(profile.displayLogin)
@@ -191,9 +248,9 @@ struct ProfileView: View {
     private func actions(_ profile: Profile) -> some View {
         VStack(spacing: 10) {
             HStack(spacing: 12) {
-                if isOwnProfile {
-                    Button {
-                        isShowingSettings = true
+                if ownsProfile {
+                    NavigationLink {
+                        ProfileEditorView(profileID: profileID, account: model.viewerAccount)
                     } label: {
                         Text("Редактировать")
                             .font(.ax(.headline))
@@ -202,9 +259,11 @@ struct ProfileView: View {
                             .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
+                    .disabled(isLoading || !hasCurrentViewer || model.viewerAccount == nil)
                 } else {
                     Button {
-                        Task { await toggleFriend(profile) }
+                        let account = model.viewerAccount
+                        Task { await toggleFriend(profile, for: account) }
                     } label: {
                         Text(friendButtonTitle(profile))
                             .font(.ax(.headline))
@@ -213,27 +272,34 @@ struct ProfileView: View {
                             .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
+                    .disabled(isChangingRelationship || isLoading || !hasCurrentViewer)
                 }
 
                 Menu {
-                    if isOwnProfile {
-                        Button {
-                            isShowingSettings = true
-                        } label: {
-                            Label("Настройки", systemImage: "gearshape")
-                        }
+                    Button {
+                        loginHistoryViewer = model.viewerKey
+                        isShowingLoginHistory = true
+                    } label: {
+                        Label("История никнейма", systemImage: "clock.arrow.circlepath")
+                    }
+                    .disabled(!hasCurrentViewer)
+                    ShareLink(item: AnixartEnvironment.webBaseURL.appendingPathComponent("profile/\(profileID)")) {
+                        Label("Поделиться", systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        UIPasteboard.general.url = AnixartEnvironment.webBaseURL.appendingPathComponent("profile/\(profileID)")
+                        notice = "Ссылка на профиль скопирована"
+                    } label: {
+                        Label("Скопировать ссылку", systemImage: "link")
+                    }
+                    if !ownsProfile, env.session.isSignedIn {
                         Button(role: .destructive) {
-                            isConfirmingSignOut = true
+                            let account = model.viewerAccount
+                            Task { await toggleBlock(profile, for: account) }
                         } label: {
-                            Label("Выйти", systemImage: "rectangle.portrait.and.arrow.right")
+                            Label(profile.isBlocked == true ? "Разблокировать" : "Заблокировать", systemImage: "hand.raised")
                         }
-                    } else {
-                        Button {
-                            // Reporting a profile is not part of the port yet.
-                        } label: {
-                            Label("Пожаловаться", systemImage: "flag")
-                        }
-                        .disabled(true)
+                        .disabled(isChangingRelationship || isLoading || !hasCurrentViewer || model.viewerAccount == nil)
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -242,19 +308,26 @@ struct ProfileView: View {
                         .background(Color.primary.opacity(0.06), in: Circle())
                 }
                 .foregroundStyle(.primary)
+                .accessibilityLabel("Меню профиля")
             }
 
-            // The "+" opens the badge showcase in the Android app; here it is the
-            // shortcut to the lists, which is what there is to add to from a profile.
-            NavigationLink {
-                ProfileListsView(profile: profile)
-            } label: {
-                Image(systemName: "plus")
-                    .font(.ax(.headline))
-                    .frame(width: 70, height: 36)
-                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            HStack(spacing: 10) {
+                ProfileSocialLinks(profile: profile)
+                if ownsProfile {
+                    NavigationLink {
+                        ProfileSocialEditorView(profileID: profileID, account: model.viewerAccount)
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.ax(.headline))
+                            .frame(width: 58, height: 36)
+                            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Изменить социальные сети")
+                    .disabled(isLoading || !hasCurrentViewer || model.viewerAccount == nil)
+                }
             }
-            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
         .padding(.horizontal)
         .padding(.top, 14)
@@ -274,7 +347,7 @@ struct ProfileView: View {
     private func friendsRow(_ profile: Profile) -> some View {
         let friends = profile.friendsPreview ?? []
         NavigationLink {
-            FriendsView(profileID: profileID)
+            FriendsView(profileID: profileID, viewer: model.viewerKey)
         } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
@@ -307,31 +380,52 @@ struct ProfileView: View {
     // MARK: - Sections
 
     private var sectionChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(ProfileSection.allCases) { candidate in
-                    Button {
-                        withAnimation(.easeOut(duration: 0.15)) { section = candidate }
-                    } label: {
-                        Label(candidate.title, systemImage: candidate.systemImage)
-                            .font(.ax(.subheadline, section == candidate ? .medium : .regular))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background {
-                                if section == candidate {
-                                    Capsule().fill(Theme.accent.opacity(0.18))
-                                } else {
-                                    Capsule().stroke(.quaternary, lineWidth: 1)
+        HStack(spacing: 0) {
+            ScrollViewReader { reader in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(ProfileSection.allCases) { candidate in
+                            Button { section = candidate } label: {
+                                Label(candidate.title, systemImage: candidate.systemImage)
+                                    .font(.ax(.subheadline, section == candidate ? .medium : .regular))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(Color.primary.opacity(section == candidate ? 0.06 : 0), in: RoundedRectangle(cornerRadius: 10))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 1))
+                                    .foregroundStyle(section == candidate ? .primary : .secondary)
                                 }
-                            }
-                            .foregroundStyle(section == candidate ? Theme.accent : .primary)
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(section == candidate ? .isSelected : [])
+                            .id(candidate.id)
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .padding(.leading)
+                    .padding(.trailing, 8)
                 }
+                .onChange(of: section) { _, value in reader.scrollTo(value.id, anchor: .center) }
             }
-            .padding(.horizontal)
+            if ownsProfile {
+                Menu {
+                    NavigationLink { ProfileThemePickerView(account: model.viewerAccount) } label: {
+                        Label("Тема витрины", systemImage: "paintpalette")
+                    }
+                    NavigationLink { ProfilePinnedSectionView(account: model.viewerAccount) } label: {
+                        Label("Закрепить секцию", systemImage: "pin")
+                    }
+                    NavigationLink { ProfileBadgeOrderView(profileID: profileID, account: model.viewerAccount) } label: {
+                        Label("Изменить порядок", systemImage: "arrow.up.arrow.down")
+                    }
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.ax(.title3))
+                        .frame(width: 48, height: 44)
+                }
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Настройки секций профиля")
+                .disabled(isLoading || !hasCurrentViewer || model.viewerAccount == nil)
+            }
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
     }
 
     @ViewBuilder
@@ -341,20 +435,22 @@ struct ProfileView: View {
             if profile.isStatsHidden ?? false {
                 hiddenNotice
             } else {
-                ProfileStatisticsSection(profile: profile, profileID: profileID)
+                ProfileStatisticsSection(profile: profile, profileID: profileID, viewer: model.viewerKey)
             }
         case .votes:
-            ProfilePreviewList(
-                title: "Оценки релизов",
-                releases: profile.votes ?? [],
-                destination: { AnyView(ProfileVotesView(profileID: profileID)) },
-                emptyMessage: "Оценённых релизов пока нет"
-            )
+            if profile.isStatsHidden == true { hiddenNotice }
+            else { ProfileVotesSection(profile: profile, viewer: model.viewerKey) }
         case .collections:
-            ProfileCollectionsSection(
-                collections: profile.collectionsPreview ?? [],
-                profileID: profileID
-            )
+            if profile.isCountsHidden == true { hiddenCountsNotice }
+            else { ProfileCollectionsSection(collections: profile.collectionsPreview ?? [], profileID: profileID, viewer: model.viewerKey) }
+        case .comments:
+            if profile.isCountsHidden == true { hiddenCountsNotice }
+            else { ProfileCommentsSection(profile: profile, viewer: model.viewerKey) }
+        case .videos:
+            if profile.isCountsHidden == true { hiddenCountsNotice }
+            else { ProfileVideosSection(profile: profile, viewer: model.viewerKey) }
+        case .badges:
+            ProfileBadgesSection(profile: profile, viewer: model.viewerKey)
         }
     }
 
@@ -367,39 +463,59 @@ struct ProfileView: View {
             .padding(.vertical, 40)
     }
 
-    // MARK: - Data
-
-    private func load(force: Bool = false) async {
-        guard force || profile == nil, !isLoading else { return }
-        isLoading = true
-        errorMessage = nil
-        do {
-            let response = try await env.client.send(ProfileEndpoints.profile(id: profileID))
-            profile = response.profile
-        } catch {
-            errorMessage = Paginator<Release>.message(for: error)
-        }
-        isLoading = false
+    private var hiddenCountsNotice: some View {
+        ProfileEmptySection(message: "Пользователь предпочёл скрыть свои коллекции, комментарии, видео и друзей.")
     }
 
-    private func toggleFriend(_ profile: Profile) async {
-        guard env.session.isSignedIn else {
+    // MARK: - Data
+
+    private func load(force: Bool = false, expectedViewer: ProfileViewerKey? = nil) async {
+        guard force || profile == nil else { return }
+        await model.load(profileID: profileID, session: env.session, viewer: expectedViewer ?? viewer)
+    }
+
+    private func toggleFriend(_ profile: Profile, for account: ProfileAccountKey?) async {
+        guard env.session.accountKey != nil else {
             env.session.promptSignIn()
             return
         }
+        guard let account, env.session.accountKey == account, !isChangingRelationship,
+              !isLoading, hasCurrentViewer else { return }
         let isFriend = profile.friendStatus == .friend
-        _ = try? await env.client.send(
-            isFriend
-                ? ProfileEndpoints.removeFriend(profileID)
-                : ProfileEndpoints.sendFriendRequest(to: profileID)
-        )
-        await load(force: true)
+        isChangingRelationship = true
+        defer { isChangingRelationship = false }
+        do {
+            try await env.session.sendConfirmedAccountRequest(
+                isFriend || profile.friendStatus == .requestSent
+                    ? ProfileEndpoints.removeFriend(profileID)
+                    : ProfileEndpoints.sendFriendRequest(to: profileID), for: account
+            )
+            await load(force: true, expectedViewer: account.viewerKey)
+            await env.session.refreshProfile(for: account)
+        } catch {
+            if !ProfileRequestFailure.isCancellation(error) { notice = Paginator<Release>.message(for: error) }
+        }
+    }
+
+    private func toggleBlock(_ profile: Profile, for account: ProfileAccountKey?) async {
+        guard let account, env.session.accountKey == account, !isChangingRelationship,
+              !isLoading, hasCurrentViewer else { return }
+        isChangingRelationship = true
+        defer { isChangingRelationship = false }
+        do {
+            try await env.session.sendConfirmedAccountRequest(profile.isBlocked == true
+                ? ProfileEndpoints.unblock(profileID: profileID)
+                : ProfileEndpoints.block(profileID: profileID), for: account)
+            await load(force: true, expectedViewer: account.viewerKey)
+        } catch {
+            if !ProfileRequestFailure.isCancellation(error) { notice = Paginator<Release>.message(for: error) }
+        }
     }
 
     private func friendButtonTitle(_ profile: Profile) -> String {
         switch profile.friendStatus {
         case .friend: return "Удалить из друзей"
-        case .requestSent: return "Заявка отправлена"
+        case .requestSent: return "Отменить заявку"
         case .requestReceived: return "Принять заявку"
         default: return "Добавить в друзья"
         }
@@ -418,6 +534,8 @@ struct ProfileView: View {
 struct ProfileStatisticsSection: View {
     let profile: Profile
     let profileID: Int
+    let viewer: ProfileViewerKey?
+    @State private var isShowingHelp = false
 
     private var slices: [(status: ProfileListStatus, count: Int)] {
         ProfileListStatus.allCases.map { ($0, profile.listCount(for: $0)) }
@@ -429,7 +547,7 @@ struct ProfileStatisticsSection: View {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(slices, id: \.status) { slice in
                         NavigationLink {
-                            ProfileListView(profileID: profileID, status: slice.status)
+                            ProfileListView(profileID: profileID, status: slice.status, viewer: viewer)
                         } label: {
                             HStack(spacing: 10) {
                                 Circle()
@@ -455,27 +573,18 @@ struct ProfileStatisticsSection: View {
             VStack(alignment: .leading, spacing: 8) {
                 statLine("Просмотрено серий:", Format.count(profile.watchedEpisodeCount))
                 statLine("Время просмотра:", watchedTimeText)
-                if let genres = preferenceLine(profile.preferredGenres) {
-                    statLine("Жанры:", genres)
-                }
-                if let audiences = preferenceLine(profile.preferredAudiences) {
-                    statLine("Аудитория:", audiences)
-                }
-                if let themes = preferenceLine(profile.preferredThemes) {
-                    statLine("Тематика:", themes)
-                }
+                statLine("Жанры:", preferenceLine(profile.preferredGenres))
+                statLine("Аудитория:", preferenceLine(profile.preferredAudiences))
+                statLine("Тематика:", preferenceLine(profile.preferredThemes))
             }
             .padding(.horizontal)
 
-            if let history = profile.history, !history.isEmpty {
-                ProfilePreviewList(
-                    title: "Просмотрено недавно",
-                    releases: history,
-                    destination: nil,
-                    emptyMessage: ""
-                )
-            }
+            Button("Узнать подробнее") { isShowingHelp = true }
+                .font(.ax(.subheadline, .medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
         }
+        .sheet(isPresented: $isShowingHelp) { ProfileStatisticsHelpView() }
     }
 
     private func statLine(_ label: String, _ value: String) -> some View {
@@ -486,41 +595,18 @@ struct ProfileStatisticsSection: View {
         }
     }
 
-    private func preferenceLine(_ values: [ProfileGenre]?) -> String? {
-        let names = (values ?? []).compactMap(\.name).filter { !$0.isEmpty }
-        return names.isEmpty ? nil : names.joined(separator: ", ")
+    private func preferenceLine(_ values: [ProfileGenre]?) -> String {
+        let names = (values ?? []).compactMap { genre -> String? in
+            guard let name = genre.name, !name.isEmpty else { return nil }
+            return genre.percentage.map { "\(name) (\($0)%)" } ?? name
+        }
+        return names.isEmpty ? "Недостаточно данных" : names.joined(separator: ", ")
     }
 
     /// `watchedTime` is reported in seconds.
     private var watchedTimeText: String {
-        guard let seconds = profile.watchedTime, seconds > 0 else { return "—" }
-        let hours = Double(seconds) / 3600
-        return hours < 1
-            ? "\(Int(Double(seconds) / 60)) мин."
-            : String(format: "%.0f ч.", hours)
-    }
-}
-
-/// The three chips under the friends row on a profile.
-enum ProfileSection: String, CaseIterable, Identifiable {
-    case statistics, votes, collections
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .statistics: return "Статистика"
-        case .votes: return "Оценки релизов"
-        case .collections: return "Коллекции"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .statistics: return "chart.bar"
-        case .votes: return "star"
-        case .collections: return "square.on.square"
-        }
+        let seconds = max(0, profile.watchedTime ?? 0)
+        return "\(seconds / 86_400) дн. \((seconds % 86_400) / 3_600) ч."
     }
 }
 
@@ -574,7 +660,7 @@ struct Avatar: View {
     var isOnline: Bool = false
 
     var body: some View {
-        CachedAsyncImage(url: url, maxPixelSize: 160) { image in
+        CachedAsyncImage(url: url, maxPixelSize: size) { image in
             image.resizable().scaledToFill()
         } placeholder: {
             Circle().fill(.quaternary)
@@ -599,6 +685,7 @@ struct ProfilePreviewList: View {
     let releases: [Release]
     let destination: (() -> AnyView)?
     let emptyMessage: String
+    var viewer: ProfileViewerKey?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
@@ -618,7 +705,7 @@ struct ProfilePreviewList: View {
                     HStack(alignment: .top, spacing: Theme.Spacing.row) {
                         ForEach(releases) { release in
                             NavigationLink {
-                                ReleaseDetailView(releaseID: release.id, preloaded: release)
+                                ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
                             } label: {
                                 ReleaseCard(release: release)
                             }
@@ -636,19 +723,16 @@ struct ProfilePreviewList: View {
 struct ProfileCollectionsSection: View {
     let collections: [ReleaseCollection]
     let profileID: Int
+    let viewer: ProfileViewerKey?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             if collections.isEmpty {
-                Text("Коллекций пока нет")
-                    .font(.ax(.subheadline))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
+                ProfileEmptySection()
             } else {
                 ForEach(collections) { collection in
                     NavigationLink {
-                        CollectionDetailView(collection: collection)
+                        CollectionDetailView(collection: collection, viewer: viewer)
                     } label: {
                         HStack(spacing: Theme.Spacing.row) {
                             CachedAsyncImage(url: collection.coverURL, maxPixelSize: 160) { image in
@@ -676,21 +760,26 @@ struct ProfileCollectionsSection: View {
                     }
                     .buttonStyle(.plain)
                 }
+                NavigationLink("Показать все") { ProfileCollectionsView(profileID: profileID, viewer: viewer) }
+                    .font(.ax(.subheadline, .medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
             }
         }
     }
 }
 
-/// All five lists of a profile, one link each. Reached from the "+" button.
+/// All five watch lists of a profile, one link each.
 @MainActor
 struct ProfileListsView: View {
     let profile: Profile
+    var viewer: ProfileViewerKey?
 
     var body: some View {
         List {
             ForEach(ProfileListStatus.allCases) { status in
                 NavigationLink {
-                    ProfileListView(profileID: profile.id, status: status)
+                    ProfileListView(profileID: profile.id, status: status, viewer: viewer)
                 } label: {
                     HStack {
                         Circle()
@@ -718,14 +807,23 @@ struct ProfileListView: View {
     let profileID: Int
     let status: ProfileListStatus
 
+    @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
+    @State private var sort: BookmarkSort = .addedDescending
+
+    init(profileID: Int, status: ProfileListStatus, viewer: ProfileViewerKey? = nil) {
+        self.profileID = profileID
+        self.status = status
+        _viewer = State(initialValue: viewer)
+    }
 
     var body: some View {
         List {
-            if let paginator {
+            ProfileViewerNotice(viewer: viewer)
+            if viewer == env.session.viewerKey, let paginator {
                 PaginatedContent(paginator: paginator, emptyTitle: "Список пуст") { release in
                     NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release)
+                        ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
                     } label: {
                         ReleaseRow(release: release)
                     }
@@ -734,16 +832,31 @@ struct ProfileListView: View {
         }
         .listStyle(.plain)
         .navigationTitle(status.title)
-        .task {
-            if paginator == nil {
-                let client = env.client
-                let id = profileID
-                let status = self.status
-                paginator = Paginator { page in
-                    try await client.send(BookmarkEndpoints.list(of: id, status: status, page: page))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar { ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Picker("Сортировка", selection: $sort) {
+                    ForEach(BookmarkSort.allCases) { Text($0.title).tag($0) }
                 }
+            } label: { Image(systemName: "arrow.up.arrow.down") }
+        } }
+        .refreshable { await paginator?.reload() }
+        .task(id: sort) {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
+            let session = env.session
+            let id = profileID
+            let status = self.status
+            let sort = self.sort
+            let list = Paginator<Release> { page in
+                try await session.sendViewerRequest(BookmarkEndpoints.list(of: id, status: status, page: page, sort: sort), for: viewer)
             }
-            await paginator?.loadFirstPageIfNeeded()
+            paginator = list
+            await list.loadFirstPageIfNeeded()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            if viewer != current { paginator = nil }
         }
     }
 }
@@ -754,67 +867,122 @@ struct ProfileVotesView: View {
     @Environment(AppEnvironment.self) private var env
 
     let profileID: Int
+    @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
+    @State private var sort: ProfileVoteSort = .newest
+    @State private var unrated = false
+    @State private var rating: RatingRequest?
+    @State private var isVoting = false
+    @State private var voteError: String?
 
-    var body: some View {
-        List {
-            if let paginator {
-                PaginatedContent(paginator: paginator, emptyTitle: "Оценок пока нет") { release in
-                    NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release)
-                    } label: {
-                        ReleaseRow(release: release)
-                    }
-                }
-            }
-        }
-        .listStyle(.plain)
-        .navigationTitle("Оценки релизов")
-        .task {
-            if paginator == nil {
-                let client = env.client
-                let id = profileID
-                paginator = Paginator { page in
-                    try await client.send(ProfileEndpoints.ratedReleases(profileID: id, page: page))
-                }
-            }
-            await paginator?.loadFirstPageIfNeeded()
-        }
+    init(profileID: Int, viewer: ProfileViewerKey? = nil) {
+        self.profileID = profileID
+        _viewer = State(initialValue: viewer)
     }
-}
 
-@MainActor
-struct FriendsView: View {
-    @Environment(AppEnvironment.self) private var env
-    let profileID: Int
-    @State private var paginator: Paginator<Profile>?
+    private struct RatingRequest: Identifiable {
+        let release: Release
+        let account: ProfileAccountKey
+        var id: Int { release.id }
+    }
+
+    private var account: ProfileAccountKey? { viewer?.account }
+    private var ownsProfile: Bool { viewer == env.session.viewerKey && account?.profileID == profileID }
 
     var body: some View {
         List {
-            if let paginator {
-                PaginatedContent(paginator: paginator, emptyTitle: "Друзей пока нет") { friend in
-                    NavigationLink {
-                        ProfileView(profileID: friend.id)
-                    } label: {
-                        HStack(spacing: Theme.Spacing.row) {
-                            Avatar(url: friend.avatarURL, size: 40, isOnline: friend.isOnline ?? false)
-                            Text(friend.displayLogin)
+            ProfileViewerNotice(viewer: viewer)
+            if viewer == env.session.viewerKey, let paginator {
+                PaginatedContent(paginator: paginator, emptyTitle: unrated ? "Все релизы оценены" : "Оценок пока нет") { release in
+                    HStack {
+                        NavigationLink {
+                            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
+                        } label: { ProfileRatedReleaseRow(release: release, unrated: unrated) }
+                        if ownsProfile {
+                            Button {
+                                if let account { rating = RatingRequest(release: release, account: account) }
+                            } label: {
+                                Image(systemName: "star").font(.ax(.title3)).padding(10)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("Оценить \(release.displayTitle)")
+                            .disabled(isVoting)
                         }
                     }
                 }
             }
         }
         .listStyle(.plain)
-        .navigationTitle("Друзья")
-        .task {
-            if paginator == nil {
-                let client = env.client
-                let id = profileID
-                paginator = Paginator { page in
-                    try await client.send(ProfileEndpoints.friends(of: id, page: page))
+        .navigationTitle("Оценки релизов")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .safeAreaInset(edge: .top) {
+            if ownsProfile {
+                Picker("Релизы", selection: $unrated) {
+                    Text("Оценённые").tag(false)
+                    Text("Неоценённые").tag(true)
                 }
+                .pickerStyle(.segmented).padding().background(.bar)
             }
-            await paginator?.loadFirstPageIfNeeded()
+        }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) {
+            if !unrated {
+                Menu {
+                    Picker("Сортировка", selection: $sort) {
+                        ForEach(ProfileVoteSort.allCases) { Text($0.title).tag($0) }
+                    }
+                } label: { Image(systemName: "arrow.up.arrow.down") }
+            }
+        } }
+        .refreshable { await paginator?.reload() }
+        .task(id: "\(unrated)-\(sort.rawValue)") {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
+            let session = env.session
+            let account = viewer.account
+            let id = profileID
+            let sort = self.sort.rawValue
+            let isUnrated = unrated && ownsProfile
+            let list = Paginator<Release> { page in
+                if isUnrated {
+                    guard let account else { throw CancellationError() }
+                    return try await session.sendAccountRequest(ProfileEndpoints.unratedReleases(page: page), for: account)
+                }
+                return try await session.sendViewerRequest(ProfileEndpoints.ratedReleases(profileID: id, page: page, sort: sort), for: viewer)
+            }
+            paginator = list
+            await list.loadFirstPageIfNeeded()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            guard viewer != current else { return }
+            paginator = nil
+            rating = nil
+            voteError = nil
+        }
+        .sheet(item: $rating) { request in
+            RatingSheet(current: request.release.profileRating, distribution: request.release,
+                         onVote: { score in Task { await vote(request, score: score) } },
+                         onRemove: { Task { await vote(request, score: nil) } })
+                .disabled(env.session.accountKey != request.account)
+        }
+        .alert("Не удалось сохранить оценку", isPresented: Binding(get: { voteError != nil }, set: { if !$0 { voteError = nil } })) {
+            Button("Понятно", role: .cancel) { }
+        } message: { Text(voteError ?? "") }
+    }
+
+    private func vote(_ request: RatingRequest, score: ReleaseVote?) async {
+        guard ownsProfile, request.account == account, !isVoting else { return }
+        let list = paginator
+        isVoting = true
+        voteError = nil
+        defer { isVoting = false }
+        do {
+            if let score { try await env.session.sendConfirmedAccountRequest(ReleaseEndpoints.vote(releaseID: request.release.id, score: score), for: request.account) }
+            else { try await env.session.sendConfirmedAccountRequest(ReleaseEndpoints.deleteVote(releaseID: request.release.id), for: request.account) }
+            await list?.reload()
+            await env.session.refreshProfile(for: request.account)
+        } catch {
+            if !ProfileRequestFailure.isCancellation(error) { voteError = Paginator<Release>.message(for: error) }
         }
     }
 }

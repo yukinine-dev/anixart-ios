@@ -58,7 +58,7 @@ public enum AuthEndpoints {
         )
     }
 
-    public static func checkLogin(_ login: String) -> Endpoint<StatusResponse> {
+    public static func checkLogin(_ login: String) -> Endpoint<CheckLoginResponse> {
         Endpoint(
             method: .post,
             path: "auth/checkLogin",

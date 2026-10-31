@@ -48,6 +48,26 @@ public enum ProfileEndpoints {
         Endpoint(path: "profile/vote/release/unvoted/\(page)", auth: .required)
     }
 
+    public static func lastUnratedReleases() -> Endpoint<PageableResponse<Release>> {
+        Endpoint(path: "profile/vote/release/unvoted/last", auth: .required)
+    }
+
+    public static func loginHistory(profileID: Int, page: Int) -> Endpoint<PageableResponse<ChangeLogin>> {
+        Endpoint(path: "profile/login/history/all/\(profileID)/\(page)")
+    }
+
+    public static func collections(profileID: Int, page: Int) -> Endpoint<PageableResponse<ReleaseCollection>> {
+        Endpoint(path: "collection/all/profile/\(profileID)/\(page)")
+    }
+
+    public static func comments(profileID: Int, category: ProfileCommentCategory, page: Int, sort: Int = 1) -> Endpoint<PageableResponse<ProfileComment>> {
+        Endpoint(path: "\(category.rawValue)/comment/all/profile/\(profileID)/\(page)", query: ["sort": String(sort)])
+    }
+
+    public static func videos(profileID: Int, page: Int) -> Endpoint<PageableResponse<ReleaseVideo>> {
+        Endpoint(path: "video/profile/\(profileID)/\(page)")
+    }
+
     public static func blockList(page: Int) -> Endpoint<PageableResponse<Profile>> {
         Endpoint(path: "profile/blocklist/all/\(page)", auth: .required)
     }

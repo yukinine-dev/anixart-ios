@@ -38,14 +38,22 @@ struct ReleaseCollectionsView: View {
 
     let releaseID: Int
     let title: String
+    @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<ReleaseCollection>?
+
+    init(releaseID: Int, title: String, viewer: ProfileViewerKey? = nil) {
+        self.releaseID = releaseID
+        self.title = title
+        _viewer = State(initialValue: viewer)
+    }
 
     var body: some View {
         List {
-            if let paginator {
+            ProfileViewerNotice(viewer: viewer)
+            if viewer == env.session.viewerKey, let paginator {
                 PaginatedContent(paginator: paginator, emptyTitle: "Релиза пока нет ни в одной коллекции") { collection in
                     NavigationLink {
-                        CollectionDetailView(collection: collection)
+                        CollectionDetailView(collection: collection, viewer: viewer)
                     } label: {
                         HStack(spacing: Theme.Spacing.row) {
                             CachedAsyncImage(url: collection.coverURL, maxPixelSize: 120) { image in
@@ -69,15 +77,22 @@ struct ReleaseCollectionsView: View {
         .listStyle(.plain)
         .navigationTitle("В коллекциях")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .refreshable { await paginator?.reload() }
         .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
             if paginator == nil {
-                let client = env.client
+                let session = env.session
                 let id = releaseID
                 paginator = Paginator { page in
-                    try await client.send(CollectionEndpoints.containing(releaseID: id, page: page))
+                    try await session.sendViewerRequest(CollectionEndpoints.containing(releaseID: id, page: page), for: viewer)
                 }
             }
             await paginator?.loadFirstPageIfNeeded()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            if viewer != current { paginator = nil }
         }
     }
 }
@@ -89,30 +104,45 @@ struct AddToCollectionSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let releaseID: Int
-    @State private var collections: [ReleaseCollection] = []
-    @State private var isLoading = false
+    @State private var viewer: ProfileViewerKey?
+    @State private var model: AddToCollectionViewModel?
+
+    init(releaseID: Int, viewer: ProfileViewerKey? = nil) {
+        self.releaseID = releaseID
+        _viewer = State(initialValue: viewer)
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if !env.session.isSignedIn {
-                    SignInPromptView(message: "Войдите, чтобы собирать коллекции.")
-                } else if isLoading {
-                    ProgressView()
-                } else if collections.isEmpty {
-                    StatusMessageView(
-                        title: "Коллекций пока нет",
-                        message: "Создайте коллекцию в приложении Anixart, и она появится здесь",
-                        systemImage: "square.on.square"
-                    )
-                } else {
-                    List(collections) { collection in
-                        Button {
-                            dismiss()
-                        } label: {
-                            Text(collection.displayTitle)
+                if let viewer, viewer != env.session.viewerKey {
+                    ProfileViewerNotice(viewer: viewer)
+                } else if let model {
+                    if !model.isSignedIn {
+                        SignInPromptView(message: "Войдите, чтобы собирать коллекции.")
+                    } else {
+                        List {
+                            if let paginator = model.paginator {
+                                PaginatedContent(paginator: paginator, emptyTitle: "Коллекций пока нет",
+                                                 emptyMessage: "Создайте коллекцию в приложении Anixart, и она появится здесь") { collection in
+                                    Button {
+                                        Task { if await model.add(to: collection) { dismiss() } }
+                                    } label: {
+                                        HStack {
+                                            Text(collection.displayTitle)
+                                            Spacer()
+                                            if model.addingCollectionID == collection.id { ProgressView() }
+                                        }
+                                    }
+                                    .disabled(model.isAdding)
+                                }
+                            }
                         }
+                        .listStyle(.plain)
+                        .refreshable { if !model.isAdding { await model.paginator?.reload() } }
                     }
+                } else {
+                    ProgressView()
                 }
             }
             .navigationTitle("Моя коллекция")
@@ -122,17 +152,23 @@ struct AddToCollectionSheet: View {
                     Button("Закрыть") { dismiss() }
                 }
             }
-            .task { await load() }
+            .task {
+                if viewer == nil { viewer = env.session.viewerKey }
+                guard let viewer, viewer == env.session.viewerKey else { return }
+                if model == nil { model = AddToCollectionViewModel(releaseID: releaseID, viewer: viewer, session: env.session) }
+                await model?.paginator?.loadFirstPageIfNeeded()
+            }
+            .onChange(of: env.session.viewerKey) { _, current in
+                if viewer != current { model?.invalidate() }
+            }
+            .alert("Не удалось добавить релиз", isPresented: Binding(
+                get: { model?.errorMessage != nil }, set: { if !$0 { model?.dismissError() } }
+            )) {
+                Button("Понятно", role: .cancel) { model?.dismissError() }
+            } message: {
+                Text(model?.errorMessage ?? "")
+            }
         }
-    }
-
-    private func load() async {
-        guard let profileID = env.session.currentProfileID, collections.isEmpty else { return }
-        isLoading = true
-        if let page = try? await env.client.send(CollectionEndpoints.byProfile(profileID, page: 0)) {
-            collections = page.content ?? []
-        }
-        isLoading = false
     }
 }
 
@@ -144,12 +180,20 @@ struct ReleaseVideosView: View {
     let release: Release
     var category: String?
 
+    @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<ReleaseVideo>?
     @State private var playing: ReleaseVideo?
 
+    init(release: Release, category: String? = nil, viewer: ProfileViewerKey? = nil) {
+        self.release = release
+        self.category = category
+        _viewer = State(initialValue: viewer)
+    }
+
     var body: some View {
         List {
-            if let paginator {
+            ProfileViewerNotice(viewer: viewer)
+            if viewer == env.session.viewerKey, let paginator {
                 PaginatedContent(paginator: paginator, emptyTitle: "Видео пока нет") { video in
                     Button {
                         playing = video
@@ -183,20 +227,27 @@ struct ReleaseVideosView: View {
         .listStyle(.plain)
         .navigationTitle(category ?? "Видео")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .refreshable { await paginator?.reload() }
         .fullScreenCover(item: $playing) { video in
-            if let url = (video.playerUrl ?? video.url).flatMap(URL.init(string:)) {
+            if viewer == env.session.viewerKey, let url = (video.playerUrl ?? video.url).flatMap(URL.init(string:)) {
                 WebPlayerSheet(url: url, title: video.title ?? "Видео")
             }
         }
         .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
             if paginator == nil {
-                let client = env.client
+                let session = env.session
                 let id = release.id
                 paginator = Paginator { page in
-                    try await client.send(ReleaseVideoEndpoints.videos(releaseID: id, page: page))
+                    try await session.sendViewerRequest(ReleaseVideoEndpoints.videos(releaseID: id, page: page), for: viewer)
                 }
             }
             await paginator?.loadFirstPageIfNeeded()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            if viewer != current { paginator = nil; playing = nil }
         }
     }
 }
@@ -209,66 +260,75 @@ struct StreamingPlatformsView: View {
 
     let release: Release
 
-    @State private var platforms: [ReleaseStreamingPlatform]?
-    @State private var isLoading = false
+    @State private var viewer: ProfileViewerKey?
+    @State private var resource = ProfileResource<PageableResponse<ReleaseStreamingPlatform>>()
+
+    init(release: Release, viewer: ProfileViewerKey? = nil) {
+        self.release = release
+        _viewer = State(initialValue: viewer)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.row) {
-                Text("Результаты поиска")
-                    .font(.ax(.title3))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
-                    .padding(.top, Theme.Spacing.row)
-
-                if isLoading {
-                    ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
-                } else if let platforms, !platforms.isEmpty {
-                    ForEach(platforms) { platform in
-                        Button {
-                            if let url = platform.url.flatMap(URL.init(string:)) { openURL(url) }
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(platform.name ?? "Сервис")
-                                        .font(.ax(.title3, .medium))
-                                        .foregroundStyle(.primary)
-                                    Text("Официальный сервис")
-                                        .font(.ax(.subheadline))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(.secondary)
-                            }
-                            .padding(16)
-                            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .padding(.horizontal)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                } else {
-                    Text("К сожалению, не удалось найти официальные проверенные стриминговые сервисы")
+                ProfileViewerNotice(viewer: viewer)
+                if viewer == env.session.viewerKey {
+                    Text("Результаты поиска")
                         .font(.ax(.title3))
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal)
+                        .padding(.top, Theme.Spacing.row)
+
+                    if resource.value == nil {
+                        ProfileResourceState(resource: resource, title: "Не удалось загрузить сервисы", retry: load)
+                    } else if let page = resource.value, !page.items.isEmpty {
+                        ForEach(page.items) { platform in
+                            Button {
+                                if let url = platform.url.flatMap(URL.init(string:)) { openURL(url) }
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(platform.name ?? "Сервис")
+                                            .font(.ax(.title3, .medium))
+                                            .foregroundStyle(.primary)
+                                        Text("Официальный сервис")
+                                            .font(.ax(.subheadline))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                                }
+                                .padding(16)
+                                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .padding(.horizontal)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } else {
+                        Text("К сожалению, не удалось найти официальные проверенные стриминговые сервисы")
+                            .font(.ax(.title3))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal)
+                    }
                 }
             }
         }
         .navigationTitle("Онлайн просмотр")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
+        .toolbar(.visible, for: .navigationBar)
+        .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            await load()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            if viewer != current { resource.reset() }
+        }
     }
 
     private func load() async {
-        guard platforms == nil else { return }
-        isLoading = true
-        if let page = try? await env.client.send(ReleaseEndpoints.streamingPlatforms(releaseID: release.id)) {
-            platforms = page.content ?? []
-        } else {
-            platforms = []
-        }
-        isLoading = false
+        guard let viewer, viewer == env.session.viewerKey else { return }
+        await resource.load { try await env.session.sendViewerRequest(ReleaseEndpoints.streamingPlatforms(releaseID: release.id), for: viewer) }
     }
 }
 
@@ -305,14 +365,21 @@ struct GenreReleasesView: View {
     @Environment(AppEnvironment.self) private var env
 
     let genres: [String]
+    @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
+
+    init(genres: [String], viewer: ProfileViewerKey? = nil) {
+        self.genres = genres
+        _viewer = State(initialValue: viewer)
+    }
 
     var body: some View {
         List {
-            if let paginator {
+            ProfileViewerNotice(viewer: viewer)
+            if viewer == env.session.viewerKey, let paginator {
                 PaginatedContent(paginator: paginator, emptyTitle: "Ничего не нашлось") { release in
                     NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release)
+                        ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
                     } label: {
                         ReleaseRow(release: release)
                     }
@@ -322,15 +389,22 @@ struct GenreReleasesView: View {
         .listStyle(.plain)
         .navigationTitle(genres.joined(separator: ", ").capitalizedFirst)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .refreshable { await paginator?.reload() }
         .task {
+            if viewer == nil { viewer = env.session.viewerKey }
+            guard let viewer, viewer == env.session.viewerKey else { return }
             if paginator == nil {
-                let client = env.client
+                let session = env.session
                 let request = FilterRequest(genres: genres)
                 paginator = Paginator { page in
-                    try await client.send(CatalogEndpoints.filter(request, page: page))
+                    try await session.sendViewerRequest(CatalogEndpoints.filter(request, page: page), for: viewer)
                 }
             }
             await paginator?.loadFirstPageIfNeeded()
+        }
+        .onChange(of: env.session.viewerKey) { _, current in
+            if viewer != current { paginator = nil }
         }
     }
 }

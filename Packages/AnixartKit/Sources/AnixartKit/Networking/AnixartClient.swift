@@ -78,20 +78,25 @@ public actor AnixartClient {
     }
 
     public func isAuthenticated() async -> Bool {
-        await tokenStore.token() != nil
+        await tokenStore.token()?.isEmpty == false
     }
 
     // MARK: - Sending
 
     @discardableResult
     public func send<Response: Decodable & Sendable>(_ endpoint: Endpoint<Response>) async throws -> Response {
+        try Task.checkCancellation()
         let request = try await urlRequest(for: endpoint)
+        try Task.checkCancellation()
 
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
             Self.log.error("transport failure for \(endpoint.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             throw AnixartError.wrapping(transportError: error)
         }
@@ -99,6 +104,14 @@ public actor AnixartClient {
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             Self.log.error("HTTP \(http.statusCode, privacy: .public) for \(endpoint.path, privacy: .public)")
             throw AnixartError.http(statusCode: http.statusCode, path: endpoint.path)
+        }
+
+        // Bare-array endpoints still use a {"code": ...} envelope on failure.
+        // Check it first so a business error isn't disguised as a shape mismatch.
+        if let status = try? decoder.decode(CodeEnvelope.self, from: data),
+           let code = status.code, !endpoint.acceptedStatusCodes.contains(code) {
+            Self.log.error("API code \(code, privacy: .public) for \(endpoint.path, privacy: .public)")
+            throw AnixartError.api(code: code, path: endpoint.path)
         }
 
         let decoded: Response
@@ -114,13 +127,15 @@ public actor AnixartClient {
         // Anixart reports business failures in the body, not the HTTP status.
         if let envelope = decoded as? any AnixartResponse,
            let code = envelope.code,
-           code != AnixartStatus.successful {
+           !endpoint.acceptedStatusCodes.contains(code) {
             Self.log.error("API code \(code, privacy: .public) for \(endpoint.path, privacy: .public)")
             throw AnixartError.api(code: code, path: endpoint.path)
         }
 
         return decoded
     }
+
+    private struct CodeEnvelope: Decodable { let code: Int? }
 
     // MARK: - Request building
 
@@ -131,8 +146,17 @@ public actor AnixartClient {
     public func urlRequest<Response: Decodable & Sendable>(
         for endpoint: Endpoint<Response>
     ) async throws -> URLRequest {
-        let token = await tokenStore.token()
-        if case .required = endpoint.auth, token == nil {
+        try Task.checkCancellation()
+        let token: String?
+        switch endpoint.auth {
+        case .none: token = nil
+        case .optional, .required, .matchingToken: token = await tokenStore.token()
+        }
+        try Task.checkCancellation()
+        if case .required = endpoint.auth, token?.isEmpty != false {
+            throw AnixartError.notAuthenticated(path: endpoint.path)
+        }
+        if case .matchingToken(let expected) = endpoint.auth, expected.isEmpty || token != expected {
             throw AnixartError.notAuthenticated(path: endpoint.path)
         }
 
@@ -155,8 +179,8 @@ public actor AnixartClient {
         switch endpoint.auth {
         case .none:
             break
-        case .optional, .required:
-            if let token {
+        case .optional, .required, .matchingToken:
+            if let token, !token.isEmpty {
                 items.append(URLQueryItem(name: "token", value: token))
             }
         }
@@ -189,6 +213,9 @@ public actor AnixartClient {
                 forHTTPHeaderField: "Content-Type"
             )
             request.httpBody = AnixartURL.formEncoded(fields).data(using: .utf8)
+        case .multipart(let body):
+            request.setValue("multipart/form-data; boundary=\(body.boundary)", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body.encoded()
         }
 
         return request

@@ -9,6 +9,7 @@ RENAME = {
     "Type": "EpisodeType",
     "Source": "EpisodeSource",
     "CollectionCompact": "ReleaseCollectionCompact",
+    "Theme": "ProfileTheme",
 }
 # Back-references that would create an Optional-only recursive value type (illegal in Swift),
 # or that the API never returns (Room relations in the Android app).
@@ -19,20 +20,21 @@ DROP = {
     ("Release", "lastSetPlanDate"), ("Release", "lastSetViewedDate"),
     ("Release", "lastSetWatchingDate"),
     ("Episode", "source"),
-    ("ReleaseVideo", "release"), ("ReleaseStreamingPlatform", "release"),
+    ("ReleaseStreamingPlatform", "release"),
     ("Search", "type"),
     # Room row ids the server never sends. Keeping them as a required `id` failed
     # the whole response ("missing key 'id'"), which is what broke the episode
     # list and the profile. Both types get a hand-written Identifiable keyed on
     # what the server does send -- see Models/RoomEntities.swift.
     ("Episode", "id"), ("ProfileWatchDynamics", "id"),
-    # Article.repost_article / payload: Optional-only self recursion is illegal in a Swift
-    # value type, and ArticlePayload is a sealed hierarchy the port does not model yet.
-    ("Article", "repostArticle"), ("Article", "payload"),
 }
 # Explicit Swift type overrides for props whose Java type we can't map mechanically.
 TYPE_OVERRIDE = {
-    ("Profile", "commentsPreview"): "[ReleaseComment]",
+    ("Article", "payload"): "ArticlePayload",
+    # An indirect enum breaks the Optional-only recursion of a repost.
+    ("Article", "repostArticle"): "ArticleReference",
+    ("ReleaseVideo", "release"): "Embedded<Release>",
+    ("Profile", "commentsPreview"): "[ProfileComment]",
     ("Profile", "roles"): "[RoleDto]",
     ("ConfigUrlsResponse", "apiUrls"): "[String]",
     ("TypeResponse", "popularTypeIds"): "[Int]",
@@ -214,7 +216,10 @@ CURATED = [
     ("Profile", None, ()), ("ProfileToken", None, ()), ("ProfileCompact", None, ()),
     ("ProfileSlim", None, ()), ("RoleDto", None, ()), ("ProfileGenre", None, ()),
     ("ProfileWatchDynamics", None, ()), ("Badge", None, ()), ("BadgeAward", None, ()),
-    ("ChangeLogin", None, ()),
+    ("ChangeLogin", None, ()), ("BadgeSection", None, ()),
+    ("AvailableTheme", None, ()), ("Theme", None, ()),
+    # ProfileEnforcement is hand-written: Jackson's `type` discriminator and
+    # generic EditEnforcement.entity are not part of this annotation-only map.
     # collections, comments, social
     ("Collection", None, ()), ("ReleaseComment", None, ("Comment",)),
     ("CollectionComment", None, ("Comment",)),
@@ -231,6 +236,14 @@ CURATED = [
     ("VkResponse", None, ()), ("GoogleResponse", None, ()), ("TelegramResponse", None, ()),
     ("YandexResponse", None, ()), ("RestoreResponse", None, ()), ("RestoreVerifyResponse", None, ()),
     ("ProfileResponse", None, ()), ("CollectionResponse", None, ()),
+    ("ProfilePreferenceResponse", None, ()), ("ProfileBadgeSectionsResponse", None, ()),
+    ("ProfileSelectThemeResponse", None, ()),
+    ("ChangeLoginInfoResponse", None, ()), ("ChangeLoginResponse", None, ()),
+    ("CheckLoginResponse", None, ()), ("ProfileBadgeResponse", None, ()),
+    ("ChangeEmailResponse", None, ()), ("ChangeEmailResendResponse", None, ()),
+    ("ChangePasswordResponse", None, ()), ("ProfileDeletionResponse", None, ()),
+    ("ProfileHealthStatusResponse", None, ()), ("ProfileEnforcementResponse", None, ()),
+    ("ChannelResponse", None, ()), ("ChannelUploadCoverAvatarResponse", None, ()),
     ("FavoritesResponse", None, ()), ("HistoryResponse", None, ()),
     ("VoteReleaseResponse", None, ()), ("DeleteVoteReleaseResponse", None, ()),
     ("ConfigUrlsResponse", None, ()), ("TogglesResponse", None, ()),
@@ -245,7 +258,7 @@ for cls, nm, parents in CURATED:
         if p not in MAP:
             print("!! missing parent:", p); continue
     name, src = gen(cls, nm, parents)
-    open(os.path.join(OUT, name + ".swift"), "w").write(src)
+    open(os.path.join(OUT, name + ".swift"), "w", encoding="utf-8", newline="\n").write(src)
     made.append(name)
 print("generated %d types:" % len(made))
 print("  " + ", ".join(sorted(made)))

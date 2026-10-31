@@ -13,7 +13,9 @@ public struct Article: Codable, Hashable, Sendable, Identifiable {
     public var hasDeleteEnforcement: Bool?
     public var id: Int
     public var lastUpdateDate: Int?
+    public var payload: ArticlePayload?
     public var popularComment: PopularComment?
+    public var repostArticle: ArticleReference?
     public var repostCount: Int?
     public var vote: Int?
     public var voteCount: Int?
@@ -31,7 +33,9 @@ public struct Article: Codable, Hashable, Sendable, Identifiable {
         case hasDeleteEnforcement = "has_delete_enforcement"
         case id
         case lastUpdateDate = "last_update_date"
+        case payload
         case popularComment = "popular_comment"
+        case repostArticle = "repost_article"
         case repostCount = "repost_count"
         case vote
         case voteCount = "vote_count"

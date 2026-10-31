@@ -21,14 +21,25 @@ public actor KeychainTokenStore: TokenStore {
     }
 
     public func token() async -> String? {
-        (await entry())?.token
+        entry()?.token
     }
 
     public func profileID() async -> Int? {
-        (await entry())?.profileID
+        entry()?.profileID
     }
 
     public func save(token: String, profileID: Int) async throws {
+        try write(token: token, profileID: profileID)
+    }
+
+    public func replace(token: String, profileID: Int, expectedToken: String) async throws -> Bool {
+        guard let current = entry(), current.token == expectedToken, current.profileID == profileID else { return false }
+        // No suspension between checking the old entry and writing its replacement.
+        try write(token: token, profileID: profileID)
+        return true
+    }
+
+    private func write(token: String, profileID: Int) throws {
         let payload = try JSONEncoder().encode(StoredSession(token: token, profileID: profileID))
         var query = baseQuery()
         let attributes: [String: Any] = [
@@ -62,7 +73,7 @@ public actor KeychainTokenStore: TokenStore {
         var profileID: Int
     }
 
-    private func entry() async -> (token: String, profileID: Int)? {
+    private func entry() -> (token: String, profileID: Int)? {
         if let cached { return cached }
         var query = baseQuery()
         query[kSecReturnData as String] = true

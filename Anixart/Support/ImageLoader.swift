@@ -36,8 +36,9 @@ actor ImageLoader {
         return URLSession(configuration: configuration)
     }()
 
-    private let decoded = NSCache<NSURL, UIImage>()
-    private var inFlight: [URL: Task<UIImage?, Never>] = [:]
+    private let decoded = NSCache<NSString, UIImage>()
+    private var inFlight: [ImageRequestKey: Task<UIImage?, Never>] = [:]
+    private var dataInFlight: [URL: Task<Data?, Never>] = [:]
 
     init() {
         // Roughly 120 posters at list size; the OS evicts under pressure anyway.
@@ -48,22 +49,40 @@ actor ImageLoader {
     /// `pixelSize` is the longest edge in pixels, so the caller does the
     /// point-to-pixel conversion where the display scale is actually known.
     func image(for url: URL, pixelSize: CGFloat) async -> UIImage? {
-        let key = cacheKey(url, pixelSize)
-        if let cached = decoded.object(forKey: key) { return cached }
+        guard !Task.isCancelled else { return nil }
+        let key = ImageRequestKey(url: url, pixelSize: pixelSize)
+        if let cached = decoded.object(forKey: key.cacheKey) { return cached }
 
-        if let existing = inFlight[url] { return await existing.value }
-
-        let task = Task<UIImage?, Never> { [pixelSize] in
-            await Self.fetch(url, pixelSize: pixelSize)
+        if let existing = inFlight[key] {
+            let image = await existing.value
+            return Task.isCancelled ? nil : image
         }
-        inFlight[url] = task
+
+        let task = Task<UIImage?, Never> {
+            guard let data = await self.data(for: url) else { return nil }
+            return Self.downsample(data, pixelSize: CGFloat(key.pixelSize))
+        }
+        inFlight[key] = task
         let image = await task.value
-        inFlight[url] = nil
+        inFlight[key] = nil
 
         if let image {
-            decoded.setObject(image, forKey: key, cost: Int(image.size.width * image.size.height * 4))
+            let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+            decoded.setObject(image, forKey: key.cacheKey, cost: cost)
         }
-        return image
+        return Task.isCancelled ? nil : image
+    }
+
+    /// Theme GIFs use the same byte cache/mirror fallback as still images, but
+    /// decode frames on demand. Concurrent requests share bytes, not thumbnails
+    /// of different sizes.
+    func data(for url: URL) async -> Data? {
+        if let task = dataInFlight[url] { return await task.value }
+        let task = Task { await Self.fetchData(url) }
+        dataInFlight[url] = task
+        let data = await task.value
+        dataInFlight[url] = nil
+        return data
     }
 
     /// The poster host, then its mirror.
@@ -72,7 +91,7 @@ actor ImageLoader {
     /// the request comes from, and the API publishes `mirror-static.anixart.tv`
     /// for exactly that. One host is tried, then the other, rather than both at
     /// once: a race would double the load on a host that is already struggling.
-    private static func fetch(_ url: URL, pixelSize: CGFloat) async -> UIImage? {
+    private static func fetchData(_ url: URL) async -> Data? {
         let mirror = AnixartURL.mirrored(url)
         for candidate in (mirror == url ? [url] : [url, mirror]) {
             do {
@@ -80,18 +99,13 @@ actor ImageLoader {
                 if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                     continue
                 }
-                if let image = downsample(data, pixelSize: pixelSize) { return image }
+                guard CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) != nil else { continue }
+                return data
             } catch {
                 log.notice("image failed \(candidate.host() ?? "?", privacy: .public)\(candidate.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
         }
         return nil
-    }
-
-    private func cacheKey(_ url: URL, _ pixelSize: CGFloat) -> NSURL {
-        // The same poster is drawn at a few sizes; each gets its own entry so a
-        // grid thumbnail is never blown up into a detail header.
-        (URL(string: "\(url.absoluteString)#\(Int(pixelSize))") ?? url) as NSURL
     }
 
     /// Decodes straight to the size that will be drawn. Full-size decoding is
@@ -124,27 +138,35 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     @Environment(\.displayScale) private var displayScale
 
     @State private var image: UIImage?
-    @State private var loadedURL: URL?
+    @State private var loadedKey: ImageRequestKey?
+
+    private var requestKey: ImageRequestKey? {
+        guard let url else { return nil }
+        let scale = displayScale.isFinite ? max(1, displayScale) : 1
+        return ImageRequestKey(url: url, pixelSize: maxPixelSize * scale)
+    }
 
     var body: some View {
         Group {
-            if let image {
+            if let image, loadedKey == requestKey {
                 content(Image(uiImage: image))
             } else {
                 placeholder()
             }
         }
-        .task(id: url) {
-            guard let url else {
+        .task(id: requestKey) {
+            guard let key = requestKey else {
                 image = nil
+                loadedKey = nil
                 return
             }
-            guard url != loadedURL else { return }
-            let pixels = maxPixelSize * max(displayScale, 1)
-            let loaded = await ImageLoader.shared.image(for: url, pixelSize: pixels)
-            guard !Task.isCancelled else { return }
+            guard key != loadedKey || image == nil else { return }
+            image = nil
+            loadedKey = nil
+            let loaded = await ImageLoader.shared.image(for: key.url, pixelSize: CGFloat(key.pixelSize))
+            guard !Task.isCancelled, key == requestKey else { return }
             image = loaded
-            loadedURL = url
+            loadedKey = key
         }
     }
 }

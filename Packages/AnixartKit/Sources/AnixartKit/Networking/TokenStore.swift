@@ -3,12 +3,14 @@ import Foundation
 /// Where the session token lives between launches.
 ///
 /// Anixart issues a long-lived token from `auth/signIn` (and the social sign-in
-/// endpoints) and never rotates or refreshes it, so there is nothing to renew --
-/// it is valid until the user signs out or the server invalidates it.
+/// endpoints). A password change replaces it; there is no scheduled refresh.
 public protocol TokenStore: Sendable {
     func token() async -> String?
     func profileID() async -> Int?
     func save(token: String, profileID: Int) async throws
+    /// Atomic compare-and-replace: a delayed password response must not overwrite
+    /// a token belonging to a newer sign-in (even to the same profile).
+    func replace(token: String, profileID: Int, expectedToken: String) async throws -> Bool
     func clear() async throws
 }
 
@@ -28,6 +30,12 @@ public actor InMemoryTokenStore: TokenStore {
     public func save(token: String, profileID: Int) async throws {
         storedToken = token
         storedProfileID = profileID
+    }
+
+    public func replace(token: String, profileID: Int, expectedToken: String) async throws -> Bool {
+        guard storedToken == expectedToken, storedProfileID == profileID else { return false }
+        storedToken = token
+        return true
     }
 
     public func clear() async throws {

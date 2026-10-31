@@ -50,13 +50,50 @@ final class EpisodePickerViewModel {
     }
 
     private let release: Release
-    private let client: AnixartClient
     private let session: SessionController
+    let viewer: ProfileViewerKey
+    private var typesGeneration = 0
+    private var selectionGeneration = 0
+    private var episodesGeneration = 0
+    @ObservationIgnored private var playabilityTask: Task<Void, Never>?
+    private struct WatchKey: Hashable { let sourceID: Int; let position: Int }
+    private struct WatchUpdate { let revision: Int; let watched: Bool? }
+    private var watchRevision = 0
+    private var watchUpdates: [WatchKey: WatchUpdate] = [:]
+    private var sourceCacheRevisions: [Int: Int] = [:]
+    private var pendingWatchKeys = Set<WatchKey>()
+    private var markingAllSources = Set<Int>()
 
-    init(release: Release, client: AnixartClient, session: SessionController) {
+    init(release: Release, session: SessionController, viewer: ProfileViewerKey? = nil) {
         self.release = release
-        self.client = client
         self.session = session
+        self.viewer = viewer ?? session.viewerKey
+    }
+
+    var hasCurrentViewer: Bool { viewer == session.viewerKey }
+    var isUpdatingWatched: Bool { !pendingWatchKeys.isEmpty || !markingAllSources.isEmpty }
+
+    func invalidate() {
+        typesGeneration += 1
+        selectionGeneration += 1
+        episodesGeneration += 1
+        playabilityTask?.cancel()
+        playabilityTask = nil
+        types = []
+        sources = []
+        episodes = []
+        episodesBySource = [:]
+        watchUpdates = [:]
+        sourceCacheRevisions = [:]
+        selectedType = nil
+        selectedSource = nil
+        playableTypeIDs = []
+        playableSourceIDs = []
+        hostingGivesStream = [:]
+        isLoadingTypes = false
+        isLoadingEpisodes = false
+        isCheckingPlayability = false
+        errorMessage = nil
     }
 
     /// Voice-overs known to have a hosting the built-in player can take.
@@ -85,12 +122,19 @@ final class EpisodePickerViewModel {
     }
 
     func select(kind: Kind) {
+        guard hasCurrentViewer else { return }
         self.kind = kind
     }
 
     /// Re-fetches the voice-over list, for the toolbar's refresh.
     func reload() async {
+        guard hasCurrentViewer, !Task.isCancelled else { return }
+        typesGeneration += 1
+        playabilityTask?.cancel()
+        isCheckingPlayability = false
+        isLoadingTypes = false
         types = []
+        playableTypeIDs = []
         await loadTypes()
     }
 
@@ -98,11 +142,15 @@ final class EpisodePickerViewModel {
     var releaseTitle: String { release.displayTitle }
 
     func loadTypes() async {
-        guard types.isEmpty, !isLoadingTypes else { return }
+        guard hasCurrentViewer, !Task.isCancelled, types.isEmpty, !isLoadingTypes else { return }
+        typesGeneration += 1
+        let generation = typesGeneration
         isLoadingTypes = true
         errorMessage = nil
+        defer { if generation == typesGeneration { isLoadingTypes = false } }
         do {
-            let response = try await client.send(EpisodeEndpoints.types(releaseID: release.id))
+            let response = try await session.sendViewerRequest(EpisodeEndpoints.types(releaseID: release.id), for: viewer)
+            guard generation == typesGeneration, hasCurrentViewer, !Task.isCancelled else { return }
             types = response.types ?? []
             // Pinned voice-overs come first in the Android UI; everything else keeps
             // the order the server sent.
@@ -112,10 +160,11 @@ final class EpisodePickerViewModel {
                 return lhsPinned && !rhsPinned
             }
         } catch {
-            errorMessage = Paginator<Release>.message(for: error)
+            if generation == typesGeneration { showError(error) }
+            return
         }
-        isLoadingTypes = false
-        Task { await checkPlayability() }
+        playabilityTask?.cancel()
+        playabilityTask = Task { await checkPlayability(generation: generation) }
     }
 
     /// Works out which voice-overs the built-in player can handle.
@@ -123,20 +172,21 @@ final class EpisodePickerViewModel {
     /// Sources are cheap to list, so every voice-over's are fetched; episodes
     /// are not, so one episode list per distinct hosting is enough to classify
     /// it. Results land as they arrive, so badges appear progressively.
-    private func checkPlayability() async {
-        guard !isCheckingPlayability else { return }
+    private func checkPlayability(generation: Int) async {
+        guard hasCurrentViewer, generation == typesGeneration, !Task.isCancelled, !isCheckingPlayability else { return }
         isCheckingPlayability = true
-        defer { isCheckingPlayability = false }
+        defer { if generation == typesGeneration { isCheckingPlayability = false } }
 
-        let client = self.client
+        let session = self.session
+        let viewer = self.viewer
         let releaseID = release.id
         let allTypes = types
 
         let sourcesByType = await withTaskGroup(of: (Int, [EpisodeSource]).self) { group in
             for type in allTypes {
                 group.addTask {
-                    let response = try? await client.send(
-                        EpisodeEndpoints.sources(releaseID: releaseID, typeID: type.id)
+                    let response = try? await session.sendViewerRequest(
+                        EpisodeEndpoints.sources(releaseID: releaseID, typeID: type.id), for: viewer
                     )
                     return (type.id, response?.sources ?? [])
                 }
@@ -145,22 +195,25 @@ final class EpisodePickerViewModel {
             for await (id, sources) in group { result[id] = sources }
             return result
         }
+        guard hasCurrentViewer, generation == typesGeneration, !Task.isCancelled else { return }
 
         for (typeID, sources) in sourcesByType {
             for source in sources {
+                guard hasCurrentViewer, generation == typesGeneration, !Task.isCancelled else { return }
                 let name = source.displayName
                 if hostingGivesStream[name] == nil {
-                    let response = try? await client.send(
+                    let response = try? await session.sendViewerRequest(
                         EpisodeEndpoints.episodes(
                             releaseID: releaseID,
                             typeID: typeID,
                             sourceID: source.id,
                             sort: 0
-                        )
+                        ), for: viewer
                     )
                     guard let episode = response?.episodes?.first(where: { $0.playbackURL != nil })
                     else { continue }
                     let target = await PlaybackResolver.shared.target(for: episode)
+                    guard hasCurrentViewer, generation == typesGeneration, !Task.isCancelled else { return }
                     hostingGivesStream[name] = target.supportsDirectPlayback
                 }
                 if hostingGivesStream[name] == true {
@@ -172,6 +225,7 @@ final class EpisodePickerViewModel {
     }
 
     func toggleSortOrder() async {
+        guard hasCurrentViewer else { return }
         sortDescending.toggle()
         // Order is just the position, so the cached list is re-sorted rather
         // than refetched.
@@ -179,36 +233,57 @@ final class EpisodePickerViewModel {
     }
 
     func select(type: EpisodeType) async {
+        guard hasCurrentViewer, !Task.isCancelled else { return }
+        selectionGeneration += 1
+        episodesGeneration += 1
+        let generation = selectionGeneration
+        let sourceGeneration = episodesGeneration
         selectedType = type
         sources = []
         episodes = []
         selectedSource = nil
         episodesBySource = [:]
+        watchUpdates = [:]
+        sourceCacheRevisions = [:]
+        playableSourceIDs = []
         isLoadingEpisodes = true
+        errorMessage = nil
+        defer {
+            if generation == selectionGeneration, sourceGeneration == episodesGeneration { isLoadingEpisodes = false }
+        }
         do {
-            let response = try await client.send(
-                EpisodeEndpoints.sources(releaseID: release.id, typeID: type.id)
+            let response = try await session.sendViewerRequest(
+                EpisodeEndpoints.sources(releaseID: release.id, typeID: type.id), for: viewer
             )
+            guard isCurrentSelection(generation, typeID: type.id) else { return }
             let loaded = response.sources ?? []
             sources = loaded
-            await loadEverySource(type: type, sources: loaded)
-            await probeSources(loaded)
+            await loadEverySource(type: type, sources: loaded, generation: generation)
+            guard isCurrentSelection(generation, typeID: type.id) else { return }
+            await probeSources(loaded, typeID: type.id, generation: generation)
+            guard isCurrentSelection(generation, typeID: type.id) else { return }
 
             // Prefer a hosting the built-in player can actually open, when one
             // exists at all.
             let preferred = loaded.first(where: hasDirectStream) ?? loaded.first
-            if let preferred { await select(source: preferred) }
+            // The source chips are already interactive while prefetching. Do not
+            // replace an explicit choice with the automatically preferred source.
+            if selectedSource == nil, let preferred { await select(source: preferred) }
         } catch {
-            errorMessage = Paginator<Release>.message(for: error)
+            if isCurrentSelection(generation, typeID: type.id) { showError(error) }
         }
-        isLoadingEpisodes = false
     }
 
     func select(source: EpisodeSource) async {
+        guard hasCurrentViewer, !Task.isCancelled, sources.contains(where: { $0.id == source.id }) else { return }
+        episodesGeneration += 1
         selectedSource = source
+        errorMessage = nil
         if let cached = episodesBySource[source.id] {
             episodes = sorted(cached)
+            isLoadingEpisodes = false
         } else {
+            episodes = []
             await loadEpisodes()
         }
     }
@@ -230,40 +305,57 @@ final class EpisodePickerViewModel {
         sources.first(where: hasDirectStream)
     }
 
-    private func loadEverySource(type: EpisodeType, sources: [EpisodeSource]) async {
-        let client = self.client
+    private func loadEverySource(type: EpisodeType, sources: [EpisodeSource], generation: Int) async {
+        let session = self.session
+        let viewer = self.viewer
         let releaseID = release.id
         let sortDescending = self.sortDescending
+        let watchRevision = self.watchRevision
+        let cacheRevisions = sourceCacheRevisions
 
-        let loaded = await withTaskGroup(of: (Int, [Episode]).self) { group in
+        let loaded = await withTaskGroup(of: (Int, [Episode]?).self) { group in
             for source in sources {
                 group.addTask {
-                    let response = try? await client.send(
+                    let response = try? await session.sendViewerRequest(
                         EpisodeEndpoints.episodes(
                             releaseID: releaseID,
                             typeID: type.id,
                             sourceID: source.id,
                             sort: sortDescending ? 1 : 0
-                        )
+                        ), for: viewer
                     )
-                    return (source.id, response?.episodes ?? [])
+                    // A failed prefetch is not an empty episode list. Leaving it
+                    // uncached allows selecting that source to retry the request.
+                    return (source.id, response.map {
+                        Self.contextualEpisodes($0.episodes ?? [], releaseID: releaseID, sourceID: source.id)
+                    })
                 }
             }
             var result: [Int: [Episode]] = [:]
-            for await (id, episodes) in group { result[id] = episodes }
+            for await (id, episodes) in group {
+                if let episodes { result[id] = episodes }
+            }
             return result
         }
-        episodesBySource = loaded
+        guard isCurrentSelection(generation, typeID: type.id) else { return }
+        // A direct source load or watch action may already have updated its
+        // cache while the prefetch was in flight. Keep that newer copy.
+        for (id, episodes) in loaded where episodesBySource[id] == nil
+            && sourceCacheRevisions[id, default: 0] == cacheRevisions[id, default: 0] {
+            episodesBySource[id] = applyingWatchUpdates(to: episodes, sourceID: id, since: watchRevision)
+        }
     }
 
     /// Works out which hostings a stream can be found for, by resolving one
     /// episode of each.
-    private func probeSources(_ sources: [EpisodeSource]) async {
+    private func probeSources(_ sources: [EpisodeSource], typeID: Int, generation: Int) async {
         var playable: Set<Int> = []
         for source in sources {
+            guard isCurrentSelection(generation, typeID: typeID) else { return }
             guard let episode = episodesBySource[source.id]?.first(where: { $0.playbackURL != nil })
             else { continue }
             let target = await PlaybackResolver.shared.target(for: episode)
+            guard isCurrentSelection(generation, typeID: typeID) else { return }
             if target.supportsDirectPlayback { playable.insert(source.id) }
         }
         playableSourceIDs = playable
@@ -278,54 +370,75 @@ final class EpisodePickerViewModel {
     }
 
     func loadEpisodes() async {
-        guard let type = selectedType, let source = selectedSource else { return }
+        guard hasCurrentViewer, !Task.isCancelled, let type = selectedType, let source = selectedSource else { return }
+        episodesGeneration += 1
+        let generation = episodesGeneration
+        let selection = selectionGeneration
+        let watchRevision = self.watchRevision
         isLoadingEpisodes = true
         errorMessage = nil
+        defer { if generation == episodesGeneration { isLoadingEpisodes = false } }
         do {
-            let response = try await client.send(
+            let response = try await session.sendViewerRequest(
                 EpisodeEndpoints.episodes(
                     releaseID: release.id,
                     typeID: type.id,
                     sourceID: source.id,
                     sort: sortDescending ? 1 : 0
-                )
+                ), for: viewer
             )
-            episodes = response.episodes ?? []
-            if let source = selectedSource { episodesBySource[source.id] = episodes }
+            guard generation == episodesGeneration, isCurrentSelection(selection, typeID: type.id), selectedSource?.id == source.id else { return }
+            let loaded = Self.contextualEpisodes(response.episodes ?? [], releaseID: release.id, sourceID: source.id)
+            episodes = sorted(applyingWatchUpdates(to: loaded, sourceID: source.id, since: watchRevision))
+            episodesBySource[source.id] = episodes
         } catch {
+            guard generation == episodesGeneration, isCurrentSelection(selection, typeID: type.id), selectedSource?.id == source.id,
+                  !ProfileRequestFailure.isCancellation(error) else { return }
             episodes = []
-            errorMessage = Paginator<Release>.message(for: error)
+            showError(error)
         }
-        isLoadingEpisodes = false
     }
 
     /// Marks an episode watched and flips it locally so the checkmark appears at once.
     func markWatched(_ episode: Episode, watched: Bool) async {
-        guard session.isSignedIn else {
+        guard hasCurrentViewer, !Task.isCancelled else { return }
+        guard let account = viewer.account else {
             session.promptSignIn()
             return
         }
-        guard let source = selectedSource, let position = episode.position else { return }
+        guard let sourceID = episode.sourceId ?? selectedSource?.id, sourceID > 0, let position = episode.position,
+              episode.releaseId == nil || episode.releaseId == release.id else { return }
+        let key = WatchKey(sourceID: sourceID, position: position)
+        guard !pendingWatchKeys.contains(key), !markingAllSources.contains(sourceID) else { return }
+        pendingWatchKeys.insert(key)
+        defer { pendingWatchKeys.remove(key) }
+        let selection = selectionGeneration
+        let previous = episodesBySource[sourceID]?.first(where: { $0.id == episode.id })?.isWatched ?? episode.isWatched
 
-        if let index = episodes.firstIndex(where: { $0.id == episode.id }) {
-            episodes[index].isWatched = watched
-        }
+        recordWatch(episodeID: episode.id, key: key, watched: watched)
 
         do {
             if watched {
-                try await client.send(
-                    EpisodeEndpoints.markWatched(releaseID: release.id, sourceID: source.id, position: position)
+                try await session.sendConfirmedAccountRequest(
+                    EpisodeEndpoints.markWatched(releaseID: release.id, sourceID: sourceID, position: position), for: account
                 )
             } else {
-                try await client.send(
-                    EpisodeEndpoints.markUnwatched(releaseID: release.id, sourceID: source.id, position: position)
+                try await session.sendConfirmedAccountRequest(
+                    EpisodeEndpoints.markUnwatched(releaseID: release.id, sourceID: sourceID, position: position), for: account
                 )
             }
-        } catch {
-            if let index = episodes.firstIndex(where: { $0.id == episode.id }) {
-                episodes[index].isWatched = !watched
+            if selection == selectionGeneration {
+                // A list request started during the mutation may still contain
+                // the old mark, even if it arrives after this acknowledgement.
+                recordWatch(episodeID: episode.id, key: key, watched: watched)
             }
-            errorMessage = Paginator<Release>.message(for: error)
+            await session.refreshProfile(for: account)
+        } catch {
+            guard hasCurrentViewer else { return }
+            if selection == selectionGeneration {
+                recordWatch(episodeID: episode.id, key: key, watched: previous)
+                if selectedSource?.id == sourceID { showError(error) }
+            }
         }
     }
 
@@ -340,37 +453,97 @@ final class EpisodePickerViewModel {
     }
 
     private func markAll(watched: Bool) async {
-        guard session.isSignedIn else {
+        guard hasCurrentViewer, !Task.isCancelled else { return }
+        guard let account = viewer.account else {
             session.promptSignIn()
             return
         }
         guard let source = selectedSource else { return }
+        guard !markingAllSources.contains(source.id), !pendingWatchKeys.contains(where: { $0.sourceID == source.id }) else { return }
+        markingAllSources.insert(source.id)
+        defer { markingAllSources.remove(source.id) }
+        let selection = selectionGeneration
         do {
             if watched {
-                try await client.send(EpisodeEndpoints.markAllWatched(releaseID: release.id, sourceID: source.id))
+                try await session.sendConfirmedAccountRequest(EpisodeEndpoints.markAllWatched(releaseID: release.id, sourceID: source.id), for: account)
             } else {
-                try await client.send(EpisodeEndpoints.markAllUnwatched(releaseID: release.id, sourceID: source.id))
+                try await session.sendConfirmedAccountRequest(EpisodeEndpoints.markAllUnwatched(releaseID: release.id, sourceID: source.id), for: account)
             }
-            await loadEpisodes()
+            if selection == selectionGeneration {
+                // Do not let a prefetch started before this bulk mutation
+                // repopulate the invalidated hosting with its old marks.
+                sourceCacheRevisions[source.id, default: 0] += 1
+                episodesBySource[source.id] = nil
+                if selectedSource?.id == source.id { await loadEpisodes() }
+            }
+            await session.refreshProfile(for: account)
         } catch {
-            errorMessage = Paginator<Release>.message(for: error)
+            if selection == selectionGeneration, selectedSource?.id == source.id { showError(error) }
         }
     }
 
     /// Stores playback progress so "continue watching" survives a reinstall.
     /// Best-effort: losing a position is not worth an error in the player.
     func saveProgress(for episode: Episode, seconds: TimeInterval) async {
-        guard session.isSignedIn, let source = selectedSource, let position = episode.position else { return }
-        _ = try? await client.send(
-            EpisodeEndpoints.saveProgress(releaseID: release.id, sourceID: source.id, position: position)
+        guard hasCurrentViewer, let account = viewer.account, let sourceID = episode.sourceId ?? selectedSource?.id, sourceID > 0,
+              let position = episode.position, episode.releaseId == nil || episode.releaseId == release.id else { return }
+        _ = try? await session.sendConfirmedAccountRequest(
+            EpisodeEndpoints.saveProgress(releaseID: release.id, sourceID: sourceID, position: position), for: account
         )
         _ = seconds
     }
 
     func nextEpisode(after episode: Episode) -> Episode? {
-        guard let index = episodes.firstIndex(where: { $0.id == episode.id }),
-              episodes.indices.contains(index + 1)
+        guard hasCurrentViewer, episode.releaseId == nil || episode.releaseId == release.id,
+              let sourceID = episode.sourceId ?? selectedSource?.id else { return nil }
+        let available = selectedSource?.id == sourceID ? episodes : sorted(episodesBySource[sourceID] ?? [])
+        guard let index = available.firstIndex(where: { $0.id == episode.id }),
+              available.indices.contains(index + 1)
         else { return nil }
-        return episodes[index + 1]
+        return available[index + 1]
+    }
+
+    private func isCurrentSelection(_ generation: Int, typeID: Int) -> Bool {
+        hasCurrentViewer && !Task.isCancelled && generation == selectionGeneration && selectedType?.id == typeID
+    }
+
+    private func recordWatch(episodeID: Int, key: WatchKey, watched: Bool?) {
+        watchRevision += 1
+        watchUpdates[key] = WatchUpdate(revision: watchRevision, watched: watched)
+        let sourceID = key.sourceID
+        if var cached = episodesBySource[sourceID], let index = cached.firstIndex(where: { $0.id == episodeID }) {
+            cached[index].isWatched = watched
+            episodesBySource[sourceID] = cached
+        }
+        if selectedSource?.id == sourceID, let index = episodes.firstIndex(where: { $0.id == episodeID }) {
+            episodes[index].isWatched = watched
+        }
+    }
+
+    private func applyingWatchUpdates(to episodes: [Episode], sourceID: Int, since revision: Int) -> [Episode] {
+        episodes.map { episode in
+            guard let position = episode.position else { return episode }
+            let key = WatchKey(sourceID: sourceID, position: position)
+            guard let update = watchUpdates[key], update.revision > revision || pendingWatchKeys.contains(key) else { return episode }
+            var updated = episode
+            updated.isWatched = update.watched
+            return updated
+        }
+    }
+
+    /// Playback callbacks keep the hosting they were opened from, even if the
+    /// picker changes hosting before a progress/watch response returns.
+    nonisolated private static func contextualEpisodes(_ episodes: [Episode], releaseID: Int, sourceID: Int) -> [Episode] {
+        episodes.map { episode in
+            var contextual = episode
+            if contextual.releaseId == nil { contextual.releaseId = releaseID }
+            if contextual.sourceId == nil { contextual.sourceId = sourceID }
+            return contextual
+        }
+    }
+
+    private func showError(_ error: any Error) {
+        guard hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) else { return }
+        errorMessage = Paginator<Release>.message(for: error)
     }
 }

@@ -37,6 +37,13 @@ extension Release {
         ratingValue.map { String(format: "%.1f", $0) }
     }
 
+    /// `ProfileUiController` uses my_vote for the profile being viewed. your_vote
+    /// belongs to the viewer and must never fill a missing score on someone else's page.
+    public var profileRating: Int? {
+        guard let myVote, (1...5).contains(myVote) else { return nil }
+        return myVote
+    }
+
     /// Episode counter, worded exactly as `ReleaseModel` in the APK does it.
     ///
     /// The branch order matters. A finished run, or an announcement, shows the total
