@@ -130,7 +130,7 @@ private struct ProfileThemeIcons: View {
         let tint = ProfileThemeColor.color(layout.theme.themeIconColor)
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !isRunning)) { timeline in
             Canvas { context, container in
-                let resolved = ProfileThemeArtwork.resolve(image, in: context, tint: tint)
+                let resolved = ProfileThemeArtwork.resolve(image, in: context)
                 let elapsed = clock.elapsed(at: timeline.date)
                 for particle in particles {
                     var layer = context
@@ -138,7 +138,8 @@ private struct ProfileThemeIcons: View {
                     layer.translateBy(x: position.x, y: position.y)
                     layer.rotate(by: .degrees(particle.rotation + elapsed * particle.rotationSpeed))
                     layer.opacity = particle.opacity
-                    layer.draw(resolved, in: CGRect(x: 0, y: 0, width: particle.size, height: particle.size))
+                    ProfileThemeArtwork.draw(resolved, in: CGRect(x: 0, y: 0, width: particle.size, height: particle.size),
+                                             context: layer, tint: tint)
                 }
             }
         }
@@ -151,12 +152,24 @@ private struct ProfileThemeIcons: View {
 /// Exact vector paths from the APK's named resources. Remote theme icons retain
 /// their own artwork; unknown local resources are not guessed by substring.
 enum ProfileThemeArtwork {
-    /// Canvas only applies image shading to a template's alpha mask. Without a
-    /// theme tint, keep the original vector or downloaded bitmap colours.
-    static func resolve(_ image: Image, in context: GraphicsContext, tint: Color?) -> GraphicsContext.ResolvedImage {
-        var resolved = context.resolve(image.renderingMode(tint == nil ? .original : .template))
-        if let tint { resolved.shading = .color(tint) }
-        return resolved
+    static func resolve(_ image: Image, in context: GraphicsContext) -> GraphicsContext.ResolvedImage {
+        context.resolve(image.renderingMode(.original))
+    }
+
+    /// Vector assets can ignore ResolvedImage.shading. Fill their rendered alpha
+    /// mask instead, keeping the same transform and the bitmap's source alpha.
+    static func draw(_ image: GraphicsContext.ResolvedImage, in rect: CGRect, context: GraphicsContext, tint: Color?) {
+        guard let tint else { context.draw(image, in: rect); return }
+        var tinted = context
+        let opacity = tinted.opacity
+        // Particle opacity belongs to the final fill, not to both mask and fill.
+        tinted.opacity = 1
+        tinted.clipToLayer { mask in
+            mask.opacity = 1
+            mask.draw(image, in: rect)
+        }
+        tinted.opacity = opacity
+        tinted.fill(Path(rect), with: .color(tint))
     }
 
     static func name(for resource: String?) -> String? {
