@@ -14,6 +14,15 @@ final class ProfileThemeRenderingTests: XCTestCase {
     }
 
     @MainActor
+    private func renderArtwork(_ image: Image, tint: Color?, size: CGSize) throws -> ProfileThemeTestPixels {
+        let canvas = Canvas { context, size in
+            let resolved = ProfileThemeArtwork.resolve(image, in: context, tint: tint)
+            context.draw(resolved, in: CGRect(origin: .zero, size: size))
+        }
+        return try render(canvas, size: size)
+    }
+
+    @MainActor
     func testShowcaseRendersFlatProfileThemeAndHonorsDisabledFlag() throws {
         for enabled in [true, false] {
             let profile = try profileTestDecode(Profile.self,
@@ -73,15 +82,40 @@ final class ProfileThemeRenderingTests: XCTestCase {
             let image = try XCTUnwrap(UIImage(named: asset, in: bundle, compatibleWith: nil), asset)
             XCTAssertGreaterThan(image.size.width, 0)
             XCTAssertGreaterThan(image.size.height, 0)
-            let canvas = Canvas { context, size in
-                var resolved = context.resolve(Image(asset, bundle: bundle))
-                resolved.shading = .color(Color(.sRGB, red: 1, green: 0, blue: 0, opacity: 1))
-                context.draw(resolved, in: CGRect(origin: .zero, size: size))
-            }
-            let pixels = try render(canvas, size: CGSize(width: 48, height: 48)).opaquePixels
+            let pixels = try renderArtwork(Image(asset, bundle: bundle),
+                                           tint: Color(.sRGB, red: 1, green: 0, blue: 0, opacity: 1),
+                                           size: CGSize(width: 48, height: 48)).opaquePixels
             XCTAssertFalse(pixels.isEmpty, asset)
             let unexpected = pixels.first { $0.red <= 240 || $0.green >= 15 || $0.blue >= 15 }
             XCTAssertNil(unexpected, "\(asset): unexpected tinted pixel \(String(describing: unexpected))")
+        }
+    }
+
+    @MainActor
+    func testBitmapArtworkKeepsOriginalColorsWithoutTintAndMasksTintWithSourceAlpha() throws {
+        let size = CGSize(width: 8, height: 8)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        let bitmap = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.green.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+            UIColor.blue.setFill()
+            context.fill(CGRect(x: 4, y: 0, width: 4, height: 4))
+            UIColor.red.withAlphaComponent(0.5).setFill()
+            context.fill(CGRect(x: 0, y: 4, width: 4, height: 4))
+        }
+        let tints: [Color?] = [nil, Color(.sRGB, red: 0, green: 1, blue: 1, opacity: 1)]
+        for tint in tints {
+            let pixels = try renderArtwork(Image(uiImage: bitmap), tint: tint, size: size)
+            assertProfileThemePixel(pixels, x: 1, y: 1, red: 0, green: 255, blue: tint == nil ? 0 : 255)
+            assertProfileThemePixel(pixels, x: 6, y: 1, red: 0, green: tint == nil ? 0 : 255, blue: 255)
+            let translucent = pixels.pixel(x: 1, y: 6)
+            XCTAssertEqual(Double(translucent.alpha), 128, accuracy: 1)
+            XCTAssertEqual(Double(translucent.red), tint == nil ? 128 : 0, accuracy: 1)
+            XCTAssertEqual(Double(translucent.green), tint == nil ? 0 : 128, accuracy: 1)
+            XCTAssertEqual(Double(translucent.blue), tint == nil ? 0 : 128, accuracy: 1)
+            XCTAssertEqual(pixels.pixel(x: 6, y: 6).alpha, 0)
         }
     }
 }

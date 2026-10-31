@@ -130,8 +130,7 @@ private struct ProfileThemeIcons: View {
         let tint = ProfileThemeColor.color(layout.theme.themeIconColor)
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !isRunning)) { timeline in
             Canvas { context, container in
-                var resolved = context.resolve(image)
-                if let tint { resolved.shading = .color(tint) }
+                let resolved = ProfileThemeArtwork.resolve(image, in: context, tint: tint)
                 let elapsed = clock.elapsed(at: timeline.date)
                 for particle in particles {
                     var layer = context
@@ -152,6 +151,14 @@ private struct ProfileThemeIcons: View {
 /// Exact vector paths from the APK's named resources. Remote theme icons retain
 /// their own artwork; unknown local resources are not guessed by substring.
 enum ProfileThemeArtwork {
+    /// Canvas only applies image shading to a template's alpha mask. Without a
+    /// theme tint, keep the original vector or downloaded bitmap colours.
+    static func resolve(_ image: Image, in context: GraphicsContext, tint: Color?) -> GraphicsContext.ResolvedImage {
+        var resolved = context.resolve(image.renderingMode(tint == nil ? .original : .template))
+        if let tint { resolved.shading = .color(tint) }
+        return resolved
+    }
+
     static func name(for resource: String?) -> String? {
         guard let resource else { return nil }
         return ["ic_heart": "ProfileThemeHeart", "ic_heart_outline": "ProfileThemeHeartOutline", "ic_star_rate": "ProfileThemeStar",
