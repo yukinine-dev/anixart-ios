@@ -22,7 +22,7 @@ final class ProfileThemeRenderingTests: XCTestCase {
                     + "\"theme\":{\"id\":999,\"theme_enabled\":true,\"theme_gradient_start_color\":\"#00FF00\"}}")
             let showcase = ProfileBadgeShowcase(profile: profile, badges: [], viewer: nil)
                 .environment(AppEnvironment.preview())
-                .background(Color.blue)
+                .background(Color(.sRGB, red: 0, green: 0, blue: 1, opacity: 1))
             let pixels = try render(showcase, size: CGSize(width: 64, height: 64))
             assertProfileThemePixel(pixels, x: 32, y: 32,
                                     red: enabled ? 255 : 0, green: 0, blue: enabled ? 0 : 255)
@@ -75,12 +75,13 @@ final class ProfileThemeRenderingTests: XCTestCase {
             XCTAssertGreaterThan(image.size.height, 0)
             let canvas = Canvas { context, size in
                 var resolved = context.resolve(Image(asset, bundle: bundle))
-                resolved.shading = .color(.red)
+                resolved.shading = .color(Color(.sRGB, red: 1, green: 0, blue: 0, opacity: 1))
                 context.draw(resolved, in: CGRect(origin: .zero, size: size))
             }
             let pixels = try render(canvas, size: CGSize(width: 48, height: 48)).opaquePixels
             XCTAssertFalse(pixels.isEmpty, asset)
-            XCTAssertTrue(pixels.allSatisfy { $0.red > 240 && $0.green < 15 && $0.blue < 15 }, asset)
+            let unexpected = pixels.first { $0.red <= 240 || $0.green >= 15 || $0.blue >= 15 }
+            XCTAssertNil(unexpected, "\(asset): unexpected tinted pixel \(String(describing: unexpected))")
         }
     }
 }
