@@ -182,6 +182,52 @@ final class ProfileModelTests: XCTestCase {
         XCTAssertNil(preferences.isBound(to: .yandex))
     }
 
+    func testShowcaseThemeProjectsEveryFlatProfileSettingWithoutChangingWireShape() throws {
+        let settings = """
+        "theme_enabled":true,"theme_animation_enabled":false,"theme_animation_speed":"ultra",
+        "theme_background_alpha":0.25,"theme_background_mode":"tile","theme_background_url":"https://example.invalid/bg.gif",
+        "theme_gradient_angle":"diagonal_tr_bl","theme_gradient_start_color":"#80402010","theme_gradient_end_color":"#112233",
+        "theme_icon_alpha":0.75,"theme_icon_color":"red","theme_icon_density":"high","theme_icon_res_name":"ic_heart",
+        "theme_icon_size":"large","theme_icon_url":"https://example.invalid/icon.gif"
+        """
+        let profile = try decode(Profile.self,
+            "{\"id\":42,\"login\":\"Owner\",\(settings),\"theme\":{\"id\":999,\"theme_enabled\":false}}")
+        let expected = try decode(ProfileTheme.self, "{\"id\":42,\(settings)}")
+        XCTAssertEqual(profile.showcaseTheme, expected)
+        XCTAssertNil(profile.showcaseTheme.name)
+        let encoded = try JSONEncoder().encode(profile)
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertNil(body["theme"])
+        XCTAssertNil(body["showcaseTheme"])
+        XCTAssertNil(body["selected_theme_id"])
+        XCTAssertEqual(body["theme_icon_res_name"] as? String, "ic_heart")
+        XCTAssertEqual(try JSONDecoder().decode(Profile.self, from: encoded), profile)
+    }
+
+    func testShowcaseThemePreservesMissingDisabledAndFutureSettings() throws {
+        let sparse = try decode(Profile.self, #"{"id":42}"#)
+        XCTAssertEqual(sparse.showcaseTheme, try decode(ProfileTheme.self, #"{"id":42}"#))
+        for enabled in [false, true] {
+            let settings = "\"theme_enabled\":\(enabled),\"theme_animation_enabled\":null,"
+                + "\"theme_icon_alpha\":0,\"theme_icon_density\":\"future_density\","
+                + "\"theme_background_mode\":\"future_mode\",\"theme_icon_res_name\":\"ic_future\""
+            let profile = try decode(Profile.self, "{\"id\":42,\(settings)}")
+            XCTAssertEqual(profile.showcaseTheme, try decode(ProfileTheme.self, "{\"id\":42,\(settings)}"))
+        }
+    }
+
+    func testShowcaseThemeIdentityIgnoresUnrelatedProfileChanges() throws {
+        var profile = try decode(Profile.self, #"{"id":42,"theme_enabled":true,"theme_icon_res_name":"ic_heart"}"#)
+        let theme = profile.showcaseTheme
+        profile.login = "Renamed"
+        profile.ratingScore = 100
+        profile.pinnedSectionId = ProfileSection.comments.rawValue
+        XCTAssertEqual(profile.showcaseTheme, theme)
+        profile.id = 43
+        XCTAssertEqual(profile.showcaseTheme.id, 43)
+        XCTAssertNotEqual(profile.showcaseTheme, theme)
+    }
+
     func testStatusAndNicknameLimitsCountUTF16WithoutSplittingGraphemes() {
         XCTAssertTrue(ProfileEditorRules.isValidStatus(String(repeating: "🙂", count: 40)))
         XCTAssertFalse(ProfileEditorRules.isValidStatus(String(repeating: "🙂", count: 41)))

@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import XCTest
+import AnixartKit
 @testable import Anixart
 
 final class ProfileThemeRenderingTests: XCTestCase {
@@ -10,6 +11,22 @@ final class ProfileThemeRenderingTests: XCTestCase {
         renderer.scale = 1
         renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
         return try ProfileThemeTestPixels(XCTUnwrap(renderer.uiImage))
+    }
+
+    @MainActor
+    func testShowcaseRendersFlatProfileThemeAndHonorsDisabledFlag() throws {
+        for enabled in [true, false] {
+            let profile = try profileTestDecode(Profile.self,
+                "{\"id\":42,\"theme_enabled\":\(enabled),\"theme_gradient_start_color\":\"#FF0000\","
+                    + "\"theme_gradient_end_color\":\"#FF0000\",\"theme_gradient_angle\":\"left_to_right\","
+                    + "\"theme\":{\"id\":999,\"theme_enabled\":true,\"theme_gradient_start_color\":\"#00FF00\"}}")
+            let showcase = ProfileBadgeShowcase(profile: profile, badges: [], viewer: nil)
+                .environment(AppEnvironment.preview())
+                .background(Color.blue)
+            let pixels = try render(showcase, size: CGSize(width: 64, height: 64))
+            assertProfileThemePixel(pixels, x: 32, y: 32,
+                                    red: enabled ? 255 : 0, green: 0, blue: enabled ? 0 : 255)
+        }
     }
 
     @MainActor

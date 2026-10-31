@@ -86,6 +86,7 @@ enum ProfileSocialAddress {
 @MainActor
 struct ProfileActivitySection: View {
     let profile: Profile
+    let viewer: ProfileViewerKey?
     @State private var showsHelp = false
 
     var body: some View {

@@ -239,6 +239,46 @@ final class ProfileStateTests: XCTestCase {
     }
 
     @MainActor
+    func testRecentActivityKeepsOriginalGuestViewerAfterSignIn() async throws {
+        let rig = ProfileTestRig()
+        await rig.session.restore()
+        let guest = rig.session.viewerKey
+        let profile = try profileTestDecode(Profile.self, #"{"id":71,"history":[{"id":72,"is_favorite":false}]}"#)
+        let section = ProfileActivitySection(profile: profile, viewer: guest)
+        try await rig.signIn()
+        XCTAssertEqual(section.viewer, guest)
+        let release = try XCTUnwrap(section.profile.history?.first)
+        let detail = ReleaseDetailViewModel(releaseID: release.id, preloaded: release,
+                                           session: rig.session, viewer: section.viewer)
+        XCTAssertEqual(detail.viewer, guest)
+        XCTAssertFalse(detail.hasCurrentViewer)
+        let requests = rig.api.requests.count
+        await detail.load()
+        await detail.toggleFavorite()
+        XCTAssertEqual(rig.api.requests.count, requests)
+    }
+
+    @MainActor
+    func testRecentActivityKeepsOriginalViewerAfterAnotherLoginToSameProfile() async throws {
+        let rig = ProfileTestRig()
+        try await rig.signIn(token: "first")
+        let viewer = rig.session.viewerKey
+        let profile = try profileTestDecode(Profile.self, #"{"id":71,"history":[{"id":72,"is_favorite":false}]}"#)
+        let section = ProfileActivitySection(profile: profile, viewer: viewer)
+        try await rig.signIn(token: "second")
+        XCTAssertEqual(section.viewer, viewer)
+        let release = try XCTUnwrap(section.profile.history?.first)
+        let detail = ReleaseDetailViewModel(releaseID: release.id, preloaded: release,
+                                           session: rig.session, viewer: section.viewer)
+        XCTAssertEqual(detail.viewer, viewer)
+        XCTAssertFalse(detail.hasCurrentViewer)
+        let requests = rig.api.requests.count
+        await detail.load()
+        await detail.toggleFavorite()
+        XCTAssertEqual(rig.api.requests.count, requests)
+    }
+
+    @MainActor
     func testLateSupplementaryProfileResponsesCannotReplaceNewRefresh() async {
         let rig = ProfileTestRig()
         await rig.session.restore()

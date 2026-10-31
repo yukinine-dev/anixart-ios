@@ -136,6 +136,17 @@ final class ProfileThemeLayoutTests: XCTestCase {
         }
     }
 
+    func testFlatProfileThemeKeepsParticlePositionsAcrossUnrelatedRefreshes() throws {
+        var profile = try profileTestDecode(Profile.self, #"{"id":42,"theme_enabled":true,"theme_icon_density":"high"}"#)
+        let size = CGSize(width: 360, height: 200)
+        let initial = ProfileThemeLayout(theme: profile.showcaseTheme).particles(in: size, displayScale: 3)
+        profile.login = "Updated"
+        profile.pinnedSectionId = ProfileSection.badges.rawValue
+        XCTAssertEqual(initial, ProfileThemeLayout(theme: profile.showcaseTheme).particles(in: size, displayScale: 3))
+        profile.id = 43
+        XCTAssertNotEqual(initial, ProfileThemeLayout(theme: profile.showcaseTheme).particles(in: size, displayScale: 3))
+    }
+
     func testAnimationPolicySeparatesGIFTimingFromParticlePreference() {
         for visible in [true, false] {
             for active in [true, false] {

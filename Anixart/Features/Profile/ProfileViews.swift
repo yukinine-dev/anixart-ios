@@ -82,7 +82,7 @@ struct ProfileView: View {
                     sectionChips
                     sectionContent(profile)
                     if profile.isStatsHidden != true {
-                        ProfileActivitySection(profile: profile)
+                        ProfileActivitySection(profile: profile, viewer: model.viewerKey)
                     }
                 }
                 .padding(.bottom, Theme.Spacing.section)
