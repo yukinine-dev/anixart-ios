@@ -40,12 +40,14 @@ struct ProfileEmailEditorView: View {
                 if hasChanged {
                     Section { Label("Email изменён", systemImage: "checkmark.circle.fill").foregroundStyle(Theme.accent) }
                 } else if let pending {
-                    Section("Подтверждение нового Email") {
+                    Section {
                         Text("Код отправлен на \(pending.newEmail).")
                         TextField("Код из письма", text: $code)
                             .keyboardType(.numberPad).textContentType(.oneTimeCode)
                         Button("Подтвердить") { Task { await verify() } }
                             .disabled(ProfileEditorRules.emailVerificationCode(code) == nil)
+                    } header: {
+                        Text("Подтверждение нового Email")
                     } footer: {
                         if let expires = pending.expires, expires > 0 {
                             Text("Код действует до \(ProfileDate.dateTime(expires)).")
@@ -56,9 +58,11 @@ struct ProfileEmailEditorView: View {
                         Button("Использовать другой Email") { generation += 1; clearVerification() }
                     }
                 } else {
-                    Section("Текущие данные") {
+                    Section {
                         emailField("Текущий Email", text: $currentEmail)
                         SecureField("Текущий пароль", text: $currentPassword).textContentType(.password)
+                    } header: {
+                        Text("Текущие данные")
                     } footer: {
                         if let emailHint { Text("Email учётной записи: \(emailHint)") }
                     }
