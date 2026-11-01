@@ -27,11 +27,11 @@ public enum ProfileEndpoints {
         Endpoint(path: "profile/friend/requests/out/\(page)", auth: .required)
     }
 
-    public static func sendFriendRequest(to profileID: Int) -> Endpoint<StatusResponse> {
+    public static func sendFriendRequest(to profileID: Int) -> Endpoint<ProfileFriendResponse> {
         Endpoint(path: "profile/friend/request/send/\(profileID)", auth: .required)
     }
 
-    public static func removeFriend(_ profileID: Int) -> Endpoint<StatusResponse> {
+    public static func removeFriend(_ profileID: Int) -> Endpoint<ProfileFriendResponse> {
         Endpoint(path: "profile/friend/request/remove/\(profileID)", auth: .required)
     }
 
@@ -46,6 +46,16 @@ public enum ProfileEndpoints {
     /// Releases in the user's lists that they have not rated yet.
     public static func unratedReleases(page: Int) -> Endpoint<PageableResponse<Release>> {
         Endpoint(path: "profile/vote/release/unvoted/\(page)", auth: .required)
+    }
+
+    /// Declining an incoming request hides it; it does not remove the relationship.
+    public static func hideFriendRequest(_ profileID: Int) -> Endpoint<StatusResponse> {
+        Endpoint(path: "profile/friend/request/hide/\(profileID)", auth: .required)
+    }
+
+    /// Only requested for the viewer's own friends screen, on page zero.
+    public static func friendRecommendations() -> Endpoint<PageableResponse<Profile>> {
+        Endpoint(path: "profile/friend/recommendations", auth: .required)
     }
 
     public static func lastUnratedReleases() -> Endpoint<PageableResponse<Release>> {

@@ -10,7 +10,7 @@ struct CommentsView: View {
     let releaseTitle: String
 
     @State private var paginator: Paginator<ReleaseComment>?
-    @State private var sort = 0
+    @State private var sort = ProfileCommentSort.newest.rawValue
     @State private var composer: ProfileCommentDraft
     @State private var votingIDs = Set<Int>()
     @State private var actionError: String?
@@ -60,9 +60,7 @@ struct CommentsView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Picker("Сортировка", selection: $sort) {
-                        Text("Сначала новые").tag(0)
-                        Text("Сначала старые").tag(1)
-                        Text("Сначала популярные").tag(2)
+                        ForEach(ProfileCommentSort.allCases) { Text($0.title).tag($0.rawValue) }
                     }
                 } label: {
                     Image(systemName: "arrow.up.arrow.down")

@@ -33,7 +33,7 @@ public enum ProfilePrivacy: Int, Codable, CaseIterable, Sendable, Identifiable {
     public var title: String {
         switch self {
         case .everyone: return "Все пользователи"
-        case .friends: return "Друзья"
+        case .friends: return "Только друзья"
         case .onlyMe: return "Только я"
         }
     }
@@ -68,6 +68,10 @@ public enum ProfileEditorRules {
     public static let showcaseLimit = 3
     public static let recentBadgeLimit = 4
     public static let minimumCoverReputation = 3
+    public static let passwordLimit = 32
+    public static let avatarAnimationByteLimit = 4 * 1024 * 1024
+    public static let badgePreviewLimit = 7
+    public static let categoryBadgePreviewLimit = 11
 
     /// Android's String.length/InputFilter counts UTF-16 code units, not graphemes.
     public static func isValidStatus(_ value: String) -> Bool { value.utf16.count <= statusLimit }
@@ -88,11 +92,15 @@ public enum ProfileEditorRules {
 
     /// Truncates without splitting a surrogate pair or a composed character.
     public static func limitedStatus(_ value: String) -> String {
+        limitedText(value, utf16Limit: statusLimit)
+    }
+
+    public static func limitedText(_ value: String, utf16Limit: Int) -> String {
         var result = ""
         var count = 0
         for character in value {
             let length = String(character).utf16.count
-            guard count + length <= statusLimit else { break }
+            guard count + length <= utf16Limit else { break }
             result.append(character)
             count += length
         }

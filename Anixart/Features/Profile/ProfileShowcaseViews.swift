@@ -9,7 +9,6 @@ struct ProfileBadgeShowcase: View {
     var body: some View {
         ProfileBadgeStrip(badges: Array(badges.prefix(ProfileEditorRules.showcaseLimit)), profileID: profile.id, viewer: viewer)
             .padding(.vertical, 22)
-            .background { ProfileShowcaseBackground(theme: profile.showcaseTheme) }
     }
 }
 

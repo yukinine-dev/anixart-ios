@@ -8,12 +8,13 @@ struct ProfileShowcaseBackground: View {
     @Environment(\.displayScale) private var displayScale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
     @State private var isVisible = false
     @State private var hasAppeared = false
 
     private var animationState: ProfileThemeAnimationState {
         ProfileThemeAnimationState(isVisible: hasAppeared && isVisible, isSceneActive: scenePhase == .active,
-                                   reduceMotion: reduceMotion, particleMotionEnabled: theme?.themeAnimationEnabled == true)
+                                    reduceMotion: reduceMotion || resourceSaving, particleMotionEnabled: theme?.themeAnimationEnabled == true)
     }
 
     var body: some View {

@@ -3,7 +3,7 @@ import UIKit
 import AnixartKit
 
 struct ProfileEmptySection: View {
-    var message = "В этом разделе ещё ничего нет"
+    var message = "Нет данных для отображения"
 
     var body: some View {
         Text(message)
@@ -291,9 +291,9 @@ struct ProfileCommentsSection: View {
                 ForEach(comments) { comment in
                     ProfileCommentLink(comment: comment, viewer: viewer).padding(.horizontal)
                 }
+                NavigationLink("Показать все") { ProfileCommentsView(profileID: profile.id, viewer: viewer) }
+                    .font(.ax(.subheadline, .medium)).frame(maxWidth: .infinity).padding(.vertical, 10)
             } else { ProfileEmptySection() }
-            NavigationLink("Показать все") { ProfileCommentsView(profileID: profile.id, viewer: viewer) }
-                .font(.ax(.subheadline, .medium)).frame(maxWidth: .infinity).padding(.vertical, 10)
         }
     }
 }
@@ -307,14 +307,11 @@ struct ProfileVideosSection: View {
         VStack(spacing: 16) {
             if let videos = profile.releaseVideosPreview, !videos.isEmpty {
                 ForEach(videos) { video in
-                    NavigationLink { ProfileVideoDetailView(video: video, viewer: viewer) } label: {
-                        ProfileVideoRow(video: video).padding(.horizontal)
-                    }
-                    .buttonStyle(.plain)
+                    ProfileVideoEntry(video: video, viewer: viewer).padding(.horizontal)
                 }
+                NavigationLink("Показать все") { ProfileVideosView(profileID: profile.id, viewer: viewer) }
+                    .font(.ax(.subheadline, .medium)).frame(maxWidth: .infinity).padding(.vertical, 10)
             } else { ProfileEmptySection() }
-            NavigationLink("Показать все") { ProfileVideosView(profileID: profile.id, viewer: viewer) }
-                .font(.ax(.subheadline, .medium)).frame(maxWidth: .infinity).padding(.vertical, 10)
         }
     }
 }
@@ -327,10 +324,8 @@ struct ProfileBadgesSection: View {
     var body: some View {
         VStack(spacing: 16) {
             if let badges = profile.badgesPreview, !badges.isEmpty {
-                ProfileBadgeStrip(badges: badges, profileID: profile.id, viewer: viewer)
+                ProfileBadgePreviewGrid(badges: badges, totalCount: profile.badgeCount, profileID: profile.id, viewer: viewer)
             } else { ProfileEmptySection() }
-            NavigationLink("Показать все") { ProfileBadgesView(profileID: profile.id, viewer: viewer) }
-                .font(.ax(.subheadline, .medium)).frame(maxWidth: .infinity).padding(.vertical, 10)
         }
     }
 }

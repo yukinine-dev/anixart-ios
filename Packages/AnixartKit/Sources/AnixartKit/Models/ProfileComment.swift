@@ -100,14 +100,14 @@ public struct ProfileCommentLocation: Codable, Hashable, Sendable {
     }
 }
 
-public enum ProfileCommentCategory: String, Codable, CaseIterable, Sendable, Identifiable {
+public enum ProfileCommentCategory: String, Codable, CaseIterable, Hashable, Sendable, Identifiable {
     case releases = "release", collections = "collection", articles = "article"
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .releases: return "Релизы"
-        case .collections: return "Коллекции"
-        case .articles: return "Записи"
+        case .releases: return "К релизам"
+        case .collections: return "К коллекциям"
+        case .articles: return "К записям"
         }
     }
 }

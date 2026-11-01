@@ -6,6 +6,8 @@ import AnixartKit
 final class ProfileViewModel {
     private(set) var profile: Profile?
     private(set) var coverURL: URL?
+    private(set) var blog: Channel?
+    private(set) var blogErrorMessage: String?
     private(set) var showcased: [Badge] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
@@ -24,6 +26,8 @@ final class ProfileViewModel {
         generation += 1
         profile = nil
         coverURL = nil
+        blog = nil
+        blogErrorMessage = nil
         showcased = []
         viewerKey = nil
         loadingViewer = nil
@@ -36,6 +40,22 @@ final class ProfileViewModel {
             section = ProfileSection(rawValue: updated.pinnedSectionId ?? 0) ?? .statistics
         }
         profile = updated
+        if !updated.visibleSections.contains(section) {
+            section = updated.visibleSections.first ?? .badges
+        }
+    }
+
+    func applyFriendStatus(_ status: FriendStatusCode?, profileID: Int) {
+        guard var current = profile, current.id == profileID else { return }
+        current.friendStatus = status
+        adopt(current)
+    }
+
+    func applyBlockState(_ blocked: Bool, profileID: Int) {
+        guard var current = profile, current.id == profileID else { return }
+        current.isBlocked = blocked
+        if blocked { current.friendStatus = nil }
+        adopt(current)
     }
 
     /// Reload the separate cover/showcase resources even when the profile JSON
@@ -54,6 +74,8 @@ final class ProfileViewModel {
         if profile?.id != profileID || viewerKey != viewer {
             profile = nil
             coverURL = nil
+            blog = nil
+            blogErrorMessage = nil
             showcased = []
             viewerKey = nil
         }
@@ -79,10 +101,21 @@ final class ProfileViewModel {
             guard requestGeneration == generation, session.viewerKey == viewer else { return }
 
             if let badgeResponse { showcased = badgeResponse.showcased ?? [] }
-            if (updated.ratingScore ?? 0) < ProfileEditorRules.minimumCoverReputation {
-                coverURL = nil
-            } else if let blogResponse {
-                coverURL = AnixartURL.image(blogResponse.channel?.cover)
+            switch blogResponse {
+            case .success(let response):
+                blogErrorMessage = nil
+                self.blog = response.channel
+                coverURL = AnixartURL.image(response.channel?.cover)
+            case .failure(let error):
+                // A failed read is not an empty blog. Keep an existing cover.
+                if let apiError = error as? AnixartError, case .api(let code, _) = apiError,
+                   code == AnixartStatus.banned || code == AnixartStatus.permBanned {
+                    self.blog = nil
+                    coverURL = nil
+                }
+                if !ProfileRequestFailure.isCancellation(error) {
+                    blogErrorMessage = Paginator<Release>.message(for: error)
+                }
             }
             if let socialResponse {
                 var current = updated
@@ -100,9 +133,14 @@ final class ProfileViewModel {
         }
     }
 
-    private static func blog(for profile: Profile, session: SessionController, viewer: ProfileViewerKey) async -> ChannelResponse? {
-        guard (profile.ratingScore ?? 0) >= ProfileEditorRules.minimumCoverReputation else { return nil }
-        return try? await session.sendViewerRequest(ChannelEndpoints.blog(profileID: profile.id), for: viewer)
+    private static func blog(for profile: Profile, session: SessionController, viewer: ProfileViewerKey) async -> Result<ChannelResponse, Error> {
+        do {
+            let response = try await session.sendViewerRequest(ChannelEndpoints.blog(profileID: profile.id), for: viewer)
+            if let owner = response.channel?.blogProfileId, owner != profile.id {
+                throw AnixartError.decoding(message: "Ответ содержит блог другого профиля", path: "channel/blog/\(profile.id)")
+            }
+            return .success(response)
+        } catch { return .failure(error) }
     }
 
     private static func social(for profile: Profile, session: SessionController, viewer: ProfileViewerKey) async -> ProfileSocialResponse? {

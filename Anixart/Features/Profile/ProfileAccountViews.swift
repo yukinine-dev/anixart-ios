@@ -185,6 +185,7 @@ struct ProfilePasswordEditorView: View {
     @State private var isSaving = false
     @State private var confirmsChange = false
     @State private var updatedAccount: ProfileAccountKey?
+    @State private var showsForgotHelp = false
     @State private var errorMessage: String?
 
     private var canSave: Bool {
@@ -207,8 +208,14 @@ struct ProfilePasswordEditorView: View {
                 } else {
                     Section {
                         SecureField("Текущий пароль", text: $current).textContentType(.password)
+                            .onChange(of: current) { _, value in current = ProfileEditorRules.limitedText(value, utf16Limit: ProfileEditorRules.passwordLimit) }
+                        Text("\(current.utf16.count) / \(ProfileEditorRules.passwordLimit)").font(.ax(.caption)).foregroundStyle(.secondary)
                         SecureField("Новый пароль", text: $new).textContentType(.newPassword)
+                            .onChange(of: new) { _, value in new = ProfileEditorRules.limitedText(value, utf16Limit: ProfileEditorRules.passwordLimit) }
+                        Text("\(new.utf16.count) / \(ProfileEditorRules.passwordLimit)").font(.ax(.caption)).foregroundStyle(.secondary)
                         SecureField("Повторите новый пароль", text: $confirmation).textContentType(.newPassword)
+                            .onChange(of: confirmation) { _, value in confirmation = ProfileEditorRules.limitedText(value, utf16Limit: ProfileEditorRules.passwordLimit) }
+                        Button("Забыли пароль?") { showsForgotHelp = true }
                     } footer: { Text("Требования к паролю проверяет сервер. После изменения текущая сессия будет сохранена с новым токеном.") }
                     if !confirmation.isEmpty, new != confirmation {
                         Section { Text("Пароли не совпадают").foregroundStyle(.red) }
@@ -224,6 +231,12 @@ struct ProfilePasswordEditorView: View {
         .navigationTitle("Изменить пароль")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .sheet(isPresented: $showsForgotHelp) {
+            ProfileHelpSheet(title: "Забыли пароль?", paragraphs: [
+                "Чтобы восстановить пароль, выйдите из аккаунта и воспользуйтесь восстановлением по Email на странице авторизации.",
+                "Открытие этой справки не выполняет выход из аккаунта."
+            ])
+        }
         .confirmationDialog("Изменить пароль?", isPresented: $confirmsChange, titleVisibility: .visible) {
             Button("Изменить") { Task { await save() } }
         }
@@ -276,7 +289,7 @@ struct ProfileServiceView: View {
                         if bound {
                             Button("Отвязать \(service.title)", role: .destructive) { confirmsUnbind = true }
                                 .disabled(isSaving)
-                        } else { Button("Привязать \(service.title)") {}.disabled(true) }
+                        } else { Text("Привязка на iOS пока недоступна").foregroundStyle(.secondary) }
                     } footer: {
                         if bound { Text("Вход в учётную запись через \(service.title) доступен, пока сервис привязан.") }
                         else { Text("Привязка пока недоступна: для iOS ещё не настроен безопасный вход через \(service.title). Ручной ввод токенов не используется.") }

@@ -7,7 +7,15 @@ struct ProfileCommentsView: View {
     let profileID: Int
     @State private var viewer: ProfileViewerKey?
     @State private var category: ProfileCommentCategory = .releases
-    @State private var paginator: Paginator<ProfileComment>?
+    @State private var lists: [ProfileCommentCategory: Paginator<ProfileComment>] = [:]
+    @State private var sorts: [ProfileCommentCategory: ProfileCommentSort] = [:]
+    @State private var loadedSorts: [ProfileCommentCategory: ProfileCommentSort] = [:]
+
+    private var paginator: Paginator<ProfileComment>? { lists[category] }
+    private var sort: ProfileCommentSort {
+        get { sorts[category] ?? .newest }
+        nonmutating set { sorts[category] = newValue }
+    }
 
     init(profileID: Int, viewer: ProfileViewerKey? = nil) {
         self.profileID = profileID
@@ -18,6 +26,8 @@ struct ProfileCommentsView: View {
         List {
             ProfileViewerNotice(viewer: viewer)
             if viewer == env.session.viewerKey, let paginator {
+                ProfileCommentSortHeader(totalCount: paginator.totalCount,
+                                         sort: Binding(get: { sort }, set: { sort = $0 }))
                 PaginatedContent(paginator: paginator, emptyTitle: "Комментариев пока нет") { comment in
                     ProfileCommentLink(comment: comment, fallbackCategory: category, viewer: viewer)
                 }
@@ -28,26 +38,41 @@ struct ProfileCommentsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .safeAreaInset(edge: .top) {
-            Picker("Раздел", selection: $category) {
-                ForEach(ProfileCommentCategory.allCases) { Text($0.title).tag($0) }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(ProfileCommentCategory.allCases) { candidate in
+                        Button { category = candidate } label: {
+                            Text(candidate.title + (lists[candidate]?.totalCount.flatMap { $0 > 0 ? " · \(Format.count($0))" : nil } ?? ""))
+                                .font(.ax(.subheadline))
+                                .padding(10)
+                                .background(category == candidate ? Theme.accent.opacity(0.15) : Color.clear, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(category == candidate ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal)
             }
-            .pickerStyle(.segmented).padding().background(.bar)
+            .padding(.vertical, 8).background(.bar)
         }
         .refreshable { await paginator?.reload() }
-        .task(id: category) {
+        .task(id: "\(category.rawValue)-\(sort.rawValue)") {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }
             let session = env.session
             let id = profileID
             let category = self.category
-            let list = Paginator<ProfileComment> { page in
-                try await session.sendViewerRequest(ProfileEndpoints.comments(profileID: id, category: category, page: page), for: viewer)
+            let sort = self.sort
+            if loadedSorts[category] != sort || lists[category] == nil {
+                lists[category] = Paginator<ProfileComment> { page in
+                    try await session.sendViewerRequest(ProfileEndpoints.comments(profileID: id, category: category, page: page, sort: sort.rawValue), for: viewer)
+                }
+                loadedSorts[category] = sort
             }
-            paginator = list
-            await list.loadFirstPageIfNeeded()
+            await lists[category]?.loadFirstPageIfNeeded()
         }
         .onChange(of: env.session.viewerKey) { _, current in
-            if viewer != current { paginator = nil }
+            if viewer != current { lists = [:]; sorts = [:]; loadedSorts = [:] }
         }
     }
 }
@@ -61,13 +86,24 @@ struct ProfileCommentLink: View {
 
     var body: some View {
         if let category = comment.category ?? fallbackLocation?.category ?? fallbackCategory {
-            NavigationLink {
-                ProfileCommentDetailView(commentID: comment.id, category: category, preloaded: comment,
-                                         fallbackLocation: fallbackLocation, viewer: viewer)
-            } label: {
-                ProfileCommentPreviewCard(comment: comment)
+            VStack(alignment: .leading, spacing: 0) {
+                NavigationLink {
+                    ProfileCommentDetailView(commentID: comment.id, category: category, preloaded: comment,
+                                             fallbackLocation: fallbackLocation, viewer: viewer)
+                } label: {
+                    ProfileCommentPreviewCard(comment: comment)
+                }
+                .buttonStyle(.plain)
+                if let count = comment.replyCount, count > 0 {
+                    NavigationLink("Показать \(Plural.replies(count))") {
+                        ProfileCommentDetailView(commentID: comment.threadRootID, category: category,
+                                                 preloaded: comment.threadRootID == comment.id ? comment : nil,
+                                                 fallbackLocation: fallbackLocation ?? comment.location, viewer: viewer)
+                    }
+                    .font(.ax(.subheadline)).padding(.leading, 52).padding(.bottom, 10)
+                }
             }
-            .buttonStyle(.plain)
+            .profileCommentContext(comment, category: category, viewer: viewer)
         } else {
             ProfileCommentPreviewCard(comment: comment)
         }
@@ -129,6 +165,8 @@ struct ProfileCommentDetailView: View {
     @State private var parent = ProfileResource<ProfileComment>()
     @State private var replies: Paginator<ProfileComment>?
     @State private var repliesRootID: Int?
+    @State private var sort: ProfileCommentSort = .oldest
+    @State private var loadedRepliesSort: ProfileCommentSort?
     @State private var loadGeneration = 0
     @State private var composer: ProfileCommentDraft
     @State private var votingIDs = Set<Int>()
@@ -149,6 +187,7 @@ struct ProfileCommentDetailView: View {
     private var hasCurrentViewer: Bool { composer.viewer == env.session.viewerKey }
     private var actionsEnabled: Bool { hasCurrentViewer && resource.value != nil && !resource.isLoading }
     private var contextComment: ProfileComment? { comment?.location == nil ? parent.value ?? comment : comment }
+    private var threadRoot: ProfileComment? { rootID == commentID ? comment : parent.value }
     private var errorMessage: String? { actionError ?? composer.errorMessage }
 
     var body: some View {
@@ -163,25 +202,24 @@ struct ProfileCommentDetailView: View {
                             } label: { Text(ProfileCommentPresentation.parentTitle(contextComment ?? comment)).font(.ax(.subheadline)) }
                         }
                     }
-                    Section {
-                        ProfileCommentRow(comment: comment, viewer: composer.viewer, onReply: { chooseReply(comment) },
-                                           onVote: { value in Task { await vote(comment, value) } },
-                                           isVoting: votingIDs.contains(comment.id), actionsEnabled: actionsEnabled)
-                        if rootID != commentID {
-                            NavigationLink("Исходный комментарий") {
-                                ProfileCommentDetailView(commentID: rootID, category: category,
-                                                         preloaded: parent.value, fallbackLocation: location,
-                                                         viewer: composer.viewer)
-                            }
+                    ProfileCommentSortHeader(totalCount: replies?.totalCount, sort: $sort)
+                    if let root = threadRoot {
+                        Section {
+                            ProfileCommentRow(comment: root, viewer: composer.viewer, onReply: { chooseReply(root) },
+                                               onVote: { value in Task { await vote(root, value) } },
+                                               isVoting: votingIDs.contains(root.id), actionsEnabled: actionsEnabled,
+                                               contextCategory: category)
                         }
                     }
                     if let replies {
-                        Section("Ответы") {
+                        Section {
                             PaginatedContent(paginator: replies, emptyTitle: "Ответов пока нет") { reply in
-                                if reply.id != commentID {
+                                if reply.id != rootID {
                                     ProfileCommentRow(comment: reply, viewer: composer.viewer, onReply: { chooseReply(reply) },
-                                                      onVote: { value in Task { await vote(reply, value) } },
-                                                      isVoting: votingIDs.contains(reply.id), actionsEnabled: actionsEnabled)
+                                                       onVote: { value in Task { await vote(reply, value) } },
+                                                       isVoting: votingIDs.contains(reply.id), actionsEnabled: actionsEnabled,
+                                                       contextCategory: category)
+                                        .padding(.leading, 20)
                                 }
                             }
                         }
@@ -200,10 +238,10 @@ struct ProfileCommentDetailView: View {
                                        onCancelReply: { composer.replyingTo = nil }, onSend: { Task { await send() } })
             }
         }
-        .navigationTitle("Комментарий")
+        .navigationTitle("Ответы")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .task { await load() }
+        .task(id: sort) { await load() }
         .onChange(of: env.session.viewerKey) { _, current in
             guard let viewer = composer.viewer, viewer != current else { return }
             composer.invalidate(for: current)
@@ -212,6 +250,7 @@ struct ProfileCommentDetailView: View {
             parent.reset()
             replies = nil
             repliesRootID = nil
+            loadedRepliesSort = nil
             actionError = nil
         }
         .alert("Комментарии", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { clearError() } })) {
@@ -249,13 +288,15 @@ struct ProfileCommentDetailView: View {
             }
         } else { parent.reset() }
         guard generation == loadGeneration, viewer == env.session.viewerKey, !Task.isCancelled else { return }
-        if repliesRootID != root {
+        if repliesRootID != root || loadedRepliesSort != sort {
             let session = env.session
             let category = self.category
+            let sort = self.sort
             replies = Paginator { page in
-                try await session.sendViewerRequest(ProfileCommentEndpoints.replies(commentID: root, category: category, page: page), for: viewer)
+                try await session.sendViewerRequest(ProfileCommentEndpoints.replies(commentID: root, category: category, page: page, sort: sort.rawValue), for: viewer)
             }
             repliesRootID = root
+            loadedRepliesSort = sort
         }
         if refreshReplies { await replies?.reload() }
         else { await replies?.loadFirstPageIfNeeded() }
@@ -277,7 +318,7 @@ struct ProfileCommentDetailView: View {
         do {
             let vote = comment.vote == value ? 0 : value
             try await env.session.sendConfirmedAccountRequest(ProfileCommentEndpoints.vote(commentID: comment.id, category: category, vote: vote), for: account)
-            if comment.id == commentID { await load() }
+            if comment.id == commentID || comment.id == rootID { await refresh() }
             else { await list?.reload() }
         } catch {
             if !ProfileRequestFailure.isCancellation(error) { actionError = Paginator<Release>.message(for: error) }
@@ -300,6 +341,9 @@ struct ProfileCommentsAtLocationView: View {
     let location: ProfileCommentLocation
     @State private var paginator: Paginator<ProfileComment>?
     @State private var composer: ProfileCommentDraft
+    @State private var sort: ProfileCommentSort = .newest
+    @State private var votingIDs = Set<Int>()
+    @State private var actionError: String?
 
     init(location: ProfileCommentLocation, viewer: ProfileViewerKey? = nil) {
         self.location = location
@@ -311,33 +355,50 @@ struct ProfileCommentsAtLocationView: View {
             List {
                 ProfileViewerNotice(viewer: composer.viewer)
                 if composer.viewer == env.session.viewerKey, let paginator {
+                    ProfileCommentSortHeader(totalCount: paginator.totalCount, sort: $sort)
                     PaginatedContent(paginator: paginator, emptyTitle: "Комментариев пока нет") { comment in
-                        ProfileCommentLink(comment: comment, fallbackLocation: location, viewer: composer.viewer)
+                        VStack(alignment: .leading, spacing: 8) {
+                            ProfileCommentRow(comment: comment, viewer: composer.viewer,
+                                              onReply: { if !composer.isSending { composer.replyingTo = comment } },
+                                              onVote: { value in Task { await vote(comment, value: value) } },
+                                              isVoting: votingIDs.contains(comment.id), actionsEnabled: !composer.isSending,
+                                              contextCategory: location.category)
+                            if let count = comment.replyCount, count > 0 {
+                                NavigationLink("Показать \(Plural.replies(count))") {
+                                    ProfileCommentDetailView(commentID: comment.threadRootID, category: location.category,
+                                                             preloaded: comment.threadRootID == comment.id ? comment : nil,
+                                                             fallbackLocation: location, viewer: composer.viewer)
+                                }
+                                .font(.ax(.subheadline)).padding(.leading, 52)
+                            }
+                        }
                     }
+                    ProfileSaveError(message: actionError)
                 }
             }
             .listStyle(.plain)
             .refreshable { await paginator?.reload() }
             ProfileCommentComposer(draft: $composer.message, isSpoiler: $composer.isSpoiler, viewer: composer.viewer,
+                                   replyingTo: composer.replyingTo?.profile?.login,
                                    isSending: composer.isSending,
+                                   onCancelReply: { composer.replyingTo = nil },
                                    onSend: { Task { await send() } })
         }
         .navigationTitle("Комментарии")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .task {
+        .task(id: sort) {
             let viewer = composer.captureViewer(env.session.viewerKey)
             guard viewer == env.session.viewerKey else { return }
-            if paginator == nil {
-                let session = env.session
-                let location = self.location
-                paginator = Paginator { page in try await session.sendViewerRequest(ProfileCommentEndpoints.all(at: location, page: page), for: viewer) }
-            }
+            let session = env.session
+            let location = self.location
+            let sort = self.sort
+            paginator = Paginator { page in try await session.sendViewerRequest(ProfileCommentEndpoints.all(at: location, page: page, sort: sort.rawValue), for: viewer) }
             await paginator?.loadFirstPageIfNeeded()
         }
         .onChange(of: env.session.viewerKey) { _, current in
             composer.invalidate(for: current)
-            if composer.viewer != current { paginator = nil }
+            if composer.viewer != current { paginator = nil; actionError = nil }
         }
         .alert("Не удалось отправить", isPresented: Binding(get: { composer.errorMessage != nil }, set: { if !$0 { composer.errorMessage = nil } })) {
             Button("Понятно", role: .cancel) { composer.errorMessage = nil }
@@ -347,10 +408,25 @@ struct ProfileCommentsAtLocationView: View {
     private func send() async {
         guard let account = composer.viewer?.account else { env.session.promptSignIn(); return }
         let list = paginator
-        if await composer.send(at: location, session: env.session) {
+        if await composer.send(at: location, parentCommentID: composer.replyingTo?.threadRootID, session: env.session) {
             await list?.reload()
             await env.session.refreshProfile(for: account)
         }
+    }
+
+    private func vote(_ comment: ProfileComment, value: Int) async {
+        guard composer.viewer == env.session.viewerKey, !composer.isSending,
+              !votingIDs.contains(comment.id), comment.isDeleted != true, comment.canLike != false else { return }
+        guard let account = composer.viewer?.account else { env.session.promptSignIn(); return }
+        votingIDs.insert(comment.id)
+        actionError = nil
+        defer { votingIDs.remove(comment.id) }
+        do {
+            try await env.session.sendConfirmedAccountRequest(ProfileCommentEndpoints.vote(commentID: comment.id,
+                                                                                         category: location.category,
+                                                                                         vote: comment.vote == value ? 0 : value), for: account)
+            await paginator?.reload()
+        } catch { if !ProfileRequestFailure.isCancellation(error) { actionError = Paginator<Release>.message(for: error) } }
     }
 }
 
@@ -362,6 +438,7 @@ struct ProfileCommentRow: View {
     var onVote: ((Int) -> Void)?
     var isVoting = false
     var actionsEnabled = true
+    var contextCategory: ProfileCommentCategory?
     @State private var revealsSpoiler = false
 
     var body: some View {
@@ -417,6 +494,7 @@ struct ProfileCommentRow: View {
             }
         }
         .padding(.vertical, 8)
+        .profileCommentContext(comment, category: contextCategory ?? comment.category, viewer: viewer)
     }
 
     private func voteButton(_ value: Int, icon: String) -> some View {

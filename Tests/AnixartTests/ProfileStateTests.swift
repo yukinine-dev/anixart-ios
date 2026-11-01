@@ -227,15 +227,17 @@ final class ProfileStateTests: XCTestCase {
     }
 
     @MainActor
-    func testProfileBelowCoverReputationNeverRequestsBlog() async {
+    func testProfileBelowCreationReputationStillLoadsExistingBlogAndCover() async {
         let rig = ProfileTestRig()
         await rig.session.restore()
         rig.api.enqueue("/profile/71", json: #"{"code":0,"profile":{"id":71,"rating_score":2,"is_social_hidden":true}}"#)
         rig.api.enqueue("/profile/71/badge/list", json: #"{"code":0,"showcased":[]}"#)
+        rig.api.enqueue("/channel/blog/71", json: #"{"code":0,"channel":{"id":1,"blog_profile_id":71,"cover":"https://example.invalid/existing.jpg"}}"#)
         let model = ProfileViewModel()
         await model.load(profileID: 71, session: rig.session)
-        XCTAssertNil(model.coverURL)
-        XCTAssertTrue(rig.api.requests(to: "/channel/blog/71").isEmpty)
+        XCTAssertEqual(model.coverURL?.lastPathComponent, "existing.jpg")
+        XCTAssertEqual(model.blog?.id, 1)
+        XCTAssertEqual(rig.api.requests(to: "/channel/blog/71").count, 1)
     }
 
     @MainActor

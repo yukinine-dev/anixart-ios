@@ -3,16 +3,15 @@ import AnixartKit
 
 /// Settings, reached from the gear on Главная.
 ///
-/// Deliberately shorter than the Android screen. That one also offers playback,
-/// appearance, data and ad preferences, all of which need endpoints or subsystems this
-/// port does not have yet; a row that does nothing is worse than an absent one, so
-/// only what works is listed here.
+/// Only implemented subsystems are exposed. Android-only players, modded ads,
+/// import/export and downloads are not represented by decorative settings.
 @MainActor
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
 
     @State private var isConfirmingSignOut = false
+    @State private var signOutAccount: ProfileAccountKey?
 
     private var appVersion: String {
         let info = Bundle.main.infoDictionary
@@ -31,7 +30,7 @@ struct SettingsView: View {
                             Spacer()
                             Text(profile.displayLogin).foregroundStyle(.secondary)
                         }
-                        Button("Выйти", role: .destructive) { isConfirmingSignOut = true }
+                        Button("Выйти", role: .destructive) { signOutAccount = env.session.accountKey; isConfirmingSignOut = true }
                     } else {
                         Button("Войти") {
                             dismiss()
@@ -41,6 +40,9 @@ struct SettingsView: View {
                 }
 
                 Section("Уведомления") {
+                    NavigationLink { ProfileNotificationPreferencesView(account: env.session.accountKey) } label: {
+                        Label("Настройки уведомлений", systemImage: "bell.badge")
+                    }
                     NavigationLink {
                         NotificationsView()
                     } label: {
@@ -48,7 +50,17 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Приложение") {
+                    NavigationLink { DevicePlaybackSettingsView() } label: { Label("Воспроизведение", systemImage: "play.rectangle") }
+                    NavigationLink { DeviceAppearanceSettingsView() } label: { Label("Внешний вид", systemImage: "paintpalette") }
+                    NavigationLink { DeviceDataSettingsView() } label: { Label("Управление данными", systemImage: "internaldrive") }
+                    NavigationLink { DeviceAdditionalSettingsView() } label: { Label("Дополнительно", systemImage: "slider.horizontal.3") }
+                }
+
                 Section("Правовая информация") {
+                    Link(destination: AnixartEnvironment.webBaseURL.appendingPathComponent("faq")) {
+                        Label("Помощь / FAQ", systemImage: "questionmark.circle")
+                    }
                     Link(destination: AnixartEnvironment.webBaseURL.appendingPathComponent("rules")) {
                         Label("Правила сообщества", systemImage: "shield")
                     }
@@ -93,6 +105,7 @@ struct SettingsView: View {
             ) {
                 Button("Выйти", role: .destructive) {
                     Task {
+                        guard let signOutAccount, env.session.accountKey == signOutAccount else { return }
                         await env.session.signOut()
                         dismiss()
                     }

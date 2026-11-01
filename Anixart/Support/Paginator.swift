@@ -28,10 +28,12 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
     private var nextPage = 0
     private var generation = 0
     private var hasLoadedFirstPage = false
+    private let continuesWithoutPageCount: Bool
     private(set) var failedPage: Int?
 
-    init(fetch: @escaping @Sendable (Int) async throws -> PageableResponse<Item>) {
+    init(continuesWithoutPageCount: Bool = false, fetch: @escaping @Sendable (Int) async throws -> PageableResponse<Item>) {
         self.fetch = fetch
+        self.continuesWithoutPageCount = continuesWithoutPageCount
     }
 
     var isLoadingFirstPage: Bool { state == .loading && items.isEmpty }
@@ -63,7 +65,7 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
             var seen = Set<Item.ID>()
             items = page.items.filter { seen.insert($0.id).inserted }
             totalCount = page.totalCount
-            hasMore = !page.isLastPage
+            hasMore = continuesWithoutPageCount && page.totalPageCount == nil ? !page.items.isEmpty : !page.isLastPage
             nextPage = 1
             hasLoadedFirstPage = true
             state = .idle
@@ -104,7 +106,7 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
             var known = Set(items.map(\.id))
             items.append(contentsOf: response.items.filter { known.insert($0.id).inserted })
             totalCount = response.totalCount
-            hasMore = !response.isLastPage
+            hasMore = continuesWithoutPageCount && response.totalPageCount == nil ? !response.items.isEmpty : !response.isLastPage
             nextPage = page + 1
             state = .idle
         } catch {

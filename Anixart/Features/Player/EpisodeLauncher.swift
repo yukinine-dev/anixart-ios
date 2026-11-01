@@ -41,6 +41,7 @@ final class EpisodeLauncher {
     }
 
     func open(_ episode: Episode) {
+        preferences.reload()
         if preferences.hasAcceptedDisclaimer {
             resolve(episode)
         } else {

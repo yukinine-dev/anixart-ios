@@ -329,9 +329,14 @@ final class SessionController {
         }
     }
 
-    /// Called after the notifications screen is opened.
-    func clearNotificationBadge() {
+    /// A read acknowledgement is account-scoped and must succeed before the badge
+    /// changes. A newer count/session response supersedes this request.
+    func markNotificationsRead(for account: ProfileAccountKey) async throws {
+        guard accountKey == account else { throw CancellationError() }
         notificationGeneration += 1
+        let generation = notificationGeneration
+        try await sendConfirmedAccountRequest(NotificationEndpoints.markAllRead(), for: account)
+        guard accountKey == account, generation == notificationGeneration else { return }
         unreadNotifications = 0
     }
 

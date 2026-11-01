@@ -7,11 +7,23 @@ struct ProfileHealthView: View {
     let account: ProfileAccountKey?
     var channelID: Int?
     @State private var resource = ProfileResource<ProfileHealthStatusResponse>()
+    @State private var kind: ProfileEnforcementListView.Kind = .account
+    @State private var lists: [ProfileEnforcementListView.Kind: Paginator<ProfileEnforcement>] = [:]
+    @State private var showsHelp = false
 
     var body: some View {
         List {
             ProfileAccountNotice(account: account)
             if account != nil, env.session.accountKey == account, let health = resource.value {
+                Section {
+                    Button { showsHelp = true } label: {
+                        Label(health.banCount == 0 && env.session.profile?.isBanned != true && !isFuture(health.lastBanExpires)
+                              && !isFuture(health.blogSuspensionExpires) && !isFuture(health.blogMuteExpires)
+                              ? "Вы безупречны" : "История ограничений аккаунта", systemImage: "checkmark.shield")
+                            .font(.ax(.title3, .medium)).padding(.vertical, 12)
+                    }.buttonStyle(.plain)
+                    Button("Что это значит?") { showsHelp = true }
+                }
                 Section("Ограничения") {
                     restriction("Аккаунт", expires: health.lastBanExpires,
                                 isActive: env.session.profile?.isBanned == true || isFuture(health.lastBanExpires))
@@ -26,12 +38,18 @@ struct ProfileHealthView: View {
                     }
                 }
                 Section {
-                    NavigationLink {
-                        ProfileEnforcementListView(kind: .account, account: account, channelID: channelID)
-                    } label: { ProfileEditorRow(title: "Нарушения аккаунта", subtitle: "Блокировки и ограничения") }
-                    NavigationLink {
-                        ProfileEnforcementListView(kind: .content, account: account, channelID: channelID)
-                    } label: { ProfileEditorRow(title: "Нарушения контента", subtitle: "Изменения и удаления модератором") }
+                    Picker("История", selection: $kind) {
+                        Text("Ограничения").tag(ProfileEnforcementListView.Kind.account)
+                        Text("Действия с контентом").tag(ProfileEnforcementListView.Kind.content)
+                    }.pickerStyle(.segmented)
+                    if let list = lists[kind] {
+                        PaginatedContent(paginator: list, emptyTitle: "Нет данных для отображения") { enforcement in
+                            NavigationLink {
+                                ProfileEnforcementDetailView(enforcementID: enforcement.id, preloaded: enforcement,
+                                                             account: account, channelID: channelID)
+                            } label: { ProfileEnforcementRow(enforcement: enforcement) }
+                        }
+                    }
                 }
                 ProfileSaveError(message: resource.errorMessage)
             } else if account != nil, env.session.accountKey == account {
@@ -42,10 +60,16 @@ struct ProfileHealthView: View {
         .navigationTitle("Здоровье аккаунта")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .refreshable { await load() }
-        .task { await load() }
+        .refreshable { await load(); await lists[kind]?.reload() }
+        .task(id: kind) { if resource.value == nil { await load() }; await loadList() }
         .onChange(of: env.session.accountKey) { _, current in
-            if account != current { resource.reset() }
+            if account != current { resource.reset(); lists = [:]; showsHelp = false }
+        }
+        .sheet(isPresented: $showsHelp) {
+            ProfileHelpSheet(title: "Здоровье аккаунта", paragraphs: [
+                "Здесь отображается история нарушений, ограничений аккаунта и действий модераторов с вашим контентом.",
+                "Сроки и причины ограничений указаны в деталях нарушения. Если апелляция доступна, её можно подать из этих деталей."
+            ])
         }
     }
 
@@ -67,11 +91,24 @@ struct ProfileHealthView: View {
         guard let account else { return }
         await resource.load { try await env.session.sendAccountRequest(ProfileSecurityEndpoints.health(), for: account) }
     }
+
+    private func loadList() async {
+        guard let account, env.session.accountKey == account else { return }
+        let kind = self.kind
+        if lists[kind] == nil {
+            let session = env.session
+            lists[kind] = Paginator(continuesWithoutPageCount: true) { page in
+                let items = try await session.sendAccountRequest(ProfileSecurityEndpoints.enforcements(account: kind == .account, page: page), for: account)
+                return PageableResponse(content: items, currentPage: page)
+            }
+        }
+        await lists[kind]?.loadFirstPageIfNeeded()
+    }
 }
 
 @MainActor
 struct ProfileEnforcementListView: View {
-    enum Kind { case account, content }
+    enum Kind: Hashable, Sendable { case account, content }
     @Environment(AppEnvironment.self) private var env
     let kind: Kind
     let account: ProfileAccountKey?
@@ -100,7 +137,7 @@ struct ProfileEnforcementListView: View {
             if paginator == nil {
                 let session = env.session
                 let isAccount = kind == .account
-                paginator = Paginator { page in
+                paginator = Paginator(continuesWithoutPageCount: true) { page in
                     let items = try await session.sendAccountRequest(
                         ProfileSecurityEndpoints.enforcements(account: isAccount, page: page), for: account
                     )
@@ -153,7 +190,7 @@ struct ProfileEnforcementDetailView: View {
     var body: some View {
         List {
             ProfileAccountNotice(account: account)
-            if account != nil, env.session.accountKey == account, let enforcement {
+            if account != nil, env.session.accountKey == account, let enforcement, enforcement.hasValidDetails {
                 Section {
                     Text(enforcement.title).font(.ax(.title3, .medium))
                     if let reason = enforcement.reason { Text(reason).font(.ax(.body)).textSelection(.enabled) }
@@ -185,13 +222,18 @@ struct ProfileEnforcementDetailView: View {
                     if let message = enforcement.appealProcessMessage, !message.isEmpty {
                         Text(message).font(.ax(.body)).textSelection(.enabled)
                     }
-                    if enforcement.mayAppeal() {
+                    if enforcement.appealRoute == .messageForm, enforcement.mayAppeal() {
                         NavigationLink {
                             ProfileEnforcementAppealView(enforcementID: enforcementID, account: account)
                         } label: { Label("Подать апелляцию", systemImage: "envelope") }
                         .disabled(resource.value?.enforcement == nil || env.session.accountKey != account)
                         Text("Доступна до \(ProfileDate.dateTime(enforcement.appealExpiresTimestamp))")
                             .font(.ax(.caption)).foregroundStyle(.secondary)
+                    } else if enforcement.appealRoute == .enforcementDetails {
+                        Text("Апелляция этого типа связана с корректировкой контента. Проверьте сведения об изменении выше.")
+                            .font(.ax(.subheadline)).foregroundStyle(.secondary)
+                    } else if enforcement.appealRoute == .result {
+                        NavigationLink("Результат апелляции") { ProfileEnforcementAppealResultView(enforcement: enforcement, account: account) }
                     } else if enforcement.appealStatus?.matches(name: "NOT_SUBMITTED", ordinal: 1) == true {
                         Text("Подача апелляции недоступна или срок подачи истёк.").foregroundStyle(.secondary)
                     }
@@ -199,6 +241,8 @@ struct ProfileEnforcementDetailView: View {
                 if let error = resource.errorMessage {
                     StatusMessageView(title: "Не удалось обновить нарушение", message: error, retry: load)
                 }
+            } else if account != nil, env.session.accountKey == account, let enforcement, !enforcement.hasValidDetails {
+                StatusMessageView(title: "Данные нарушения недоступны", message: "Сервер не вернул поддерживаемые сведения об этом нарушении.")
             } else if account != nil, env.session.accountKey == account {
                 ProfileResourceState(resource: resource, title: "Не удалось загрузить нарушение", retry: load)
             }
@@ -283,10 +327,10 @@ struct ProfileEnforcementAppealView: View {
     @State private var errorMessage: String?
 
     private var canSubmit: Bool {
-        guard let enforcement = resource.value?.enforcement, enforcement.mayAppeal(),
+        guard let enforcement = resource.value?.enforcement, enforcement.appealRoute == .messageForm, enforcement.mayAppeal(),
                account != nil, env.session.accountKey == account, !resource.isLoading,
                resource.errorMessage == nil, !isSaving, !hasSubmitted else { return false }
-        return enforcement.isAdjustment || !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -303,18 +347,20 @@ struct ProfileEnforcementAppealView: View {
                     Text(enforcement.title).font(.ax(.headline))
                     if let reason = enforcement.reason { Text(reason).font(.ax(.subheadline)).foregroundStyle(.secondary) }
                 }
-                if enforcement.mayAppeal() {
-                    if enforcement.isAdjustment {
-                        Section {
-                            Text("Этот тип апелляции отправляется без сообщения. Перед отправкой проверьте затронутый контент.")
-                        }
-                    } else {
+                if enforcement.appealRoute == .messageForm, enforcement.mayAppeal() {
                         Section("Сообщение модератору") {
                             TextField("Объясните, почему нарушение нужно пересмотреть", text: $message, axis: .vertical)
                                 .lineLimit(5...12)
                         }
-                    }
                     Section { Button("Отправить апелляцию") { confirmsSubmit = true }.disabled(!canSubmit) }
+                } else if enforcement.appealRoute == .enforcementDetails {
+                    Section {
+                        NavigationLink("Детали изменения контента") {
+                            ProfileEnforcementDetailView(enforcementID: enforcementID, preloaded: enforcement, account: account)
+                        }
+                    }
+                } else if enforcement.appealRoute == .result {
+                    Section { NavigationLink("Результат апелляции") { ProfileEnforcementAppealResultView(enforcement: enforcement, account: account) } }
                 } else {
                     Section { Text("Подача апелляции больше недоступна. Статус: \(enforcement.appealStatusTitle).") }
                 }
@@ -354,7 +400,7 @@ struct ProfileEnforcementAppealView: View {
 
     private func submit() async {
         guard canSubmit, let account, let enforcement = resource.value?.enforcement else { return }
-        let draft = enforcement.isAdjustment ? nil : message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let draft = message.trimmingCharacters(in: .whitespacesAndNewlines)
         isSaving = true
         errorMessage = nil
         defer { isSaving = false }
@@ -365,5 +411,23 @@ struct ProfileEnforcementAppealView: View {
         } catch {
             if !ProfileRequestFailure.isCancellation(error) { errorMessage = Paginator<Release>.message(for: error) }
         }
+    }
+}
+
+struct ProfileEnforcementAppealResultView: View {
+    @Environment(AppEnvironment.self) private var env
+    let enforcement: ProfileEnforcement
+    let account: ProfileAccountKey?
+    var body: some View {
+        List {
+            ProfileAccountNotice(account: account)
+            if account != nil, env.session.accountKey == account {
+                LabeledContent("Статус", value: enforcement.appealStatusTitle)
+                if let message = enforcement.appealProcessMessage, !message.isEmpty {
+                    Text(message).font(.ax(.body)).textSelection(.enabled)
+                }
+            }
+        }
+        .navigationTitle("Результат апелляции").navigationBarTitleDisplayMode(.inline)
     }
 }

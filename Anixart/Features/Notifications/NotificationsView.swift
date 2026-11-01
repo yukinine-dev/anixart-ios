@@ -6,11 +6,16 @@ import AnixartKit
 @MainActor
 struct NotificationsView: View {
     @Environment(AppEnvironment.self) private var env
-    @State private var paginator: Paginator<AnixartNotification>?
+    @State private var model = NotificationsModel()
 
     var body: some View {
         List {
-            if let paginator {
+            ProfileViewerNotice(viewer: model.viewer)
+            if !env.session.isSignedIn {
+                if env.session.state == .loading { ProgressView().frame(maxWidth: .infinity) }
+                else { SignInPromptView(message: "Войдите, чтобы просматривать уведомления.") }
+            }
+            if model.viewer == env.session.viewerKey, let paginator = model.paginator {
                 PaginatedContent(
                     paginator: paginator,
                     emptyTitle: "Уведомлений нет",
@@ -18,21 +23,32 @@ struct NotificationsView: View {
                 ) { notification in
                     row(notification)
                 }
+                if let error = model.readError {
+                    StatusMessageView(title: "Не удалось отметить уведомления прочитанными", message: error,
+                                      retry: { await model.retryRead(session: env.session) })
+                }
             }
         }
         .listStyle(.plain)
         .navigationTitle("Уведомления")
-        .refreshable { await paginator?.reload() }
-        .task {
-            if paginator == nil {
-                let client = env.client
-                paginator = Paginator { page in
-                    try await client.send(NotificationEndpoints.all(page: page))
+        .refreshable { await model.paginator?.reload() }
+        .task(id: model.filter) { await model.load(session: env.session) }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Picker("Тип уведомлений", selection: $model.filter) {
+                        ForEach(NotificationFeedFilter.allCases) { Text($0.title).tag($0) }
+                    }
+                } label: { Image(systemName: "line.3.horizontal.decrease") }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink { ProfileNotificationPreferencesView(account: model.viewer?.account ?? env.session.accountKey) } label: {
+                    Image(systemName: "gearshape")
                 }
             }
-            await paginator?.loadFirstPageIfNeeded()
-            await markRead()
         }
+        .task(id: model.readCandidates) { await model.markReadIfNeeded(session: env.session) }
+        .onChange(of: env.session.viewerKey) { _, current in model.invalidate(for: current) }
     }
 
     @ViewBuilder
@@ -41,7 +57,7 @@ struct NotificationsView: View {
         case .episode(let item):
             NavigationLink {
                 if let releaseID = item.episode?.release?.id {
-                    ReleaseDetailView(releaseID: releaseID)
+                    ReleaseDetailView(releaseID: releaseID, viewer: model.viewer)
                 }
             } label: {
                 notificationBody(
@@ -59,7 +75,7 @@ struct NotificationsView: View {
         case .relatedRelease(let item):
             NavigationLink {
                 if let releaseID = item.release?.id {
-                    ReleaseDetailView(releaseID: releaseID)
+                    ReleaseDetailView(releaseID: releaseID, viewer: model.viewer)
                 }
             } label: {
                 notificationBody(
@@ -75,7 +91,7 @@ struct NotificationsView: View {
         case .friend(let item):
             NavigationLink {
                 if let profileID = item.byProfile?.id {
-                    ProfileView(profileID: profileID)
+                    ProfileView(profileID: profileID, viewer: model.viewer)
                 }
             } label: {
                 notificationBody(
@@ -88,6 +104,26 @@ struct NotificationsView: View {
                 )
             }
 
+        case .article(let item):
+            NavigationLink {
+                if let id = item.article?.id { ProfileArticleView(articleID: id, preloaded: item.article?.value, viewer: model.viewer) }
+            } label: {
+                notificationBody(title: item.article?.value?.channel?.title ?? "Новая запись", subtitle: "Запись блога или канала",
+                                 imageURL: AnixartURL.image(item.article?.value?.channel?.avatar), systemImage: "doc.text",
+                                 date: item.base.date, isNew: item.base.isNew == true)
+            }
+        case .comment(let item):
+            NavigationLink {
+                if let id = item.comment?.id {
+                    ProfileCommentDetailView(commentID: id, category: item.category, preloaded: item.comment?.value,
+                                             fallbackLocation: item.parentComment?.value?.location, viewer: model.viewer)
+                }
+            } label: {
+                notificationBody(title: item.comment?.value?.profile?.login ?? "Комментарий",
+                                 subtitle: item.comment?.value?.message ?? "Новый комментарий или ответ",
+                                 imageURL: AnixartURL.image(item.comment?.value?.profile?.avatar), systemImage: "bubble.left",
+                                 date: item.base.date, isNew: item.base.isNew == true)
+            }
         case .unsupported(let item):
             notificationBody(
                 title: "Уведомление",
@@ -141,9 +177,4 @@ struct NotificationsView: View {
         }
     }
 
-    private func markRead() async {
-        guard env.session.isSignedIn else { return }
-        _ = try? await env.client.send(NotificationEndpoints.markAllRead())
-        env.session.clearNotificationBadge()
-    }
 }

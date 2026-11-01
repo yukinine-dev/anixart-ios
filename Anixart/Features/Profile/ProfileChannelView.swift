@@ -115,9 +115,11 @@ struct ProfileArticlePreviewRow: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(article.isDeleted == true ? "Запись удалена" : text).font(.ax(.body)).foregroundStyle(.primary).lineLimit(5)
             HStack {
-                Text(ProfileDate.text(article.creationDate))
+                Text(ProfileDate.dateTime(article.creationDate))
                 Spacer()
                 Label(Format.count(article.commentCount), systemImage: "bubble.left")
+                Label(Format.count(article.repostCount), systemImage: "arrowshape.turn.up.left")
+                Label(Format.count(article.voteCount), systemImage: "hand.thumbsup")
             }
             .font(.ax(.caption)).foregroundStyle(.secondary)
         }

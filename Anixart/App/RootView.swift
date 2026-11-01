@@ -5,6 +5,8 @@ import AnixartKit
 struct RootView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var selection: Tab = LaunchScreen.current.tab
+    @AppStorage(DeviceAppearancePreferenceKey.colorScheme) private var colorScheme = AppColorSchemePreference.system.rawValue
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
 
     enum Tab: Hashable {
         case home, discover, catalog, bookmarks, profile
@@ -28,6 +30,10 @@ struct RootView: View {
             }
         }
         .tint(Theme.accent)
+        .preferredColorScheme((AppColorSchemePreference(rawValue: colorScheme) ?? .system).colorScheme(lowPower: lowPower))
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+            lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        }
         // Most of Anixart works signed out, so any screen that needs a session asks
         // for the sheet through the session object rather than owning it.
         .sheet(isPresented: Binding(

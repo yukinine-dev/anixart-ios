@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import AnixartKit
 
 /// Collections the user bookmarked (`collectionFavorite/all/{page}`).
@@ -87,6 +88,7 @@ struct CollectionDetailView: View {
     @State private var isFavorite: Bool?
     @State private var isSavingFavorite = false
     @State private var favoriteError: String?
+    @State private var report: ProfileReportPresentation?
 
     init(collection: ReleaseCollection, viewer: ProfileViewerKey? = nil) {
         self.collection = collection
@@ -146,6 +148,24 @@ struct CollectionDetailView: View {
         .navigationTitle(viewer == env.session.viewerKey ? collection.displayTitle : "Коллекция")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .toolbar { ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                ShareLink(item: AnixartEnvironment.webBaseURL.appendingPathComponent("collection/\(collection.id)")) {
+                    Label("Поделиться", systemImage: "square.and.arrow.up")
+                }
+                Button { UIPasteboard.general.url = AnixartEnvironment.webBaseURL.appendingPathComponent("collection/\(collection.id)") } label: {
+                    Label("Скопировать ссылку", systemImage: "link")
+                }
+                if let account = viewer?.account {
+                    Button {
+                        report = ProfileReportPresentation(kind: .collection, entityID: collection.id,
+                                                           title: collection.displayTitle, account: account)
+                    } label: { Label("Пожаловаться", systemImage: "flag") }
+                }
+            } label: { Image(systemName: "ellipsis") }
+            .disabled(viewer != env.session.viewerKey)
+        } }
+        .sheet(item: $report) { ProfileReportView(target: $0) }
         .refreshable { await paginator?.reload() }
         .task {
             if viewer == nil { viewer = env.session.viewerKey }
@@ -164,6 +184,7 @@ struct CollectionDetailView: View {
             paginator = nil
             isFavorite = nil
             favoriteError = nil
+            report = nil
         }
         .alert("Не удалось изменить закладки", isPresented: Binding(
             get: { favoriteError != nil }, set: { if !$0 { favoriteError = nil } }

@@ -419,7 +419,8 @@ final class SessionScopeTests: XCTestCase {
         let refresh = Task { await rig.session.refreshNotificationCount() }
         defer { refresh.cancel() }
         await fulfillment(of: [held.arrived], timeout: 5)
-        rig.session.clearNotificationBadge()
+        rig.api.enqueue("/notification/read", json: #"{"code":0}"#)
+        try await rig.session.markNotificationsRead(for: XCTUnwrap(rig.session.accountKey))
         held.respond(#"{"code":0,"count":99}"#)
         await refresh.value
         XCTAssertEqual(rig.session.unreadNotifications, 0)

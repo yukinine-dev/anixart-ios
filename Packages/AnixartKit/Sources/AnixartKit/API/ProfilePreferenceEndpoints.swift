@@ -29,6 +29,10 @@ public enum ProfilePreferenceEndpoints {
                  body: .json(PrivacyEditRequest(permission: permission)), auth: .required)
     }
 
+    public static func toggleIncognito() -> Endpoint<StatusResponse> {
+        Endpoint(path: "profile/preference/privacy/incognito/edit", auth: .required)
+    }
+
     public static func pinSection(_ section: ProfileSection) -> Endpoint<StatusResponse> {
         Endpoint(method: .post, path: "profile/preference/section/edit",
                  body: .json(ProfileIDRequest(id: section.rawValue)), auth: .required)
@@ -41,8 +45,17 @@ public enum ProfilePreferenceEndpoints {
     }
 
     public static func editAvatar(jpeg: Data) -> Endpoint<ProfilePreferenceResponse> {
+        avatar(image: jpeg, filename: "avatar.jpg", contentType: "image/jpeg")
+    }
+
+    /// Preserve the GIF bytes. Re-encoding through UIImage/JPEG discards animation.
+    public static func editAvatar(gif: Data) -> Endpoint<ProfilePreferenceResponse> {
+        avatar(image: gif, filename: "avatar.gif", contentType: "image/gif")
+    }
+
+    private static func avatar(image: Data, filename: String, contentType: String) -> Endpoint<ProfilePreferenceResponse> {
         Endpoint(method: .post, path: "profile/preference/avatar/edit", body: .multipart(MultipartBody(parts: [
-            .init(name: "image", filename: "avatar.jpg", contentType: "image/jpeg", data: jpeg),
+            .init(name: "image", filename: filename, contentType: contentType, data: image),
             .init(name: "name", value: "")
         ])), auth: .required)
     }

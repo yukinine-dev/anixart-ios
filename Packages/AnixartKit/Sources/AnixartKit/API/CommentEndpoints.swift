@@ -2,16 +2,16 @@ import Foundation
 
 /// `release/comment/*`.
 public enum CommentEndpoints {
-    /// `sort`: 0 newest first, 1 oldest first, 2 most liked (as the Android sort menu offers).
-    public static func comments(releaseID: Int, page: Int, sort: Int = 0) -> Endpoint<PageableResponse<ReleaseComment>> {
+    /// `sort`: 1 newest, 2 oldest, 3 popular (confirmed menu listener values).
+    public static func comments(releaseID: Int, page: Int, sort: Int = 1) -> Endpoint<PageableResponse<ReleaseComment>> {
         Endpoint(path: "release/comment/all/\(releaseID)/\(page)", query: ["sort": String(sort)])
     }
 
-    public static func replies(commentID: Int, page: Int, sort: Int = 0) -> Endpoint<PageableResponse<ReleaseComment>> {
+    public static func replies(commentID: Int, page: Int, sort: Int = 2) -> Endpoint<PageableResponse<ReleaseComment>> {
         Endpoint(method: .post, path: "release/comment/replies/\(commentID)/\(page)", query: ["sort": String(sort)])
     }
 
-    public static func byProfile(_ profileID: Int, page: Int, sort: Int = 0) -> Endpoint<PageableResponse<ReleaseComment>> {
+    public static func byProfile(_ profileID: Int, page: Int, sort: Int = 1) -> Endpoint<PageableResponse<ReleaseComment>> {
         Endpoint(path: "release/comment/all/profile/\(profileID)/\(page)", query: ["sort": String(sort)])
     }
 

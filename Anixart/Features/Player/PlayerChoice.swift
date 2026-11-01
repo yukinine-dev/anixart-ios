@@ -75,6 +75,13 @@ final class PlaybackPreferences {
         defaults.set(alwaysAsk, forKey: Key.alwaysAsk)
     }
 
+    /// Settings and player sheets may hold different instances of these device preferences.
+    func reload() {
+        choice = PlayerChoice(rawValue: defaults.string(forKey: Key.choice) ?? "") ?? .web
+        alwaysAsk = defaults.object(forKey: Key.alwaysAsk) as? Bool ?? true
+        rewindSeconds = max(0, defaults.object(forKey: Key.rewindSeconds) as? Int ?? 85)
+    }
+
     func acceptDisclaimer() {
         hasAcceptedDisclaimer = true
         defaults.set(true, forKey: Key.acceptedDisclaimer)

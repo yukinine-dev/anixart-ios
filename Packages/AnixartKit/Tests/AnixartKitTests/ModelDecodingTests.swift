@@ -198,14 +198,14 @@ final class ModelDecodingTests: XCTestCase {
 
     func testFriendStatusDecodesBothWireForms() throws {
         struct Holder: Codable { var friendStatus: FriendStatusCode? }
-        let asInt = try JSONDecoder().decode(Holder.self, from: #"{"friendStatus":3}"#.data(using: .utf8)!)
+        let asInt = try JSONDecoder().decode(Holder.self, from: #"{"friendStatus":2}"#.data(using: .utf8)!)
         XCTAssertEqual(asInt.friendStatus, .friend)
 
         let asName = try JSONDecoder().decode(
             Holder.self,
             from: #"{"friendStatus":"PENDING_FIRST_SECOND"}"#.data(using: .utf8)!
         )
-        XCTAssertEqual(asName.friendStatus, .requestSent)
+        XCTAssertEqual(asName.friendStatus, .pendingFirstSecond)
 
         let unknown = try JSONDecoder().decode(Holder.self, from: #"{"friendStatus":"WHAT"}"#.data(using: .utf8)!)
         XCTAssertEqual(unknown.friendStatus, .unknown("WHAT"))

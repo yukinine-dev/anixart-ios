@@ -53,8 +53,8 @@ public enum BookmarkSort: Int, Codable, CaseIterable, Sendable, Identifiable {
         case .addedAscending: return "По добавлению: от старых к новым"
         case .releaseDateDescending: return "По дате выхода: сначала новые"
         case .releaseDateAscending: return "По дате выхода: сначала старые"
-        case .titleDescending: return "По названию: Я–А"
-        case .titleAscending: return "По названию: А–Я"
+        case .titleDescending: return "По алфавиту: А–Я"
+        case .titleAscending: return "По алфавиту: Я–А"
         case .ratingDescending: return "По рейтингу: сначала высокий"
         case .ratingAscending: return "По рейтингу: сначала низкий"
         }

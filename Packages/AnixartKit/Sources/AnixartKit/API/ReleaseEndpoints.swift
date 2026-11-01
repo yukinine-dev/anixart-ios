@@ -71,6 +71,13 @@ public enum ReleaseEndpoints {
 
 /// `video/release/*` -- the trailers and previews behind the "Видео" section.
 public enum ReleaseVideoEndpoints {
+    public static func addFavorite(videoID: Int) -> Endpoint<StatusResponse> {
+        Endpoint(path: "releaseVideoFavorite/add/\(videoID)", auth: .required)
+    }
+
+    public static func removeFavorite(videoID: Int) -> Endpoint<StatusResponse> {
+        Endpoint(path: "releaseVideoFavorite/delete/\(videoID)", auth: .required)
+    }
     public static func videos(releaseID: Int, page: Int) -> Endpoint<PageableResponse<ReleaseVideo>> {
         Endpoint(path: "video/release/\(releaseID)/\(page)")
     }

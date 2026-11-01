@@ -41,6 +41,17 @@ struct ProfileView: View {
     @State private var loginHistoryViewer: ProfileViewerKey?
     @State private var notice: String?
     @State private var isChangingRelationship = false
+    @State private var pendingBlock: Profile?
+    @State private var blockAccount: ProfileAccountKey?
+    @State private var report: ProfileReportPresentation?
+    @State private var gallery: ProfileGalleryPresentation?
+    @State private var showsAvatarActions = false
+    @State private var showsAvatarEditor = false
+    @State private var avatarEditorAction: ProfilePhotoEditorView.InitialAction?
+    @State private var showsStatusEditor = false
+    @State private var showsReputation = false
+    @State private var showsRegistration = false
+    @State private var isOrderingBadges = false
 
     init(profileID: Int, isOwnProfile: Bool = false, viewer: ProfileViewerKey? = nil) {
         self.profileID = profileID
@@ -79,11 +90,27 @@ struct ProfileView: View {
                         friendsRow(profile)
                         sectionDivider
                     }
-                    sectionChips
-                    sectionContent(profile)
+                    if profile.hasHiddenProfileSections {
+                        Label("Пользователь ограничил доступ к некоторым разделам профиля", systemImage: "lock")
+                            .font(.ax(.subheadline)).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center).padding()
+                    }
+                    VStack(spacing: 0) {
+                        sectionChips
+                        if isOrderingBadges, let account = model.viewerAccount {
+                            ProfileInlineBadgeOrderView(profileID: profileID, account: account) {
+                                isOrderingBadges = false
+                                Task { await load(force: true) }
+                            }
+                        } else { sectionContent(profile) }
+                    }
+                    .padding(.bottom, 16)
+                    .background { ProfileShowcaseBackground(theme: profile.showcaseTheme) }
                     if profile.isStatsHidden != true {
                         ProfileActivitySection(profile: profile, viewer: model.viewerKey)
                     }
+                    ProfileBlogSection(profile: profile, channel: model.blog, viewer: model.viewerKey,
+                                       errorMessage: model.blogErrorMessage, retry: { await load(force: true) })
                 }
                 .padding(.bottom, Theme.Spacing.section)
             } else if isLoading || model.viewerKey != env.session.viewerKey && errorMessage == nil {
@@ -110,12 +137,58 @@ struct ProfileView: View {
         .onChange(of: env.session.viewerKey) { _, current in
             model.invalidate(for: current)
             notice = nil
+            pendingBlock = nil
+            blockAccount = nil
+            report = nil
+            gallery = nil
+            showsAvatarActions = false
+            showsAvatarEditor = false
+            showsStatusEditor = false
+            isOrderingBadges = false
         }
         .navigationDestination(isPresented: $isShowingSearch) { UserSearchView(viewer: searchViewer) }
         .navigationDestination(isPresented: $isShowingLoginHistory) {
             ProfileLoginHistoryView(profileID: profileID, viewer: loginHistoryViewer)
         }
         .sheet(isPresented: $isShowingSettings) { SettingsView() }
+        .sheet(item: $report) { ProfileReportView(target: $0) }
+        .fullScreenCover(item: $gallery) { ProfileImageGalleryView(urls: $0.urls, initialIndex: $0.initialIndex) }
+        .sheet(isPresented: $showsReputation) { ProfileReputationHelpView(score: profile?.ratingScore ?? 0) }
+        .sheet(isPresented: $showsStatusEditor) {
+            NavigationStack {
+                ProfileStatusEditorView(initialStatus: profile?.status ?? "", account: model.viewerAccount)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Отмена") { showsStatusEditor = false } } }
+            }
+        }
+        .sheet(isPresented: $showsAvatarEditor) {
+            NavigationStack {
+                ProfilePhotoEditorView(kind: .avatar, profileID: profileID, account: model.viewerAccount,
+                                       initialAction: avatarEditorAction)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Закрыть") { showsAvatarEditor = false } } }
+            }
+        }
+        .confirmationDialog("Фото профиля", isPresented: $showsAvatarActions, titleVisibility: .visible) {
+            if let url = profile?.avatarURL {
+                Button("Открыть") { gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0) }
+            }
+            Button("Изменить") { avatarEditorAction = .choose; showsAvatarEditor = true }
+            if profile?.avatarURL != nil {
+                Button("Удалить", role: .destructive) { avatarEditorAction = .delete; showsAvatarEditor = true }
+            }
+        }
+        .confirmationDialog(pendingBlock?.isBlocked == true ? "Разблокировать пользователя?" : "Заблокировать пользователя?", isPresented: Binding(
+            get: { pendingBlock != nil }, set: { if !$0 { pendingBlock = nil; blockAccount = nil } }
+        ), titleVisibility: .visible) {
+            if let target = pendingBlock, let account = blockAccount {
+                Button(target.isBlocked == true ? "Разблокировать" : "Заблокировать", role: .destructive) {
+                    Task { await toggleBlock(target, for: account) }
+                }
+            }
+            Button("Отмена", role: .cancel) { pendingBlock = nil; blockAccount = nil }
+        } message: {
+            Text("Блокировка ограничит доступ к странице и ответам и разорвёт дружбу с пользователем.")
+        }
+        .onChange(of: section) { _, value in if value != .badges { isOrderingBadges = false } }
         .alert("Информация", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
             Button("Понятно", role: .cancel) { notice = nil }
         } message: {
@@ -191,13 +264,22 @@ struct ProfileView: View {
                 .clipped()
                 .padding(.bottom, -44)
             }
-            Avatar(url: profile.avatarURL, size: 112, isOnline: profile.isOnline ?? false)
+            Button {
+                if ownsProfile { showsAvatarActions = true }
+                else if let url = profile.avatarURL { gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0) }
+            } label: { Avatar(url: profile.avatarURL, size: 112, isOnline: profile.isOnline ?? false) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Фото профиля")
                 .padding(.top, coverURL == nil ? 28 : 0)
                 .padding(.bottom, 8)
 
             HStack(spacing: 6) {
-                Text(profile.displayLogin)
-                    .font(.ax(.title2, .bold))
+                if ownsProfile {
+                    NavigationLink { ProfileLoginEditorView(profileID: profileID, account: model.viewerAccount) } label: {
+                        Text(profile.displayLogin).font(.ax(.title2, .bold)).foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                } else { Text(profile.displayLogin).font(.ax(.title2, .bold)) }
                 if profile.isSponsor ?? false {
                     Image(systemName: "crown.fill")
                         .font(.ax(.subheadline))
@@ -211,7 +293,10 @@ struct ProfileView: View {
             }
 
             if let status = profile.status, !status.isEmpty {
-                Text(status)
+                Button { if ownsProfile { showsStatusEditor = true } } label: { Text(status) }
+                    .buttonStyle(.plain)
+                    .disabled(!ownsProfile)
+                    .lineLimit(3)
                     .font(.ax(.subheadline))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -220,7 +305,9 @@ struct ProfileView: View {
 
             HStack(spacing: 8) {
                 if let score = profile.ratingScore {
-                    Text("\(score)")
+                    Button { showsReputation = true } label: { Text("\(score)") }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Уровень репутации \(score)")
                         .font(.ax(.subheadline, .medium))
                         .monospacedDigit()
                         .padding(.horizontal, 8)
@@ -231,13 +318,20 @@ struct ProfileView: View {
                         )
                         .foregroundStyle(Theme.listColor(.watching))
                 }
-                if let joined = registered(profile) {
+                if ownsProfile || showsRegistration, let joined = registered(profile) {
                     Text("• на проекте с \(joined)")
                         .font(.ax(.subheadline))
                         .foregroundStyle(.secondary)
                 }
             }
             .padding(.top, 2)
+            if !ownsProfile {
+                Button { showsRegistration.toggle() } label: {
+                    Text(profile.isOnline == true ? "В сети" : "Последняя активность: \(Format.relativeDate(profile.lastActivityTime) ?? "—")")
+                        .font(.ax(.caption)).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -293,9 +387,16 @@ struct ProfileView: View {
                         Label("Скопировать ссылку", systemImage: "link")
                     }
                     if !ownsProfile, env.session.isSignedIn {
+                        Button {
+                            if let account = model.viewerAccount {
+                                report = ProfileReportPresentation(kind: .profile, entityID: profileID,
+                                                                   title: profile.displayLogin, account: account)
+                            }
+                        } label: { Label("Пожаловаться", systemImage: "flag") }
+                        .disabled(!hasCurrentViewer || isLoading)
                         Button(role: .destructive) {
-                            let account = model.viewerAccount
-                            Task { await toggleBlock(profile, for: account) }
+                            blockAccount = model.viewerAccount
+                            pendingBlock = profile
                         } label: {
                             Label(profile.isBlocked == true ? "Разблокировать" : "Заблокировать", systemImage: "hand.raised")
                         }
@@ -384,7 +485,7 @@ struct ProfileView: View {
             ScrollViewReader { reader in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(ProfileSection.allCases) { candidate in
+                        ForEach(profile?.visibleSections ?? []) { candidate in
                             Button { section = candidate } label: {
                                 Label(candidate.title, systemImage: candidate.systemImage)
                                     .font(.ax(.subheadline, section == candidate ? .medium : .regular))
@@ -412,7 +513,12 @@ struct ProfileView: View {
                     NavigationLink { ProfilePinnedSectionView(account: model.viewerAccount) } label: {
                         Label("Закрепить секцию", systemImage: "pin")
                     }
-                    NavigationLink { ProfileBadgeOrderView(profileID: profileID, account: model.viewerAccount) } label: {
+                    Button {
+                        if (2...ProfileEditorRules.showcaseLimit).contains(showcased.count) {
+                            section = .badges
+                            isOrderingBadges = true
+                        } else { notice = "Закрепите хотя бы два значка, чтобы изменить порядок." }
+                    } label: {
                         Label("Изменить порядок", systemImage: "arrow.up.arrow.down")
                     }
                 } label: {
@@ -481,19 +587,26 @@ struct ProfileView: View {
         }
         guard let account, env.session.accountKey == account, !isChangingRelationship,
               !isLoading, hasCurrentViewer else { return }
-        let isFriend = profile.friendStatus == .friend
+        let relationship = profile.friendRelationship(viewerID: account.profileID)
         isChangingRelationship = true
         defer { isChangingRelationship = false }
         do {
-            try await env.session.sendConfirmedAccountRequest(
-                isFriend || profile.friendStatus == .requestSent
+            let response = try await env.session.sendConfirmedAccountRequest(
+                relationship == .friend || relationship == .outgoing
                     ? ProfileEndpoints.removeFriend(profileID)
                     : ProfileEndpoints.sendFriendRequest(to: profileID), for: account
             )
+            model.applyFriendStatus(response.friendStatus, profileID: profileID)
             await load(force: true, expectedViewer: account.viewerKey)
             await env.session.refreshProfile(for: account)
         } catch {
-            if !ProfileRequestFailure.isCancellation(error) { notice = Paginator<Release>.message(for: error) }
+            if !ProfileRequestFailure.isCancellation(error) {
+                if let apiError = error as? AnixartError, case .api(let code, _) = apiError, code == 3,
+                   relationship != .friend && relationship != .outgoing {
+                    await load(force: true, expectedViewer: account.viewerKey)
+                }
+                else { notice = ProfileFriendFailure.message(for: error) }
+            }
         }
     }
 
@@ -506,17 +619,19 @@ struct ProfileView: View {
             try await env.session.sendConfirmedAccountRequest(profile.isBlocked == true
                 ? ProfileEndpoints.unblock(profileID: profileID)
                 : ProfileEndpoints.block(profileID: profileID), for: account)
+            model.applyBlockState(profile.isBlocked != true, profileID: profileID)
             await load(force: true, expectedViewer: account.viewerKey)
+            await env.session.refreshProfile(for: account)
         } catch {
             if !ProfileRequestFailure.isCancellation(error) { notice = Paginator<Release>.message(for: error) }
         }
     }
 
     private func friendButtonTitle(_ profile: Profile) -> String {
-        switch profile.friendStatus {
+        switch profile.friendRelationship(viewerID: env.session.currentProfileID) {
         case .friend: return "Удалить из друзей"
-        case .requestSent: return "Отменить заявку"
-        case .requestReceived: return "Принять заявку"
+        case .outgoing: return "Заявка отправлена"
+        case .incoming: return "Принять заявку"
         default: return "Добавить в друзья"
         }
     }
@@ -536,6 +651,7 @@ struct ProfileStatisticsSection: View {
     let profileID: Int
     let viewer: ProfileViewerKey?
     @State private var isShowingHelp = false
+    @AppStorage(ProfileWatchTimeFormat.storageKey) private var watchTimeFormat = ProfileWatchTimeFormat.daysAndHours.rawValue
 
     private var slices: [(status: ProfileListStatus, count: Int)] {
         ProfileListStatus.allCases.map { ($0, profile.listCount(for: $0)) }
@@ -583,6 +699,8 @@ struct ProfileStatisticsSection: View {
                 .font(.ax(.subheadline, .medium))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
+            NavigationLink("Показать списки") { ProfileListView(profileID: profileID, status: .watching, viewer: viewer) }
+                .font(.ax(.subheadline, .medium)).frame(maxWidth: .infinity).padding(.vertical, 8)
         }
         .sheet(isPresented: $isShowingHelp) { ProfileStatisticsHelpView() }
     }
@@ -605,8 +723,7 @@ struct ProfileStatisticsSection: View {
 
     /// `watchedTime` is reported in seconds.
     private var watchedTimeText: String {
-        let seconds = max(0, profile.watchedTime ?? 0)
-        return "\(seconds / 86_400) дн. \((seconds % 86_400) / 3_600) ч."
+        (ProfileWatchTimeFormat(rawValue: watchTimeFormat) ?? .daysAndHours).text(seconds: profile.watchedTime ?? 0)
     }
 }
 
@@ -654,19 +771,37 @@ struct DonutChart: View {
 // MARK: - Shared pieces
 
 /// Circular avatar with the Android online dot.
+@MainActor
 struct Avatar: View {
     let url: URL?
     var size: CGFloat = 44
     var isOnline: Bool = false
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
+    @State private var isVisible = false
 
     var body: some View {
-        CachedAsyncImage(url: url, maxPixelSize: size) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            Circle().fill(.quaternary)
+        Group {
+            if let url, size >= 88 {
+                ProfileThemeTexture(url: url, pixelSize: size * displayScale,
+                                    isAnimating: isVisible && scenePhase == .active && !reduceMotion && !resourceSaving) { image, _ in
+                    Image(uiImage: image).resizable().scaledToFill()
+                } placeholder: { Circle().fill(.quaternary) }
+            } else {
+                CachedAsyncImage(url: url, maxPixelSize: size) { $0.resizable().scaledToFill() } placeholder: { Circle().fill(.quaternary) }
+            }
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(key: ProfileAvatarVisibility.self,
+                                       value: geometry.frame(in: .global).intersects(UIScreen.main.bounds))
+            }
+        }
+        .onPreferenceChange(ProfileAvatarVisibility.self) { isVisible = $0 }
         .overlay(alignment: .bottomTrailing) {
             if isOnline {
                 Circle()
@@ -799,21 +934,25 @@ struct ProfileListsView: View {
     }
 }
 
-/// Someone's watch list, reachable from their profile.
+/// All five watch lists share one owner-specific screen.
 @MainActor
 struct ProfileListView: View {
     @Environment(AppEnvironment.self) private var env
 
     let profileID: Int
-    let status: ProfileListStatus
+    @State private var status: ProfileListStatus
 
     @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
     @State private var sort: BookmarkSort = .addedDescending
+    @State private var actions: ProfileReleaseActionPresentation?
+    @State private var randomRelease: Release?
+    @State private var isLoadingRandom = false
+    @State private var randomError: String?
 
     init(profileID: Int, status: ProfileListStatus, viewer: ProfileViewerKey? = nil) {
         self.profileID = profileID
-        self.status = status
+        _status = State(initialValue: status)
         _viewer = State(initialValue: viewer)
     }
 
@@ -821,28 +960,63 @@ struct ProfileListView: View {
         List {
             ProfileViewerNotice(viewer: viewer)
             if viewer == env.session.viewerKey, let paginator {
+                HStack {
+                    Text(paginator.totalCount.map { "\(Format.count($0)) всего" } ?? "—").foregroundStyle(.secondary)
+                    Spacer()
+                    Text(sort.title).foregroundStyle(.secondary).lineLimit(2)
+                }.font(.ax(.caption))
                 PaginatedContent(paginator: paginator, emptyTitle: "Список пуст") { release in
-                    NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
-                    } label: {
-                        ReleaseRow(release: release)
+                    HStack {
+                        NavigationLink {
+                            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
+                        } label: { ReleaseRow(release: release) }
+                        Button {
+                            if let viewer { actions = ProfileReleaseActionPresentation(release: release, viewer: viewer) }
+                        } label: { Image(systemName: "ellipsis").padding(10) }
+                        .buttonStyle(.borderless).accessibilityLabel("Действия с релизом")
+                    }
+                    .contextMenu {
+                        Button("Действия с релизом") {
+                            if let viewer { actions = ProfileReleaseActionPresentation(release: release, viewer: viewer) }
+                        }
                     }
                 }
+                ProfileSaveError(message: randomError)
             }
         }
         .listStyle(.plain)
-        .navigationTitle(status.title)
+        .navigationTitle("Списки просмотра")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) {
+        .safeAreaInset(edge: .top) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(ProfileListStatus.allCases) { candidate in
+                        Button { status = candidate } label: {
+                            Text(candidate.title).font(.ax(.subheadline)).padding(10)
+                                .background(status == candidate ? Theme.accent.opacity(0.15) : Color.clear, in: Capsule())
+                        }
+                        .buttonStyle(.plain).accessibilityAddTraits(status == candidate ? .isSelected : [])
+                    }
+                }.padding(.horizontal)
+            }.padding(.vertical, 8).background(.bar)
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { Task { await openRandom() } } label: { Image(systemName: "dice") }
+                    .disabled(isLoadingRandom || paginator?.items.isEmpty != false)
+                    .accessibilityLabel("Случайный релиз из этого списка")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Picker("Сортировка", selection: $sort) {
-                    ForEach(BookmarkSort.allCases) { Text($0.title).tag($0) }
-                }
+                sortMenu("По добавлению", options: [.addedDescending, .addedAscending])
+                sortMenu("По году", options: [.releaseDateDescending, .releaseDateAscending])
+                sortMenu("По алфавиту", options: [.titleDescending, .titleAscending])
+                sortMenu("По рейтингу", options: [.ratingDescending, .ratingAscending])
             } label: { Image(systemName: "arrow.up.arrow.down") }
         } }
         .refreshable { await paginator?.reload() }
-        .task(id: sort) {
+        .task(id: "\(status.rawValue)-\(sort.rawValue)") {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }
             let session = env.session
@@ -856,9 +1030,39 @@ struct ProfileListView: View {
             await list.loadFirstPageIfNeeded()
         }
         .onChange(of: env.session.viewerKey) { _, current in
-            if viewer != current { paginator = nil }
+            if viewer != current { paginator = nil; actions = nil; randomRelease = nil; randomError = nil }
+        }
+        .sheet(item: $actions) { ProfileReleaseActionsSheet(target: $0) }
+        .navigationDestination(item: $randomRelease) { ReleaseDetailView(releaseID: $0.id, preloaded: $0, viewer: viewer) }
+    }
+
+    private func sortMenu(_ title: String, options: [BookmarkSort]) -> some View {
+        Menu(title) {
+            ForEach(options) { option in Button(option.title) { sort = option } }
         }
     }
+
+    private func openRandom() async {
+        guard !isLoadingRandom, let viewer, viewer == env.session.viewerKey else { return }
+        isLoadingRandom = true
+        randomError = nil
+        defer { isLoadingRandom = false }
+        do {
+            let response = try await env.session.sendViewerRequest(
+                ReleaseEndpoints.randomFromList(profileID: profileID, status: status, extended: true), for: viewer)
+            guard let release = response.release else {
+                throw AnixartError.decoding(message: "Сервер не вернул случайный релиз", path: "release/random/profile/list")
+            }
+            randomRelease = release
+        } catch {
+            if !ProfileRequestFailure.isCancellation(error) { randomError = Paginator<Release>.message(for: error) }
+        }
+    }
+}
+
+private struct ProfileAvatarVisibility: PreferenceKey {
+    static var defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
 }
 
 /// Everything the profile has voted on.
@@ -870,13 +1074,16 @@ struct ProfileVotesView: View {
     @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
     @State private var sort: ProfileVoteSort = .newest
-    @State private var unrated = false
+    private let unrated: Bool
+    @State private var unratedPreview = ProfileResource<PageableResponse<Release>>()
+    @State private var releaseActions: ProfileReleaseActionPresentation?
     @State private var rating: RatingRequest?
     @State private var isVoting = false
     @State private var voteError: String?
 
-    init(profileID: Int, viewer: ProfileViewerKey? = nil) {
+    init(profileID: Int, viewer: ProfileViewerKey? = nil, unrated: Bool = false) {
         self.profileID = profileID
+        self.unrated = unrated
         _viewer = State(initialValue: viewer)
     }
 
@@ -893,6 +1100,14 @@ struct ProfileVotesView: View {
         List {
             ProfileViewerNotice(viewer: viewer)
             if viewer == env.session.viewerKey, let paginator {
+                if ownsProfile, !unrated, let preview = unratedPreview.value, !preview.items.isEmpty {
+                    Section {
+                        Text("Просмотренные релизы без оценки").font(.ax(.subheadline))
+                        NavigationLink("Оценить") { ProfileVotesView(profileID: profileID, viewer: viewer, unrated: true) }
+                    }
+                }
+                Text(paginator.totalCount.map { "\(Format.count($0)) всего" } ?? "—")
+                    .font(.ax(.subheadline)).foregroundStyle(.secondary)
                 PaginatedContent(paginator: paginator, emptyTitle: unrated ? "Все релизы оценены" : "Оценок пока нет") { release in
                     HStack {
                         NavigationLink {
@@ -909,22 +1124,21 @@ struct ProfileVotesView: View {
                             .disabled(isVoting)
                         }
                     }
+                    .contextMenu {
+                        if let viewer {
+                            Button("Действия с релизом") {
+                                releaseActions = ProfileReleaseActionPresentation(release: release, viewer: viewer,
+                                                                                  includesHistoryRemoval: unrated && ownsProfile)
+                            }
+                        }
+                    }
                 }
             }
         }
         .listStyle(.plain)
-        .navigationTitle("Оценки релизов")
+        .navigationTitle(unrated ? "Оцените релизы" : "Оценки релизов")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .safeAreaInset(edge: .top) {
-            if ownsProfile {
-                Picker("Релизы", selection: $unrated) {
-                    Text("Оценённые").tag(false)
-                    Text("Неоценённые").tag(true)
-                }
-                .pickerStyle(.segmented).padding().background(.bar)
-            }
-        }
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
             if !unrated {
                 Menu {
@@ -952,13 +1166,19 @@ struct ProfileVotesView: View {
             }
             paginator = list
             await list.loadFirstPageIfNeeded()
+            if ownsProfile, !unrated, let account {
+                await unratedPreview.load { try await session.sendAccountRequest(ProfileEndpoints.lastUnratedReleases(), for: account) }
+            }
         }
         .onChange(of: env.session.viewerKey) { _, current in
             guard viewer != current else { return }
             paginator = nil
             rating = nil
             voteError = nil
+            releaseActions = nil
+            unratedPreview.reset()
         }
+        .sheet(item: $releaseActions) { ProfileReleaseActionsSheet(target: $0) }
         .sheet(item: $rating) { request in
             RatingSheet(current: request.release.profileRating, distribution: request.release,
                          onVote: { score in Task { await vote(request, score: score) } },
@@ -1004,6 +1224,9 @@ enum Plural {
     static func episodes(_ count: Int) -> String {
         forms(count, one: "эпизод", few: "эпизода", many: "эпизодов")
     }
+
+    static func days(_ count: Int) -> String { forms(count, one: "день", few: "дня", many: "дней") }
+    static func hours(_ count: Int) -> String { forms(count, one: "час", few: "часа", many: "часов") }
 
     private static func forms(_ count: Int, one: String, few: String, many: String) -> String {
         let value = "\(Format.count(count)) "

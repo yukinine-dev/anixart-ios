@@ -20,13 +20,14 @@ actor ImageLoader {
     private static let log = Logger(subsystem: "app.anixart.client", category: "images")
 
     /// Bytes on disk and in memory, shared with everything using this session.
+    private static let cache = URLCache(
+        memoryCapacity: 32 * 1024 * 1024,
+        diskCapacity: ImageCacheSettings.boundedLimit(UserDefaults.standard.object(forKey: ImageCacheSettings.storageKey) as? Int ?? ImageCacheSettings.defaultLimitMB) * 1024 * 1024,
+        diskPath: "anixart-images"
+    )
     private static let session: URLSession = {
         let configuration = URLSessionConfiguration.default
-        configuration.urlCache = URLCache(
-            memoryCapacity: 32 * 1024 * 1024,
-            diskCapacity: 512 * 1024 * 1024,
-            diskPath: "anixart-images"
-        )
+        configuration.urlCache = cache
         configuration.requestCachePolicy = .returnCacheDataElseLoad
         // The host is slow enough that a stampede makes it slower.
         configuration.httpMaximumConnectionsPerHost = 6
@@ -39,11 +40,30 @@ actor ImageLoader {
     private let decoded = NSCache<NSString, UIImage>()
     private var inFlight: [ImageRequestKey: Task<UIImage?, Never>] = [:]
     private var dataInFlight: [URL: Task<Data?, Never>] = [:]
+    private var generation = 0
 
     init() {
         // Roughly 120 posters at list size; the OS evicts under pressure anyway.
         decoded.countLimit = 240
         decoded.totalCostLimit = 64 * 1024 * 1024
+    }
+
+    func cacheUsage() -> Int { Self.cache.currentDiskUsage }
+
+    func setCacheLimit(mebibytes: Int) {
+        let limit = ImageCacheSettings.boundedLimit(mebibytes)
+        UserDefaults.standard.set(limit, forKey: ImageCacheSettings.storageKey)
+        Self.cache.diskCapacity = limit * 1024 * 1024
+    }
+
+    func clearCache() {
+        generation += 1
+        for task in inFlight.values { task.cancel() }
+        for task in dataInFlight.values { task.cancel() }
+        inFlight = [:]
+        dataInFlight = [:]
+        decoded.removeAllObjects()
+        Self.cache.removeAllCachedResponses()
     }
 
     /// `pixelSize` is the longest edge in pixels, so the caller does the
@@ -58,12 +78,14 @@ actor ImageLoader {
             return Task.isCancelled ? nil : image
         }
 
+        let generation = self.generation
         let task = Task<UIImage?, Never> {
             guard let data = await self.data(for: url) else { return nil }
             return Self.downsample(data, pixelSize: CGFloat(key.pixelSize))
         }
         inFlight[key] = task
         let image = await task.value
+        guard generation == self.generation else { return nil }
         inFlight[key] = nil
 
         if let image {
@@ -78,9 +100,11 @@ actor ImageLoader {
     /// of different sizes.
     func data(for url: URL) async -> Data? {
         if let task = dataInFlight[url] { return await task.value }
+        let generation = self.generation
         let task = Task { await Self.fetchData(url) }
         dataInFlight[url] = task
         let data = await task.value
+        guard generation == self.generation else { return nil }
         dataInFlight[url] = nil
         return data
     }

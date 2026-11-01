@@ -45,6 +45,13 @@ struct ReleaseDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .toolbar { ToolbarItem(placement: .topBarTrailing) {
+            if let account = viewer?.account, viewer == env.session.viewerKey {
+                NavigationLink { ProfileNotificationVoicesSelector(account: account, releaseID: releaseID) } label: {
+                    Image(systemName: "bell.badge")
+                }.accessibilityLabel("Уведомления об этом релизе")
+            }
+        } }
         .task {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }

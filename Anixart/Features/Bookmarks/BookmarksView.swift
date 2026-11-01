@@ -6,7 +6,7 @@ import AnixartKit
 @MainActor
 struct BookmarksView: View {
     @Environment(AppEnvironment.self) private var env
-    @State private var tab: BookmarkTab = .list(.watching)
+    @State private var tab = BookmarkTab(storageKey: UserDefaults.standard.string(forKey: DeviceAppearancePreferenceKey.defaultBookmarks) ?? "") ?? .list(.watching)
     @State private var sort: BookmarkSort = .addedDescending
 
     enum BookmarkTab: Hashable, CaseIterable {
@@ -24,6 +24,20 @@ struct BookmarksView: View {
             case .favorites: return "Избранное"
             case .list(let status): return status.title
             }
+        }
+
+        var storageKey: String {
+            switch self {
+            case .collections: return "collections"
+            case .history: return "history"
+            case .favorites: return "favorites"
+            case .list(let status): return "list.\(status.rawValue)"
+            }
+        }
+
+        init?(storageKey: String) {
+            guard let tab = Self.allCases.first(where: { $0.storageKey == storageKey }) else { return nil }
+            self = tab
         }
 
         /// Only the watch lists and favourites accept a sort order.

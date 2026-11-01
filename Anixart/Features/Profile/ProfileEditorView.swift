@@ -1,17 +1,22 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import ImageIO
 import AnixartKit
 
 /// Account editing is a separate route. The gear still opens app-wide settings.
 @MainActor
 struct ProfileEditorView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.dismiss) private var dismiss
     let profileID: Int
     @State private var resource = ProfileResource<ProfilePreferenceResponse>()
+    @State private var info = ProfileResource<ProfileInfoResponse>()
     @State private var account: ProfileAccountKey?
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var confirmsSignOut = false
+    @State private var pendingUnbind: ProfilePreferenceEndpoints.Service?
 
     init(profileID: Int, account: ProfileAccountKey?) {
         self.profileID = profileID
@@ -38,7 +43,8 @@ struct ProfileEditorView: View {
                     NavigationLink {
                         ProfilePhotoEditorView(kind: .cover, profileID: profileID, account: account)
                     } label: {
-                        ProfileEditorRow(title: "Изменить обложку", subtitle: "Обложка доступна с 3-го уровня репутации")
+                        ProfileEditorRow(title: "Изменить обложку", subtitle: preferences.channelId != nil
+                            ? "Обложка вашего блога" : "Для новой обложки нужен блог")
                     }
                     NavigationLink {
                         ProfileStatusEditorView(initialStatus: preferences.status ?? "", account: account)
@@ -54,7 +60,7 @@ struct ProfileEditorView: View {
                     NavigationLink { ProfileSocialEditorView(profileID: profileID, account: account) } label: {
                         ProfileEditorRow(title: "Мои социальные сети", subtitle: "Укажите ссылки на свои страницы в соц. сетях")
                     }
-                } header: { header("Профиль") }
+                } header: { header("Персонализация") }
                 .disabled(!canEdit)
 
                 Section {
@@ -64,6 +70,12 @@ struct ProfileEditorView: View {
 
                 Section {
                     privacyRow("Кто видит мою статистику, оценки и историю просмотра", field: .statistics, value: preferences.privacyStats)
+                    if let value = preferences.isIncognito {
+                        Toggle("Инкогнито", isOn: Binding(get: { resource.value?.isIncognito ?? value }, set: { desired in
+                            Task { await setIncognito(desired) }
+                        }))
+                        .disabled(!ProfileCapabilities.mayUseIncognito(privilegeLevel: info.value?.privilegeLevel) || info.isLoading)
+                    }
                     privacyRow("Кто видит в профиле мои комментарии, коллекции, видео и друзей", field: .counts, value: preferences.privacyCounts)
                     privacyRow("Кто видит мои социальные сети", field: .social, value: preferences.privacySocial)
                     Menu {
@@ -99,12 +111,15 @@ struct ProfileEditorView: View {
 
                 Section {
                     ForEach(ProfilePreferenceEndpoints.Service.allCases) { service in
-                        NavigationLink { ProfileServiceView(service: service, account: account) } label: {
-                            HStack {
-                                Text(service.title)
-                                Spacer()
-                                Image(systemName: isBound(service, preferences) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(isBound(service, preferences) ? Theme.accent : Color.secondary)
+                        HStack {
+                            NavigationLink(service.title) { ProfileServiceView(service: service, account: account) }
+                            if let bound = preferences.isBound(to: service) {
+                                Toggle(service.title, isOn: Binding(get: { resource.value?.isBound(to: service) ?? bound }, set: { desired in
+                                    if !desired, bound { pendingUnbind = service }
+                                }))
+                                .labelsHidden().disabled(!bound || isSaving)
+                            } else {
+                                Text("Неизвестно").foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -127,11 +142,26 @@ struct ProfileEditorView: View {
         .navigationTitle("Редактирование")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .toolbar { ToolbarItem(placement: .topBarTrailing) {
+            Button("Выйти", role: .destructive) { confirmsSignOut = true }.disabled(!canEdit || isSaving)
+        } }
         .refreshable { if !isSaving { await load() } }
         .task(id: env.session.profileRevision) { if !isSaving { await load() } }
         .onChange(of: env.session.accountKey) { _, current in
-            if account != current { resource.reset(); errorMessage = nil }
+            if account != current { resource.reset(); info.reset(); errorMessage = nil; confirmsSignOut = false; pendingUnbind = nil }
         }
+        .confirmationDialog("Выход", isPresented: $confirmsSignOut, titleVisibility: .visible) {
+            Button("Выйти", role: .destructive) { Task {
+                guard let account, env.session.accountKey == account else { return }
+                await env.session.signOut()
+                dismiss()
+            } }
+            Button("Отмена", role: .cancel) { }
+        } message: { Text("Вы уверены, что хотите выйти из аккаунта?") }
+        .confirmationDialog("Отвязать сервис?", isPresented: Binding(get: { pendingUnbind != nil }, set: { if !$0 { pendingUnbind = nil } }), titleVisibility: .visible) {
+            if let service = pendingUnbind { Button("Отвязать \(service.title)", role: .destructive) { Task { await unbind(service) } } }
+            Button("Отмена", role: .cancel) { pendingUnbind = nil }
+        } message: { Text("Вход через сервис станет недоступен. Убедитесь, что можете войти с Email и паролем.") }
         .alert("Не удалось сохранить", isPresented: Binding(get: { preferences != nil && errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("Понятно", role: .cancel) { errorMessage = nil }
         } message: { Text(errorMessage ?? "") }
@@ -162,6 +192,32 @@ struct ProfileEditorView: View {
     private func load() async {
         guard canEdit, let account else { return }
         await resource.load { try await env.session.sendAccountRequest(ProfilePreferenceEndpoints.my(), for: account) }
+        await info.load { try await env.session.sendAccountRequest(ProfileEndpoints.myInfo(), for: account) }
+    }
+
+    private func setIncognito(_ desired: Bool) async {
+        guard canEdit, !isSaving, !resource.isLoading, resource.errorMessage == nil,
+              info.errorMessage == nil, let account,
+              ProfileCapabilities.mayUseIncognito(privilegeLevel: info.value?.privilegeLevel),
+              let current = preferences?.isIncognito, current != desired else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await env.session.sendConfirmedAccountRequest(ProfilePreferenceEndpoints.toggleIncognito(), for: account)
+            await load()
+            await env.session.refreshProfile(for: account)
+        } catch { if !ProfileRequestFailure.isCancellation(error) { errorMessage = Paginator<Release>.message(for: error) } }
+    }
+
+    private func unbind(_ service: ProfilePreferenceEndpoints.Service) async {
+        guard canEdit, !isSaving, let account, preferences?.isBound(to: service) == true else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await env.session.sendConfirmedAccountRequest(ProfilePreferenceEndpoints.unbind(service), for: account)
+            await load()
+            await env.session.refreshProfile(for: account)
+        } catch { if !ProfileRequestFailure.isCancellation(error) { errorMessage = Paginator<Release>.message(for: error) } }
     }
 
     private func setPrivacy(_ field: ProfilePreferenceEndpoints.PrivacyField, value: Int) async {
@@ -335,15 +391,23 @@ struct ProfileSocialEditorView: View {
 @MainActor
 struct ProfilePhotoEditorView: View {
     enum Kind: Equatable { case avatar, cover }
+    enum InitialAction: Equatable { case choose, delete }
+    private enum Variant: Equatable { case picture, animation }
     @Environment(AppEnvironment.self) private var env
     let kind: Kind
     let profileID: Int
     let account: ProfileAccountKey?
+    var initialAction: InitialAction? = nil
     @State private var resource = ProfileResource<ProfilePreferenceResponse>()
     @State private var blog = ProfileResource<ChannelResponse>()
     @State private var currentURL: URL?
     @State private var selected: PhotosPickerItem?
     @State private var image: UIImage?
+    @State private var gif: Data?
+    @State private var variant: Variant = .picture
+    @State private var showsVariantPicker = false
+    @State private var showsPhotosPicker = false
+    @State private var hasHandledInitialAction = false
     @State private var isBusy = false
     @State private var isConfirmingDelete = false
     @State private var errorMessage: String?
@@ -353,7 +417,8 @@ struct ProfilePhotoEditorView: View {
     private var mayEdit: Bool {
         guard let preferences, account?.profileID == profileID, env.session.accountKey == account else { return false }
         if kind == .avatar { return preferences.isChangeAvatarBanned != true }
-        return (env.session.profile?.ratingScore ?? 0) >= ProfileEditorRules.minimumCoverReputation && preferences.channelId != nil
+        return (preferences.channelId ?? 0) > 0 && blog.value?.channel?.id == preferences.channelId
+            && blog.value?.channel?.isBlocked != true && blog.errorMessage == nil
     }
 
     var body: some View {
@@ -372,9 +437,8 @@ struct ProfilePhotoEditorView: View {
                     .frame(maxWidth: .infinity).frame(height: 220)
                 }
                 if mayEdit {
-                    PhotosPicker(selection: $selected, matching: .images) {
-                        Label("Выбрать фото", systemImage: "photo.on.rectangle")
-                    }
+                    Button { choosePhoto() } label: { Label(kind == .avatar ? "Изменить фото" : "Выбрать фото", systemImage: "photo.on.rectangle") }
+                    if variant == .animation { Text("GIF, максимальный размер 4 МБ").font(.ax(.caption)).foregroundStyle(.secondary) }
                     Button("Сохранить") { Task { await upload() } }.disabled(image == nil)
                     if currentURL != nil {
                         Button("Удалить", role: .destructive) { isConfirmingDelete = true }
@@ -383,7 +447,9 @@ struct ProfilePhotoEditorView: View {
                     if kind == .avatar, preferences.isChangeAvatarBanned == true {
                         Text("Возможность смены фото временно ограничена.\n\(ProfileDate.text(preferences.banChangeAvatarExpires))")
                     } else {
-                        Text("Обложка доступна с 3-го уровня репутации.")
+                        Text(preferences.channelId == nil
+                            ? "Для создания обложки нужен блог. Текущий минимальный уровень репутации: \(ProfileCapabilities.minimumBlogReputation(toggles: env.session.toggles))."
+                            : "Обложка недоступна. Проверьте загрузку и ограничения канала.")
                     }
                 } else { ProfileResourceState(resource: resource, title: "Не удалось загрузить фото", retry: load) }
             }
@@ -394,14 +460,36 @@ struct ProfilePhotoEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .disabled(isBusy || account == nil || env.session.accountKey != account)
-        .task { await load() }
+        .task {
+            await load()
+            guard !hasHandledInitialAction, mayEdit else { return }
+            hasHandledInitialAction = true
+            if initialAction == .choose { choosePhoto() }
+            if initialAction == .delete, currentURL != nil { isConfirmingDelete = true }
+        }
+        .photosPicker(isPresented: $showsPhotosPicker, selection: $selected, matching: .images)
+        .confirmationDialog("Изменить фото", isPresented: $showsVariantPicker, titleVisibility: .visible) {
+            Button("Картинка") { setVariant(.picture) }
+            Button("Анимация") { setVariant(.animation) }
+            Button("Отмена", role: .cancel) { }
+        } message: { Text("Для анимации выберите GIF размером не более 4 МБ.") }
         .task(id: selected) {
             guard let selected, let account, env.session.accountKey == account else { return }
+            let variant = self.variant
             do {
-                guard let data = try await selected.loadTransferable(type: Data.self), let decoded = UIImage(data: data) else {
+                guard let data = try await selected.loadTransferable(type: Data.self) else {
                     throw AnixartError.decoding(message: "Не удалось прочитать изображение", path: "photos")
                 }
                 guard !Task.isCancelled, env.session.accountKey == account, selected == self.selected else { return }
+                if variant == .animation {
+                    guard ProfileImagePreparation.isValidAvatarGIF(data) else {
+                        throw AnixartError.decoding(message: "Выберите GIF размером не более 4 МБ", path: "photos")
+                    }
+                    gif = data
+                } else { gif = nil }
+                guard let decoded = ProfileImagePreparation.preview(data) else {
+                    throw AnixartError.decoding(message: "Не удалось прочитать изображение", path: "photos")
+                }
                 image = decoded
             } catch {
                 if env.session.accountKey == account, selected == self.selected, !ProfileRequestFailure.isCancellation(error) {
@@ -415,7 +503,10 @@ struct ProfilePhotoEditorView: View {
             blog.reset()
             currentURL = nil
             image = nil
+            gif = nil
             selected = nil
+            showsPhotosPicker = false
+            showsVariantPicker = false
             isConfirmingDelete = false
             errorMessage = nil
         }
@@ -424,11 +515,25 @@ struct ProfilePhotoEditorView: View {
         }
     }
 
+    private func choosePhoto() {
+        if kind == .avatar { showsVariantPicker = true }
+        else { setVariant(.picture) }
+    }
+
+    private func setVariant(_ variant: Variant) {
+        self.variant = variant
+        selected = nil
+        image = nil
+        gif = nil
+        errorMessage = nil
+        showsPhotosPicker = true
+    }
+
     private func load() async {
         guard let account, account.profileID == profileID else { return }
         if let preferences = await resource.load({ try await env.session.sendAccountRequest(ProfilePreferenceEndpoints.my(), for: account) }) {
             if kind == .avatar { currentURL = AnixartURL.image(preferences.avatar) }
-            else if mayEdit, let expectedID = preferences.channelId {
+            else if let expectedID = preferences.channelId, expectedID > 0 {
                 if let response = await blog.load({
                     let response = try await env.session.sendAccountRequest(ChannelEndpoints.blog(profileID: profileID), for: account)
                     guard response.channel?.id == expectedID else {
@@ -442,7 +547,7 @@ struct ProfilePhotoEditorView: View {
 
     private func upload() async {
         guard mayEdit, !isBusy, let image, let account else { return }
-        guard let data = ProfileImagePreparation.jpeg(image, avatar: kind == .avatar) else {
+        guard let data = gif ?? ProfileImagePreparation.jpeg(image, avatar: kind == .avatar) else {
             errorMessage = "Не удалось подготовить изображение"; return
         }
         isBusy = true
@@ -450,13 +555,15 @@ struct ProfilePhotoEditorView: View {
         defer { isBusy = false }
         do {
             if kind == .avatar {
-                let response = try await env.session.sendConfirmedAccountRequest(ProfilePreferenceEndpoints.editAvatar(jpeg: data), for: account)
+                let endpoint = gif != nil ? ProfilePreferenceEndpoints.editAvatar(gif: data) : ProfilePreferenceEndpoints.editAvatar(jpeg: data)
+                let response = try await env.session.sendConfirmedAccountRequest(endpoint, for: account)
                 currentURL = AnixartURL.image(response.avatar)
             } else if let channelID = preferences?.channelId {
                 let response = try await env.session.sendConfirmedAccountRequest(ChannelEndpoints.uploadCover(channelID: channelID, jpeg: data), for: account)
                 currentURL = AnixartURL.image(response.url)
             }
             self.image = nil
+            self.gif = nil
             selected = nil
             errorMessage = nil
             await load()
@@ -474,7 +581,7 @@ struct ProfilePhotoEditorView: View {
         do {
             if kind == .avatar { try await env.session.sendConfirmedAccountRequest(ProfilePreferenceEndpoints.deleteAvatar(), for: account) }
             else if let id = preferences?.channelId { try await env.session.sendConfirmedAccountRequest(ChannelEndpoints.deleteCover(channelID: id), for: account) }
-            image = nil; selected = nil
+            image = nil; selected = nil; gif = nil
             currentURL = nil
             await load()
             await env.session.refreshProfile(for: account)
@@ -485,6 +592,22 @@ struct ProfilePhotoEditorView: View {
 }
 
 enum ProfileImagePreparation {
+    static func preview(_ data: Data) -> UIImage? {
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 1600
+        ]
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        return UIImage(cgImage: thumbnail)
+    }
+    static func isValidAvatarGIF(_ data: Data) -> Bool {
+        guard !data.isEmpty, data.count <= ProfileEditorRules.avatarAnimationByteLimit,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetType(source) as String? == "com.compuserve.gif" else { return false }
+        return CGImageSourceGetCount(source) > 0
+    }
     static func jpeg(_ image: UIImage, avatar: Bool) -> Data? {
         let size = image.size
         guard size.width > 0, size.height > 0, size.width.isFinite, size.height.isFinite else { return nil }

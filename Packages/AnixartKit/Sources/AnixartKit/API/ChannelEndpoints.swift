@@ -1,6 +1,16 @@
 import Foundation
 
 public enum ChannelEndpoints {
+    /// Mutation, never performed merely by opening the profile/create information.
+    public static func createBlog() -> Endpoint<BlogCreateResponse> {
+        Endpoint(method: .post, path: "channel/blog/create", auth: .required)
+    }
+
+    public static func editorAvailability(channelID: Int, isSuggestion: Bool = false, isEditMode: Bool = false) -> Endpoint<ChannelEditorAvailabilityResponse> {
+        Endpoint(path: "channel/\(channelID)/editor/available",
+                 query: ["is_suggestion": String(isSuggestion), "is_edit_mode": String(isEditMode)], auth: .required)
+    }
+
     public static func channel(id: Int) -> Endpoint<ChannelResponse> {
         Endpoint(path: "channel/\(id)")
     }
