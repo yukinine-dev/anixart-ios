@@ -241,6 +241,97 @@ final class ProfileStateTests: XCTestCase {
     }
 
     @MainActor
+    func testPublicPinsAnnotateTheExistingGridWithoutBeingLostBySocialResponse() async throws {
+        let rig = ProfileTestRig()
+        await rig.session.restore()
+        let rows = (1...8).map { "{\"id\":\($0)}" }.joined(separator: ",")
+        rig.api.enqueue("/profile/71", json: "{\"code\":0,\"profile\":{\"id\":71,\"badge_count\":20,\"badges_preview\":[\(rows)]}}")
+        rig.api.enqueue("/profile/71/badge/list", json:
+            #"{"code":0,"profile":{"id":71},"showcased":[{"id":8}],"sections":[{"id":1,"content":[{"id":8,"name":"Pinned","image_medium_url":"https://badges.invalid/8.png"}]}]}"#)
+        rig.api.enqueue("/channel/blog/71", json: #"{"code":0}"#)
+        rig.api.enqueue("/profile/social/71", json: #"{"code":0,"tg_page":"public"}"#)
+        let model = ProfileViewModel()
+        await model.load(profileID: 71, session: rig.session)
+        let profile = try XCTUnwrap(model.profile)
+        let preview = ProfileBadgePreview(badges: profile.badgesPreview ?? [], totalCount: profile.badgeCount)
+        XCTAssertEqual(preview.badges.map(\.id), Array(1...8))
+        XCTAssertEqual(preview.remainingCount, 12)
+        XCTAssertEqual(preview.badges.last?.isShowcased, true)
+        XCTAssertEqual(preview.badges.last?.name, "Pinned")
+        XCTAssertEqual(profile.tgPage, "public")
+        XCTAssertEqual(model.showcased.map(\.id), [8])
+    }
+
+    @MainActor
+    func testWrongOwnerSupplementCannotAttachAnotherProfilesPins() async {
+        let rig = ProfileTestRig()
+        await rig.session.restore()
+        rig.api.enqueue("/profile/71", json: #"{"code":0,"profile":{"id":71,"is_social_hidden":true,"badges_preview":[{"id":1}]}}"#)
+        rig.api.enqueue("/profile/71/badge/list", json: #"{"code":0,"profile":{"id":72},"showcased":[{"id":1}]}"#)
+        rig.api.enqueue("/channel/blog/71", json: #"{"code":0}"#)
+        let model = ProfileViewModel()
+        await model.load(profileID: 71, session: rig.session)
+        XCTAssertNil(model.profile?.badgesPreview?.first?.isShowcased)
+        XCTAssertTrue(model.showcased.isEmpty)
+        XCTAssertNotNil(model.badgeErrorMessage)
+    }
+
+    @MainActor
+    func testBadgeSupplementHydratesTheInstalledNicknameArtworkWithoutChangingItsID() async throws {
+        let rig = ProfileTestRig()
+        await rig.session.restore()
+        rig.api.enqueue("/profile/71", json:
+            #"{"code":0,"profile":{"id":71,"is_social_hidden":true,"badge_id":7}}"#)
+        rig.api.enqueue("/profile/71/badge/list", json:
+            #"{"code":0,"profile":{"id":71,"badge":{"id":7,"type":1,"name":"Installed","image_url":"https://badges.invalid/7.json"}},"showcased":[{"id":7}],"sections":[]}"#)
+        rig.api.enqueue("/channel/blog/71", json: #"{"code":0}"#)
+        let model = ProfileViewModel()
+        await model.load(profileID: 71, session: rig.session)
+        let badge = try XCTUnwrap(model.profile?.selectedBadge)
+        XCTAssertEqual(badge.id, 7)
+        XCTAssertEqual(badge.name, "Installed")
+        XCTAssertTrue(badge.isAnimated)
+        XCTAssertEqual(badge.artworkURL?.lastPathComponent, "7.json")
+        XCTAssertEqual(model.showcased.first?.name, "Installed")
+        XCTAssertEqual(model.showcased.first?.artworkURL?.lastPathComponent, "7.json")
+    }
+
+    @MainActor
+    func testFailedBadgeReadKeepsProfilePreviewAndReportsFailureInsteadOfEmptyPins() async {
+        let rig = ProfileTestRig()
+        await rig.session.restore()
+        rig.api.enqueue("/profile/71", json:
+            #"{"code":0,"profile":{"id":71,"is_social_hidden":true,"badges_preview":[{"id":1,"is_showcased":true}]}}"#)
+        rig.api.enqueue("/profile/71/badge/list", json: "{}", status: 503)
+        rig.api.enqueue("/channel/blog/71", json: #"{"code":0}"#)
+        let model = ProfileViewModel()
+        await model.load(profileID: 71, session: rig.session)
+        XCTAssertEqual(model.profile?.badgesPreview?.first?.isShowcased, true)
+        XCTAssertEqual(model.showcased.map(\.id), [1])
+        XCTAssertNotNil(model.badgeErrorMessage)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    @MainActor
+    func testFailedPrimaryRefreshRetainsContentAndDoesNotStartSupplementaryReads() async {
+        let rig = ProfileTestRig()
+        await rig.session.restore()
+        rig.api.enqueue("/profile/71", json:
+            #"{"code":0,"profile":{"id":71,"login":"kept","is_social_hidden":true,"badges_preview":[{"id":1}]}}"#)
+        rig.api.enqueue("/profile/71/badge/list", json: #"{"code":0,"showcased":[{"id":1}]}"#)
+        rig.api.enqueue("/channel/blog/71", json: #"{"code":0}"#)
+        let model = ProfileViewModel()
+        await model.load(profileID: 71, session: rig.session)
+        rig.api.enqueue("/profile/71", json: "{}", status: 503)
+        await model.load(profileID: 71, session: rig.session)
+        XCTAssertEqual(model.profile?.login, "kept")
+        XCTAssertEqual(model.showcased.map(\.id), [1])
+        XCTAssertNotNil(model.errorMessage)
+        XCTAssertEqual(rig.api.requests(to: "/profile/71/badge/list").count, 1)
+        XCTAssertEqual(rig.api.requests(to: "/channel/blog/71").count, 1)
+    }
+
+    @MainActor
     func testRecentActivityKeepsOriginalGuestViewerAfterSignIn() async throws {
         let rig = ProfileTestRig()
         await rig.session.restore()

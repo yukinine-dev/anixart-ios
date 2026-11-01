@@ -8,23 +8,58 @@ final class ProfileBadgesModel {
     private(set) var isSaving = false
     var errorMessage: String?
     private let defaults: UserDefaults
+    private(set) var viewer: ProfileViewerKey?
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
     var response: ProfileBadgeSectionsResponse? { resource.value }
-    var showcased: [Badge] { response?.showcased ?? [] }
-    var selectedID: Int? { response?.profile?.badge?.id ?? response?.profile?.badgeId }
+    var showcased: [Badge] {
+        guard let response else { return [] }
+        return ProfileBadgePresentation.unique(response.showcased ?? []).map {
+            var badge = ProfileBadgePresentation.resolved($0, in: response)
+            badge.isShowcased = true
+            return badge
+        }
+    }
+    var selectedID: Int? { response?.profile?.selectedBadge?.id }
+    var canEdit: Bool {
+        response?.code == AnixartStatus.successful && response?.profile != nil
+            && response?.profile?.id == viewer?.account?.profileID
+            && !isSaving && !resource.isLoading && resource.errorMessage == nil
+    }
+
+    func adopt(_ response: ProfileBadgeSectionsResponse, for viewer: ProfileViewerKey) {
+        resource.adopt(response)
+        self.viewer = viewer
+    }
 
     func badge(id: Int, fallback: Badge) -> Badge {
-        let all = showcased + (response?.recent ?? []) + (response?.sections ?? []).flatMap { $0.content ?? [] }
-        return all.first { $0.id == id } ?? fallback
+        guard id == fallback.id, let response else { return fallback }
+        return ProfileBadgePresentation.resolved(fallback, in: response)
     }
 
     func load(profileID: Int, session: SessionController, viewer: ProfileViewerKey) async {
-        let recent = ProfileRecentBadges.query(profileID: profileID, defaults: defaults)
-        await resource.load {
-            try await session.sendViewerRequest(ProfileBadgeEndpoints.sections(profileID: profileID, recent: recent), for: viewer)
+        guard viewer == session.viewerKey else { return }
+        let ownsProfile = viewer.account?.profileID == profileID
+        let recent = ownsProfile ? ProfileRecentBadges.query(profileID: profileID, defaults: defaults) : ""
+        guard var loaded = await resource.load({
+            let response = try await session.sendViewerRequest(ProfileBadgeEndpoints.sections(profileID: profileID, recent: recent), for: viewer)
+            guard response.profile == nil || response.profile?.id == profileID else {
+                throw AnixartError.decoding(message: "Ответ содержит значки другого профиля", path: "profile/\(profileID)/badge/list")
+            }
+            guard response.sections != nil || response.showcased != nil || response.recent != nil || response.totalCount == 0 else {
+                throw AnixartError.decoding(message: "Ответ не содержит список значков", path: "profile/\(profileID)/badge/list")
+            }
+            return response
+        }), viewer == session.viewerKey, !Task.isCancelled else { return }
+        // Only an accepted, current load may update the local cache. A cancelled
+        // or superseded response must not restore an older selected badge.
+        if ownsProfile {
+            loaded.recent = ProfileRecentBadges.refresh(loaded, profileID: profileID, defaults: defaults)
+        } else {
+            loaded.recent = []
         }
+        adopt(loaded, for: viewer)
     }
 
     enum Action { case select, remove, pin, unpin }
@@ -32,7 +67,10 @@ final class ProfileBadgesModel {
     @discardableResult
     func apply(_ action: Action, to badge: Badge, account: ProfileAccountKey,
                session: SessionController) async -> Bool {
-        guard !isSaving, session.accountKey == account else { return false }
+        guard canEdit, response?.profile?.id == account.profileID,
+              viewer == account.viewerKey, session.accountKey == account, badge.id > 0 else { return false }
+        let current = self.badge(id: badge.id, fallback: badge)
+        guard (action == .remove ? selectedID == badge.id : current.isOwned == true) else { return false }
         if action == .pin, !showcased.contains(where: { $0.id == badge.id }),
            showcased.count >= ProfileEditorRules.showcaseLimit {
             errorMessage = "Можно закрепить не более трёх значков. Сначала открепите один из них."
@@ -45,7 +83,7 @@ final class ProfileBadgesModel {
             switch action {
             case .select:
                 try await session.sendConfirmedAccountRequest(ProfileBadgeEndpoints.select(id: badge.id), for: account)
-                ProfileRecentBadges.record(badge.id, profileID: account.profileID, defaults: defaults)
+                ProfileRecentBadges.record(current, profileID: account.profileID, defaults: defaults)
             case .remove:
                 try await session.sendConfirmedAccountRequest(ProfileBadgeEndpoints.remove(), for: account)
             case .pin:
@@ -60,23 +98,6 @@ final class ProfileBadgesModel {
             if !ProfileRequestFailure.isCancellation(error) { errorMessage = Paginator<Release>.message(for: error) }
             return false
         }
-    }
-}
-
-@MainActor
-enum ProfileRecentBadges {
-    private static func key(_ profileID: Int) -> String { "profile.\(profileID).recentBadgeIDs" }
-
-    static func record(_ id: Int, profileID: Int, defaults: UserDefaults = .standard) {
-        let old = defaults.array(forKey: key(profileID)) as? [Int] ?? []
-        defaults.set(ProfileEditorRules.recentBadgeIDs(adding: id, to: old), forKey: key(profileID))
-    }
-
-    static func query(profileID: Int, defaults: UserDefaults = .standard) -> String? {
-        let ids = Array((defaults.array(forKey: key(profileID)) as? [Int] ?? [])
-            .prefix(ProfileEditorRules.recentBadgeLimit))
-        guard !ids.isEmpty, let data = try? JSONEncoder().encode(ids) else { return nil }
-        return String(data: data, encoding: .utf8)
     }
 }
 
@@ -109,20 +130,22 @@ struct ProfileBadgesView: View {
                     if selecting, ownsProfile, let profile = response.profile ?? env.session.profile {
                         ProfileBadgeCommentPreview(profile: profile)
                     }
-                    if let recent = response.recent, !recent.isEmpty {
+                    if ownsProfile, let recent = response.recent, !recent.isEmpty {
                         badgeSection("Недавние", badges: Array(recent.prefix(ProfileEditorRules.recentBadgeLimit)))
                     }
                     if !model.showcased.isEmpty {
                         badgeSection("Закреплённые", badges: model.showcased)
                     }
                     ForEach(response.sections ?? []) { section in
+                        let preview = ProfileBadgePreview(badges: (section.content ?? []).map { model.badge(id: $0.id, fallback: $0) },
+                                                          totalCount: section.count)
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
                                 Text(section.title ?? "Значки").font(.ax(.headline))
-                                Text(Format.count(section.count)).font(.ax(.caption)).foregroundStyle(.secondary)
+                                Text(Format.count(preview.totalCount)).font(.ax(.caption)).foregroundStyle(.secondary)
                                     .padding(5).background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
                                 Spacer()
-                                if (section.count ?? 0) > (section.content?.count ?? 0) {
+                                if preview.hasMore {
                                     NavigationLink("Показать все") {
                                         ProfileBadgeCategoryView(profileID: profileID, section: section, selecting: selecting,
                                                                  model: model, viewer: viewer)
@@ -131,23 +154,26 @@ struct ProfileBadgesView: View {
                                 }
                             }
                             LazyVGrid(columns: ProfileBadgeGridLayout.columns, alignment: .leading, spacing: 20) {
-                                ForEach(Array((section.content ?? []).prefix(ProfileEditorRules.categoryBadgePreviewLimit))) { badge in
+                                ForEach(preview.badges) { badge in
                                     Button { detail = badge } label: {
                                         ProfileBadgeTile(badge: badge, selected: selecting && model.selectedID == badge.id, compact: true)
                                     }.buttonStyle(.plain)
                                 }
-                                let shown = min(section.content?.count ?? 0, ProfileEditorRules.categoryBadgePreviewLimit)
-                                if (section.count ?? shown) > shown {
+                                if preview.hasMore {
                                     NavigationLink {
                                         ProfileBadgeCategoryView(profileID: profileID, section: section, selecting: selecting, model: model, viewer: viewer)
-                                    } label: { ProfileBadgeMoreTile(remaining: (section.count ?? shown) - shown) }
+                                    } label: { ProfileBadgeMoreTile(remaining: preview.remainingCount) }
                                     .buttonStyle(.plain)
                                 }
                             }
                         }
                     }
-                    if (response.sections ?? []).allSatisfy({ ($0.content ?? []).isEmpty }) && model.showcased.isEmpty {
-                        ProfileEmptySection(message: "Значков пока нет")
+                    if (response.sections ?? []).allSatisfy({ ProfileBadgePreview(badges: $0.content ?? [], totalCount: $0.count).isEmpty }),
+                       model.showcased.isEmpty, !ownsProfile || (response.recent ?? []).isEmpty {
+                        if (response.totalCount ?? 0) > 0 {
+                            StatusMessageView(title: "Список значков недоступен",
+                                              message: "Сервер указал количество, но не вернул категории. Попробуйте обновить список.", retry: reload)
+                        } else { ProfileEmptySection(message: "Значков пока нет") }
                     }
                     ProfileSaveError(message: model.resource.errorMessage)
                 }
@@ -165,14 +191,14 @@ struct ProfileBadgesView: View {
                     Menu {
                         Button { claimsBadge = true } label: { Label("Получить по коду", systemImage: "gift") }
                         Button { showsHelp = true } label: { Label("О значках", systemImage: "info.circle") }
-                        if model.selectedID != nil || env.session.profile?.badge != nil {
+                        if model.selectedID != nil {
                             Button(role: .destructive) { confirmsRemove = true } label: { Label("Снять значок", systemImage: "minus.circle") }
                         }
                         NavigationLink { ProfileBadgeOrderView(profileID: profileID, account: account) } label: {
                             Label("Изменить порядок", systemImage: "arrow.up.arrow.down")
                         }
                     } label: { Image(systemName: "ellipsis") }
-                    .disabled(model.isSaving)
+                    .disabled(!model.canEdit)
                 }
             }
         }
@@ -222,7 +248,8 @@ struct ProfileBadgesView: View {
         LazyVGrid(columns: ProfileBadgeGridLayout.columns, alignment: .leading, spacing: 20) {
             ForEach(badges) { badge in
                 Button { detail = badge } label: {
-                    ProfileBadgeTile(badge: badge, selected: selecting && (model.selectedID == badge.id || badge.isSelected == true), compact: true)
+                    ProfileBadgeTile(badge: model.badge(id: badge.id, fallback: badge),
+                                     selected: selecting && model.selectedID == badge.id, compact: true)
                 }
                 .buttonStyle(.plain)
             }
@@ -236,7 +263,7 @@ struct ProfileBadgesView: View {
 
     private func removeSelected() async {
         guard ownsProfile, let account,
-              let badge = model.response?.profile?.badge ?? env.session.profile?.badge else { return }
+              model.canEdit, let badge = model.response?.profile?.selectedBadge else { return }
         await model.apply(.remove, to: badge, account: account, session: env.session)
     }
 }
@@ -264,7 +291,8 @@ struct ProfileBadgeCategoryView: View {
                     LazyVGrid(columns: ProfileBadgeGridLayout.columns, spacing: 20) {
                         ForEach(paginator.items) { badge in
                             Button { detail = badge } label: {
-                                ProfileBadgeTile(badge: badge, selected: selecting && model.selectedID == badge.id, compact: true)
+                                ProfileBadgeTile(badge: model.badge(id: badge.id, fallback: badge),
+                                                 selected: selecting && model.selectedID == badge.id, compact: true)
                             }
                             .buttonStyle(.plain)
                             .onAppear {
@@ -303,6 +331,32 @@ struct ProfileBadgeCategoryView: View {
     }
 }
 
+enum ProfileBadgeDetailEntry: Equatable, Sendable {
+    case collection, installedHeader
+
+    func primaryAction(badge: Badge, isSelected: Bool, profileID: Int,
+                       viewer: ProfileViewerKey?, currentViewer: ProfileViewerKey) -> ProfileBadgeDetailPrimaryAction? {
+        guard badge.id > 0, let viewer, viewer == currentViewer, viewer.account?.profileID == profileID else { return nil }
+        // The header's Change action is navigation, not a claim or selection.
+        // Flat installed badges need not carry isOwned for this read-only route.
+        if self == .installedHeader { return .change }
+        guard badge.isOwned == true else { return nil }
+        return isSelected ? .remove : .select
+    }
+}
+
+enum ProfileBadgeDetailPrimaryAction: Equatable, Sendable {
+    case change, select, remove
+
+    var title: String {
+        switch self {
+        case .change: return "Сменить значок"
+        case .select: return "Установить"
+        case .remove: return "Снять"
+        }
+    }
+}
+
 @MainActor
 struct ProfileBadgeDetailSheet: View {
     @Environment(AppEnvironment.self) private var env
@@ -311,6 +365,7 @@ struct ProfileBadgeDetailSheet: View {
     let profileID: Int
     let model: ProfileBadgesModel
     var selecting = false
+    var entry: ProfileBadgeDetailEntry = .collection
     let viewer: ProfileViewerKey?
     @State private var showsAward = false
 
@@ -318,7 +373,11 @@ struct ProfileBadgeDetailSheet: View {
     private var account: ProfileAccountKey? { viewer?.account }
     private var ownsProfile: Bool { viewer == env.session.viewerKey && account?.profileID == profileID }
     private var isSelected: Bool { model.selectedID == badge.id || current.isSelected == true }
-    private var isPinned: Bool { model.showcased.contains { $0.id == badge.id } }
+    private var isPinned: Bool { current.isShowcased == true }
+    private var primaryAction: ProfileBadgeDetailPrimaryAction? {
+        entry.primaryAction(badge: current, isSelected: isSelected, profileID: profileID,
+                            viewer: viewer, currentViewer: env.session.viewerKey)
+    }
 
     var body: some View {
         NavigationStack {
@@ -348,18 +407,38 @@ struct ProfileBadgeDetailSheet: View {
                         if showsAward { ProfileBadgeAwardView(award: award, viewer: viewer) }
                         else { Button("Как был получен") { showsAward = true }.padding(.vertical, 10) }
                     }
-                    if ownsProfile, current.isOwned == true {
-                        Button {
-                            Task { await apply(isSelected ? .remove : .select) }
-                        } label: {
-                            Text(isSelected ? "Снять" : "Установить")
-                                .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    if let primaryAction {
+                        if primaryAction == .change {
+                            NavigationLink {
+                                ProfileBadgesView(profileID: profileID, selecting: true, viewer: viewer)
+                            } label: {
+                                Text(primaryAction.title).frame(maxWidth: .infinity).padding(.vertical, 10)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(model.isSaving)
+                        } else {
+                            Button {
+                                Task { await apply(primaryAction == .remove ? .remove : .select) }
+                            } label: {
+                                Text(primaryAction.title).frame(maxWidth: .infinity).padding(.vertical, 10)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!model.canEdit)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(model.isSaving)
                     }
                     if let error = model.errorMessage ?? model.resource.errorMessage {
                         Text(error).font(.ax(.subheadline)).foregroundStyle(.red)
+                    }
+                    if model.resource.isLoading { ProgressView() }
+                    if model.resource.errorMessage != nil {
+                        Button("Повторить загрузку") {
+                            Task {
+                                if let viewer, viewer == env.session.viewerKey {
+                                    await model.load(profileID: profileID, session: env.session, viewer: viewer)
+                                }
+                            }
+                        }
+                        .disabled(model.isSaving || model.resource.isLoading)
                     }
                     }
                 }
@@ -375,7 +454,7 @@ struct ProfileBadgeDetailSheet: View {
                         Button { Task { await apply(isPinned ? .unpin : .pin) } } label: {
                             Image(systemName: isPinned ? "pin.fill" : "pin")
                         }
-                        .disabled(model.isSaving)
+                        .disabled(!model.canEdit)
                         .accessibilityLabel(isPinned ? "Открепить от витрины" : "Закрепить на витрине")
                     }
                 }
@@ -388,7 +467,7 @@ struct ProfileBadgeDetailSheet: View {
     }
 
     private func apply(_ action: ProfileBadgesModel.Action) async {
-        guard let account else { return }
+        guard ownsProfile, model.canEdit, let account else { return }
         if await model.apply(action, to: current, account: account, session: env.session),
            selecting, action == .select || action == .remove { dismiss() }
     }
@@ -423,43 +502,50 @@ struct ProfileBadgeAwardView: View {
     }
 }
 
-struct ProfileBadgeImage: View {
-    let badge: Badge
-    var size: CGFloat = 88
-    var body: some View {
-        CachedAsyncImage(url: AnixartURL.image(badge.imageMediumUrl ?? badge.badgeUrl ?? badge.imageSmallUrl), maxPixelSize: size) {
-            $0.resizable().scaledToFit()
-        } placeholder: { Image(systemName: "seal").resizable().scaledToFit().foregroundStyle(.tertiary).padding(12) }
-        .frame(width: size, height: size)
-    }
-}
-
 struct ProfileBadgeTile: View {
     let badge: Badge
     var selected = false
     var compact = false
+    var releaseSubtitle: String? {
+        guard let title = badge.award?.releaseTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else { return nil }
+        return title
+    }
     var body: some View {
         VStack(spacing: 10) {
             ProfileBadgeImage(badge: badge, size: compact ? 44 : 76).padding(compact ? 8 : 12)
                 .background(Color.primary.opacity(selected ? 0.12 : 0.035), in: RoundedRectangle(cornerRadius: 22))
                 .overlay(RoundedRectangle(cornerRadius: 22).stroke(selected ? Theme.accent : ProfileBadgeStyle.color(badge.rarity).opacity(0.6), lineWidth: selected ? 2 : 1))
+                .overlay(alignment: .topLeading) {
+                    if badge.isShowcased == true {
+                        Image(systemName: "pin.circle.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(Color.primary, Color(.systemBackground))
+                            .font(.system(size: 20)).padding(6)
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent).padding(8) }
                 }
             Text(badge.name ?? "Значок").font(.ax(compact ? .caption : .subheadline, .medium)).lineLimit(2).multilineTextAlignment(.center)
-            if !compact, let title = badge.award?.releaseTitle {
-                Text(title).font(.ax(.caption)).foregroundStyle(.secondary).lineLimit(1)
+            if let releaseSubtitle {
+                Text(releaseSubtitle).font(.ax(.caption)).foregroundStyle(.secondary)
+                    .lineLimit(compact ? 2 : 1).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
             }
         }
         .foregroundStyle(.primary)
         .opacity(badge.isOwned == false ? 0.55 : 1)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityValue(badge.isShowcased == true ? "Закреплён на витрине" : "")
     }
 }
 
 enum ProfileBadgeGridLayout {
-    static var columns: [GridItem] { Array(repeating: GridItem(.flexible(minimum: 0), spacing: 12), count: 4) }
+    static var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(minimum: 0), spacing: 12), count: ProfileBadgePreview.columnCount)
+    }
 }
 
 struct ProfileBadgeMoreTile: View {
@@ -485,20 +571,19 @@ struct ProfileBadgePreviewGrid: View {
     @State private var detail: Badge?
     @State private var model = ProfileBadgesModel()
 
-    private var preview: [Badge] { Array(badges.prefix(ProfileEditorRules.badgePreviewLimit)) }
-    private var remaining: Int? { totalCount.map { max(0, $0 - preview.count) } }
+    private var preview: ProfileBadgePreview { ProfileBadgePreview(badges: badges, totalCount: totalCount) }
 
     var body: some View {
         LazyVGrid(columns: ProfileBadgeGridLayout.columns, alignment: .leading, spacing: 20) {
-            ForEach(preview) { badge in
+            ForEach(preview.badges) { badge in
                 Button { if viewer == env.session.viewerKey { detail = badge } } label: {
                     ProfileBadgeTile(badge: badge, compact: true)
                 }
                 .buttonStyle(.plain)
             }
-            if remaining == nil || (remaining ?? 0) > 0 || badges.count > preview.count {
+            if preview.hasMore {
                 NavigationLink { ProfileBadgesView(profileID: profileID, viewer: viewer) } label: {
-                    ProfileBadgeMoreTile(remaining: remaining ?? (badges.count > preview.count ? badges.count - preview.count : nil))
+                    ProfileBadgeMoreTile(remaining: preview.remainingCount)
                 }
                 .buttonStyle(.plain)
             }
@@ -545,7 +630,7 @@ struct ProfileBadgeCommentPreview: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 5) {
                     Text(profile.displayLogin).font(.ax(.subheadline, .semibold))
-                    if let badge = profile.badge { ProfileBadgeImage(badge: badge, size: 20) }
+                    if let badge = profile.selectedBadge { ProfileBadgeImage(badge: badge, size: 20) }
                     Text("сегодня").font(.ax(.caption)).foregroundStyle(.secondary)
                 }
                 Text("Это пример вашего комментария").font(.ax(.subheadline))
@@ -553,44 +638,6 @@ struct ProfileBadgeCommentPreview: View {
             Spacer(minLength: 0)
         }
         .padding(16).background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-@MainActor
-struct ProfileBadgeStrip: View {
-    let badges: [Badge]
-    let profileID: Int
-    let viewer: ProfileViewerKey?
-    @State private var detail: Presentation?
-    @State private var model = ProfileBadgesModel()
-    @Environment(AppEnvironment.self) private var env
-
-    private struct Presentation: Identifiable {
-        let badge: Badge
-        let viewer: ProfileViewerKey
-        var id: Int { badge.id }
-    }
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 20) {
-                ForEach(badges) { badge in
-                    Button {
-                        guard let viewer, viewer == env.session.viewerKey else { return }
-                        detail = Presentation(badge: badge, viewer: viewer)
-                    } label: { ProfileBadgeTile(badge: badge).frame(width: 110) }
-                        .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal)
-        }
-        .sheet(item: $detail) { item in
-            ProfileBadgeDetailSheet(badge: item.badge, profileID: profileID, model: model, viewer: item.viewer)
-                .task { await model.load(profileID: profileID, session: env.session, viewer: item.viewer) }
-        }
-        .onChange(of: env.session.viewerKey) { _, current in
-            if viewer != current { detail = nil; model.resource.reset() }
-        }
     }
 }
 

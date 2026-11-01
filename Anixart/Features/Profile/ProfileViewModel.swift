@@ -8,6 +8,7 @@ final class ProfileViewModel {
     private(set) var coverURL: URL?
     private(set) var blog: Channel?
     private(set) var blogErrorMessage: String?
+    private(set) var badgeErrorMessage: String?
     private(set) var showcased: [Badge] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
@@ -28,6 +29,7 @@ final class ProfileViewModel {
         coverURL = nil
         blog = nil
         blogErrorMessage = nil
+        badgeErrorMessage = nil
         showcased = []
         viewerKey = nil
         loadingViewer = nil
@@ -76,6 +78,7 @@ final class ProfileViewModel {
             coverURL = nil
             blog = nil
             blogErrorMessage = nil
+            badgeErrorMessage = nil
             showcased = []
             viewerKey = nil
         }
@@ -93,14 +96,30 @@ final class ProfileViewModel {
             adopt(updated)
             viewerKey = viewer
 
-            async let badges = try? session.sendViewerRequest(ProfileBadgeEndpoints.sections(profileID: profileID), for: viewer)
+            async let badges = Self.badges(for: profileID, session: session, viewer: viewer)
             async let blog = Self.blog(for: updated, session: session, viewer: viewer)
             async let social = Self.social(for: updated, session: session, viewer: viewer)
-            let (badgeResponse, blogResponse, socialResponse) = await (badges, blog, social)
+            let (badgesResult, blogResponse, socialResponse) = await (badges, blog, social)
             try Task.checkCancellation()
             guard requestGeneration == generation, session.viewerKey == viewer else { return }
 
-            if let badgeResponse { showcased = badgeResponse.showcased ?? [] }
+            var current = updated
+            switch badgesResult {
+            case .success(let badgeResponse):
+                badgeErrorMessage = nil
+                current.badgesPreview = updated.badgesPreview?.map { ProfileBadgePresentation.resolved($0, in: badgeResponse) }
+                if let selected = current.selectedBadge {
+                    current.badge = ProfileBadgePresentation.resolved(selected, in: badgeResponse)
+                }
+                showcased = ProfileBadgePresentation.unique(badgeResponse.showcased
+                    ?? current.badgesPreview?.filter { $0.isShowcased == true } ?? [])
+                    .map { ProfileBadgePresentation.resolved($0, in: badgeResponse) }
+            case .failure(let error):
+                showcased = ProfileBadgePresentation.unique(current.badgesPreview?.filter { $0.isShowcased == true } ?? [])
+                if !ProfileRequestFailure.isCancellation(error) {
+                    badgeErrorMessage = Paginator<Release>.message(for: error)
+                }
+            }
             switch blogResponse {
             case .success(let response):
                 blogErrorMessage = nil
@@ -118,19 +137,31 @@ final class ProfileViewModel {
                 }
             }
             if let socialResponse {
-                var current = updated
                 current.vkPage = socialResponse.vkPage
                 current.tgPage = socialResponse.tgPage
                 current.discordPage = socialResponse.discordPage
                 current.ttPage = socialResponse.ttPage
                 current.instPage = socialResponse.instPage
-                profile = current
             }
+            profile = current
         } catch {
             guard requestGeneration == generation, session.viewerKey == viewer,
                   !ProfileRequestFailure.isCancellation(error) else { return }
             errorMessage = Paginator<Release>.message(for: error)
         }
+    }
+
+    private static func badges(for profileID: Int, session: SessionController, viewer: ProfileViewerKey) async -> Result<ProfileBadgeSectionsResponse, Error> {
+        do {
+            let response = try await session.sendViewerRequest(ProfileBadgeEndpoints.sections(profileID: profileID), for: viewer)
+            guard response.profile == nil || response.profile?.id == profileID else {
+                throw AnixartError.decoding(message: "Ответ содержит значки другого профиля", path: "profile/\(profileID)/badge/list")
+            }
+            guard response.sections != nil || response.showcased != nil || response.recent != nil || response.totalCount == 0 else {
+                throw AnixartError.decoding(message: "Ответ не содержит список значков", path: "profile/\(profileID)/badge/list")
+            }
+            return .success(response)
+        } catch { return .failure(error) }
     }
 
     private static func blog(for profile: Profile, session: SessionController, viewer: ProfileViewerKey) async -> Result<ChannelResponse, Error> {

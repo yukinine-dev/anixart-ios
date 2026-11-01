@@ -15,6 +15,9 @@ options:
 packages:
   AnixartKit:
     path: Packages/AnixartKit
+  Lottie:
+    url: https://github.com/airbnb/lottie-ios
+    exactVersion: 4.5.2
 
 settings:
   base:
@@ -35,6 +38,8 @@ targets:
     dependencies:
       - package: AnixartKit
         product: AnixartKit
+      - package: Lottie
+        product: Lottie
     scheme:
       testTargets:
         - AnixartTests
@@ -90,6 +95,8 @@ targets:
       - target: Anixart
       - package: AnixartKit
         product: AnixartKit
+      - package: Lottie
+        product: Lottie
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

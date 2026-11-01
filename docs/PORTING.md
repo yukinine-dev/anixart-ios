@@ -63,7 +63,8 @@ user's place.
 | Bookmarks | 8 tabs | collections, history, favourites and the five watch lists, with the sort order the Android app offers |
 | Collections | favourites list, detail | bookmark/unbookmark, paginated releases |
 | Comments | list, thread, composer | sorting, spoiler reveal, replies, up/down voting, posting with the spoiler flag |
-| Profile | own and others, lists, votes, friends, user search | the Android layout: avatar with the online dot, login with the sponsor crown, status, rating score, join date, the action row, the friends row, and the Статистика / Оценки релизов / Коллекции chips over the watch-list legend and donut |
+| Profile | own and others, editor, account health, lists, votes, friends, user search | six privacy-filtered sections, installed nickname badge, grouped friend requests, existing blog/cover reads independent of creation reputation, typed reports and independent full/reply comment sorts |
+| Profile badges and themes | previews, categories, detail, code claim, pinned section and badge order | four-column conditional overflow previews, independent pin/selected/rarity markers, theme behind the whole selected section, Lottie JSON for nonzero badge type, owner-only recent object cache with CSV queries; native reorder uses explicit Save/Cancel |
 | Schedule | weekly | one request for the week, defaults to today |
 | Notifications | feed | episode, friend, related-release and unknown kinds; marks read on open |
 | Auth | sign in, register, password reset | email/password; registration and reset both run the emailed-code step |
@@ -73,14 +74,51 @@ user's place.
 | Area | Why |
 |---|---|
 | Social sign-in (VK, Google, Telegram, Yandex) | needs each provider's SDK and the original app's registered client IDs and redirect URIs, which are not recoverable from the APK in a usable form. The endpoints are in `AuthEndpoints` and `SessionController` already has the methods — only the token acquisition is missing. |
-| Articles and channels (the social feed) | the largest remaining area: ~20 screens, a block-based article editor, reposts, suggestions, channel moderation. `Article` and `Channel` models exist; `ArticlePayload` is a sealed block hierarchy that was not modelled. |
+| Global articles/channels feed and publishing | existing profile blogs, article blocks, galleries, comments, voters and repost lists are readable. The block editor/media-token bridge, publishing flow and global feed remain separate work. |
 | Creating and editing collections | needs multipart image upload |
-| Reports and moderation | `report/*` exists in the API reference; no UI |
-| Profile themes, badge showcases, achievements | cosmetic systems with a lot of surface (`Badge`, `BadgeAward`, `BadgeCategory` are modelled; the showcase endpoints are not wrapped) |
+| Broader moderator tooling | typed profile/comment/article/collection report forms and account-health screens exist; broader channel/admin controls are not covered by the profile port |
 | Push notifications | `auth/firebase` is wrapped, but APNs needs a server-side counterpart; Anixart's push goes through FCM and AppMetrica |
 | Downloads / offline | Android uses `DownloadManager` plus a local Room cache; the port has no persistence layer |
 | Torlook torrent search | points at a third-party service configured through `config/toggles` |
 | Bookmark import/export | file pickers plus a server-side job (`import/bookmarks`, `export/bookmarks`) |
+
+### Profile verification limits
+
+The 31 Oct–2 Nov 2026 Android audit distinguishes observed screens from static
+contracts. Full-list New/Old/Popular ordering was observed; the server's ordering
+is preserved without inventing a universal tie-break for equal vote counts.
+The filled public-pinned example and concrete animated badge URLs were not
+visually confirmed. Synthetic offline fixtures do not close those runtime gaps.
+
+Recent history is only loaded/displayed for the current owner. Successful current
+loads refresh cached objects, put the selected badge first and retain at most four;
+foreign reads send `recent=""` and do not touch another account's history.
+An omitted recent field is not treated as an explicit empty response.
+
+The native Lottie dependency is pinned to 4.5.2 in `project.yml`. Playback pauses
+off-screen, outside the active scene, for Reduce Motion and for resource saving.
+Models use a bounded count/encoded-JSON cache; raster/GIF avatars are a different
+decoder. Native reorder deliberately keeps Save/Cancel instead of Android's
+drag/settle auto-save, which can also commit on gesture cancellation.
+
+Both native reorder routes share an account-scoped draft. They reject malformed,
+duplicate, over-limit or wrong-owner showcase responses; an acknowledged Save
+updates the draft baseline before refreshing the profile, so cancellation of that
+read cannot submit the same order twice. Partial pinned/recent objects can fill
+missing artwork from the same-ID installed badge or category. The nickname editor
+requires successful current reads of both availability and login restrictions;
+badge actions stay tied to the viewer/session that loaded their snapshot.
+
+Read-only spot checks on the original phone app confirmed the installed-header
+badge detail's "Сменить значок" route into selection, distinct from the selection
+detail's "Снять" action, and related-release subtitles in compact tiles. The iOS
+header keeps that navigation separate from account writes. No real account was
+changed during these checks; a reconstructed design is not used as a reference.
+
+Profile revisions require a fresh macOS build, the offline `AnixartKitTests` and
+`AnixartTests` suites, and iOS visual/runtime checks before claiming parity.
+OAuth binding and blog/article creation/editing remain unimplemented, not silently
+replaced by manual token entry or an account mutation on opening an information page.
 
 ## Typography
 

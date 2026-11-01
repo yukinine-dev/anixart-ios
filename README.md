@@ -1,7 +1,9 @@
 # Anixart for iOS
 
 A native iOS client for Anixart, ported from the Android app (`com.swiftsoft.anixartd` 10.5).
-SwiftUI, iOS 17+, async/await, no third-party dependencies.
+SwiftUI, iOS 17+, async/await. The core has no third-party dependencies;
+the app uses native [Lottie](https://github.com/airbnb/lottie-ios) (Apache-2.0)
+for animated profile badges.
 
 This is an unofficial client. It talks to the same public API the Android app uses and adds
 nothing that bypasses it — no ad removal, no premium unlocking, no scraping around the API.
@@ -10,10 +12,10 @@ nothing that bypasses it — no ad removal, no premium unlocking, no scraping ar
 
 ## What is and is not verified
 
-CI builds and runs this on macOS, and it is green. What that covers:
+CI builds and runs this on macOS. Successful runs verify:
 
 - **It compiles.** `AnixartKit` and the iOS app target both build, and the kit's
-  **19 unit tests pass**.
+  **unit tests pass**.
 - **It launches.** A simulator boots the app, and the job fails if a crash report
   appears or the process is gone 25 seconds later. It survives.
 - **It talks to the real API, correctly.** The launch screenshot shows the discover
@@ -25,12 +27,17 @@ CI builds and runs this on macOS, and it is green. What that covers:
 
 What that does **not** cover:
 
-- **Only the launch path and the discover feed were exercised.** Catalogue, filter,
-  search, release detail, the episode drill-down, bookmarks, comments and the profile
-  compile and are wired to verified endpoints, but nothing navigated to them.
+- **Only the launch, public-profile and release-detail smoke routes are exercised.**
+  Catalogue, filter, search, the episode drill-down, bookmarks and comments compile and
+  are wired to verified endpoints, but are not clicked through. Owner-only profile
+  flows have offline regression tests, not an end-to-end simulator account check.
 - **Playback is untested.** Both players are the least certain part of the port — see
   "Known risks" in `docs/PORTING.md`.
 - **It has never run on a physical device**, only in the simulator.
+
+CI results apply only to the exact tested revision. Badge previews, recent history,
+ordering and Lottie have offline fixtures; those do not establish full live parity.
+Syntax checking on Windows is not Swift typechecking or XCTest.
 
 Alongside the run, these were checked mechanically:
 
@@ -125,12 +132,15 @@ Implemented: the Главная tabs (Моя вкладка plus the eight catal
 discover feed, catalogue with the full filter, search, release detail,
 voice-over/source/episode drill-down, playback (native and embedded), watch lists, favourites,
 history, collections, comments, profiles, friends, schedule, notifications, email sign-in and
-registration.
+registration. Profiles include the six privacy-filtered sections, editor/account-health flows,
+badge categories and pin markers, whole-section themes, native JSON badge animations and
+explicit Save/Cancel ordering. Recent badge history is account-scoped and sent as CSV.
 
-Not implemented: social sign-in (needs the VK/Google/Telegram/Yandex SDKs and the original
-app's client IDs), the articles and channels social feed, collection and article editing,
-moderation and reports, profile themes and badge showcases, push notifications, downloads,
-and the Torlook torrent search. `docs/PORTING.md` has the full matrix and the reasoning.
+Not implemented: social sign-in/binding (needs the VK/Google/Telegram/Yandex SDKs and registered
+iOS client IDs), the global articles/channels feed, collection and article editing,
+broader moderator tooling, push notifications, downloads and the Torlook torrent search.
+Existing profile blogs and typed report forms are implemented. `docs/PORTING.md` has the
+full matrix and the remaining verification limits.
 
 ## Licence and attribution
 

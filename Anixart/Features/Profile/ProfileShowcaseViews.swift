@@ -1,8 +1,8 @@
 import SwiftUI
 import AnixartKit
 
-/// Use the same flat profile theme for both the pinned showcase and the whole
-/// interchangeable section, including its chips and any non-badge content.
+/// One profile theme behind the interchangeable section, including its chips
+/// and non-badge content. Pinned badges stay in that section's badge grid.
 @MainActor
 struct ProfileThemedSection<Content: View>: View {
     let profile: Profile
@@ -15,19 +15,6 @@ struct ProfileThemedSection<Content: View>: View {
 
     var body: some View {
         content.background { ProfileShowcaseBackground(theme: profile.showcaseTheme) }
-    }
-}
-
-@MainActor
-struct ProfileBadgeShowcase: View {
-    let profile: Profile
-    let badges: [Badge]
-    let viewer: ProfileViewerKey?
-    var body: some View {
-        ProfileThemedSection(profile: profile) {
-            ProfileBadgeStrip(badges: Array(badges.prefix(ProfileEditorRules.showcaseLimit)), profileID: profile.id, viewer: viewer)
-                .padding(.vertical, 22)
-        }
     }
 }
 
@@ -161,12 +148,8 @@ struct ProfileBadgeOrderView: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
     let profileID: Int
-    @State private var resource = ProfileResource<ProfileBadgeSectionsResponse>()
     @State private var account: ProfileAccountKey?
-    @State private var badges: [Badge] = []
-    @State private var originalIDs: [Int] = []
-    @State private var isSaving = false
-    @State private var errorMessage: String?
+    @State private var model = ProfileBadgeOrderModel()
 
     init(profileID: Int, account: ProfileAccountKey?) {
         self.profileID = profileID
@@ -177,61 +160,54 @@ struct ProfileBadgeOrderView: View {
         List {
             ProfileAccountNotice(account: account)
             if account != nil, env.session.accountKey == account {
-            if resource.value != nil {
-                if badges.count < 2 {
+            if model.resource.value != nil {
+                if model.badges.count < 2 {
                     StatusMessageView(title: "Недостаточно значков", message: "Закрепите хотя бы 2 значка, чтобы изменить порядок", systemImage: "pin")
                 } else {
                     Section {
-                        ForEach(badges) { badge in
+                        ForEach(model.badges) { badge in
                             HStack(spacing: 16) { ProfileBadgeImage(badge: badge, size: 56); Text(badge.name ?? "Значок") }
+                                .moveDisabled(!model.canReorder)
                         }
-                        .onMove { from, to in badges.move(fromOffsets: from, toOffset: to) }
+                        .onMove { from, to in model.move(fromOffsets: from, toOffset: to) }
                     } footer: { Text("Перетащите значки в нужном порядке и сохраните изменения.") }
                 }
-            } else { ProfileResourceState(resource: resource, title: "Не удалось загрузить витрину", retry: load) }
-            ProfileSaveError(message: errorMessage ?? resource.errorMessage)
+            } else { ProfileResourceState(resource: model.resource, title: "Не удалось загрузить витрину", retry: load) }
+            if model.resource.value != nil, let error = model.resource.errorMessage {
+                StatusMessageView(title: "Не удалось обновить витрину", message: error, retry: load)
+            }
+            ProfileSaveError(message: model.errorMessage)
             }
         }
         .environment(\.editMode, .constant(.active))
-        .disabled(isSaving || account == nil || env.session.accountKey != account)
+        .disabled(model.isSaving || account == nil || env.session.accountKey != account)
         .navigationTitle("Порядок значков")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .toolbar { ToolbarItem(placement: .confirmationAction) {
-            Button("Сохранить") { Task { await save() } }
-                .disabled(isSaving || badges.count < 2 || badges.map(\.id) == originalIDs || env.session.accountKey != account)
-        } }
-        .task { await load() }
+        .navigationBarBackButtonHidden()
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Отмена") { model.cancelChanges(); dismiss() }.disabled(model.isSaving)
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Сохранить") { Task { await save() } }
+                    .disabled(!model.canSave || env.session.accountKey != account)
+            }
+        }
+        .task { if model.resource.value == nil { await load() } }
         .onChange(of: env.session.accountKey) { _, current in
             guard account != current else { return }
-            resource.reset()
-            badges = []
-            originalIDs = []
-            errorMessage = nil
+            model.reset()
         }
     }
 
     private func load() async {
-        guard let account, account.profileID == profileID else { return }
-        if let response = await resource.load({ try await env.session.sendAccountRequest(ProfileBadgeEndpoints.sections(profileID: profileID), for: account) }) {
-            badges = response.showcased ?? []
-            originalIDs = badges.map(\.id)
-        }
+        guard let account else { return }
+        await model.load(profileID: profileID, account: account, session: env.session)
     }
 
     private func save() async {
-        guard !isSaving, let account, account.profileID == profileID,
-              (2...ProfileEditorRules.showcaseLimit).contains(badges.count),
-              Set(badges.map(\.id)) == Set(originalIDs) else { return }
-        isSaving = true
-        errorMessage = nil
-        defer { isSaving = false }
-        do {
-            try await env.session.sendConfirmedAccountRequest(ProfileBadgeEndpoints.reorder(ids: badges.map(\.id)), for: account)
-            await env.session.refreshProfile(for: account)
-            if env.session.accountKey == account, !Task.isCancelled { dismiss() }
-        } catch {
-            if !ProfileRequestFailure.isCancellation(error) { errorMessage = Paginator<Release>.message(for: error) }
-        }
+        guard let account else { return }
+        if await model.save(profileID: profileID, account: account, session: env.session) { dismiss() }
     }
 }

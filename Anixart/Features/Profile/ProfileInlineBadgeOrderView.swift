@@ -1,77 +1,64 @@
 import SwiftUI
 import AnixartKit
 
-/// The audit confirms an in-profile mode and the >1 pinned gate, but not a
-/// working Android drag gesture. Explicit move controls keep this mode usable
-/// without presenting an unverified gesture as Android parity.
+/// Android uses a pinned-only drag that can auto-save even after cancellation.
+/// Keep the native in-profile mode explicit: move, then Save or Cancel.
+/// This is a deliberate safety adaptation, not a claim of identical gestures.
 @MainActor
 struct ProfileInlineBadgeOrderView: View {
     @Environment(AppEnvironment.self) private var env
     let profileID: Int
     let account: ProfileAccountKey
     let onDone: () -> Void
-    @State private var resource = ProfileResource<ProfileBadgeSectionsResponse>()
-    @State private var badges: [Badge] = []
-    @State private var originalIDs: [Int] = []
-    @State private var isSaving = false
-    @State private var errorMessage: String?
+    @State private var model = ProfileBadgeOrderModel()
 
     var body: some View {
         VStack(spacing: 16) {
             if env.session.accountKey == account {
-                if resource.value != nil {
-                    if (2...ProfileEditorRules.showcaseLimit).contains(badges.count) {
-                        ForEach(Array(badges.enumerated()), id: \.element.id) { index, badge in
+                if model.resource.value != nil {
+                    if (2...ProfileEditorRules.showcaseLimit).contains(model.badges.count) {
+                        ForEach(Array(model.badges.enumerated()), id: \.element.id) { index, badge in
                             HStack {
                                 ProfileBadgeImage(badge: badge, size: 52)
                                 Text(badge.name ?? "Значок").font(.ax(.subheadline))
                                 Spacer()
-                                Button { badges.swapAt(index, index - 1) } label: { Image(systemName: "chevron.up").padding(8) }
-                                    .disabled(index == 0).accessibilityLabel("Переместить выше")
-                                Button { badges.swapAt(index, index + 1) } label: { Image(systemName: "chevron.down").padding(8) }
-                                    .disabled(index == badges.count - 1).accessibilityLabel("Переместить ниже")
+                                Button { model.move(id: badge.id, by: -1) } label: { Image(systemName: "chevron.up").padding(8) }
+                                    .disabled(index == 0 || !model.canReorder).accessibilityLabel("Переместить выше")
+                                Button { model.move(id: badge.id, by: 1) } label: { Image(systemName: "chevron.down").padding(8) }
+                                    .disabled(index == model.badges.count - 1 || !model.canReorder).accessibilityLabel("Переместить ниже")
                             }
                         }
                         HStack {
-                            Button("Отмена", action: onDone)
+                            Button("Отмена") { model.cancelChanges(); onDone() }
                             Spacer()
-                            Button("Сохранить") { Task { await save() } }.disabled(badges.map(\.id) == originalIDs)
+                            Button("Сохранить") { Task { await save() } }.disabled(!model.canSave)
                         }
                     } else {
                         Text("Для изменения порядка нужны два или три закреплённых значка.")
                         Button("Закрыть", action: onDone)
                     }
-                } else { ProfileResourceState(resource: resource, title: "Не удалось загрузить витрину", retry: load) }
-                ProfileSaveError(message: errorMessage ?? resource.errorMessage)
+                } else {
+                    ProfileResourceState(resource: model.resource, title: "Не удалось загрузить витрину", retry: load)
+                    Button("Отмена") { model.cancelChanges(); onDone() }
+                }
+                if model.resource.value != nil, let error = model.resource.errorMessage {
+                    StatusMessageView(title: "Не удалось обновить витрину", message: error, retry: load)
+                }
+                ProfileSaveError(message: model.errorMessage)
             } else { ProfileAccountNotice(account: account) }
         }
-        .padding().disabled(isSaving || env.session.accountKey != account)
-        .task { await load() }
+        .padding().disabled(model.isSaving || env.session.accountKey != account)
+        .task { if model.resource.value == nil { await load() } }
         .onChange(of: env.session.accountKey) { _, current in
-            if account != current { resource.reset(); badges = []; originalIDs = []; errorMessage = nil }
+            if account != current { model.reset() }
         }
     }
 
     private func load() async {
-        guard account.profileID == profileID else { return }
-        if let response = await resource.load({ try await env.session.sendAccountRequest(ProfileBadgeEndpoints.sections(profileID: profileID), for: account) }) {
-            badges = response.showcased ?? []
-            originalIDs = badges.map(\.id)
-        }
+        await model.load(profileID: profileID, account: account, session: env.session)
     }
 
     private func save() async {
-        guard !isSaving, env.session.accountKey == account, (2...ProfileEditorRules.showcaseLimit).contains(badges.count),
-              Set(badges.map(\.id)) == Set(originalIDs), badges.map(\.id) != originalIDs else { return }
-        isSaving = true
-        errorMessage = nil
-        defer { isSaving = false }
-        do {
-            try await env.session.sendConfirmedAccountRequest(ProfileBadgeEndpoints.reorder(ids: badges.map(\.id)), for: account)
-            await env.session.refreshProfile(for: account)
-            if env.session.accountKey == account { onDone() }
-        } catch {
-            if !ProfileRequestFailure.isCancellation(error) { errorMessage = Paginator<Release>.message(for: error) }
-        }
+        if await model.save(profileID: profileID, account: account, session: env.session) { onDone() }
     }
 }

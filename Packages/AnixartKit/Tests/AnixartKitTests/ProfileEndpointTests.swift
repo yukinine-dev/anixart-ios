@@ -212,6 +212,44 @@ final class ProfileEndpointTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(cover.value(forHTTPHeaderField: "Content-Type")).hasPrefix("multipart/form-data;"))
     }
 
+    func testBadgeRecentIsCSVAndForeignDefaultIsAnExplicitEmptyString() async throws {
+        let client = client()
+        let own = try await client.urlRequest(for: ProfileBadgeEndpoints.sections(profileID: 42, recent: "101,102"))
+        XCTAssertEqual(own.httpMethod, "GET")
+        XCTAssertEqual(own.url?.path, "/profile/42/badge/list")
+        XCTAssertEqual(try query(own)["recent"], "101,102")
+        XCTAssertEqual(try query(own)["token"], "test-token")
+        let foreign = try await client.urlRequest(for: ProfileBadgeEndpoints.sections(profileID: 71))
+        XCTAssertEqual(try query(foreign)["recent"], "")
+        XCTAssertNil(foreign.httpBody)
+    }
+
+    func testFullAndReplySortsStayOnTheirOwnEndpointsAndPreserveServerOrder() async throws {
+        let client = client()
+        let location = ProfileCommentLocation(category: .articles, parentID: 42)
+        let fixtures: [(ProfileCommentSort, [Int])] = [
+            (.newest, [5, 4, 3, 2, 1]), (.oldest, [1, 2, 3, 4, 5]), (.popular, [2, 1, 4, 3, 5])
+        ]
+        for (sort, ids) in fixtures {
+            let full = ProfileCommentEndpoints.all(at: location, page: 0, sort: sort.rawValue)
+            let request = try await client.urlRequest(for: full)
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/article/comment/all/42/0")
+            XCTAssertEqual(try query(request)["sort"], String(sort.rawValue))
+            let replies = try await client.urlRequest(for: ProfileCommentEndpoints.replies(commentID: 7, category: .articles,
+                                                                                           page: 0, sort: sort.rawValue))
+            XCTAssertEqual(replies.httpMethod, "POST")
+            XCTAssertEqual(replies.url?.path, "/article/comment/replies/7/0")
+            XCTAssertEqual(try query(replies)["sort"], String(sort.rawValue))
+            let content = ids.map { "{\"id\":\($0)}" }.joined(separator: ",")
+            let response = try await client.send(responding(full, with:
+                "{\"code\":0,\"content\":[\(content)],\"total_count\":5,\"total_page_count\":1}"))
+            // Do not invent client-side vote tie-breaking or sort the server rows.
+            XCTAssertEqual(response.items.map(\.id), ids)
+            XCTAssertEqual(response.totalCount, 5)
+        }
+    }
+
     func testPublicValidationDoesNotEvenReadTokenStore() async throws {
         let store = ProfileCountingTokenStore()
         let client = client(tokenStore: store)

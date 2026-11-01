@@ -22,7 +22,7 @@ struct ProfileLoginEditorView: View {
 
     private var mayChange: Bool {
         account?.profileID == profileID && env.session.accountKey == account
-            && info.value?.isChangeAvailable == true && preferences.value?.isChangeLoginBanned != true
+            && ProfileLoginAvailability.mayChange(info: info, preferences: preferences)
     }
 
     private var canSave: Bool {
@@ -71,6 +71,10 @@ struct ProfileLoginEditorView: View {
                 ProfileResourceState(resource: info, title: "Не удалось загрузить никнейм", retry: load)
             }
             ProfileSaveError(message: errorMessage ?? info.errorMessage ?? preferences.errorMessage)
+            if info.value != nil, preferences.errorMessage != nil {
+                Button("Повторить загрузку настроек") { Task { await load() } }
+                    .disabled(isSaving || info.isLoading || preferences.isLoading)
+            }
         }
         .listStyle(.plain)
         .navigationTitle("Смена никнейма")
@@ -158,6 +162,15 @@ struct ProfileLoginEditorView: View {
         } catch {
             if !ProfileRequestFailure.isCancellation(error) { errorMessage = Paginator<Release>.message(for: error) }
         }
+    }
+}
+
+@MainActor
+enum ProfileLoginAvailability {
+    static func mayChange(info: ProfileResource<ChangeLoginInfoResponse>, preferences: ProfileResource<ProfilePreferenceResponse>) -> Bool {
+        !info.isLoading && !preferences.isLoading && info.errorMessage == nil && preferences.errorMessage == nil
+            && info.value?.code == AnixartStatus.successful && preferences.value?.code == AnixartStatus.successful
+            && info.value?.isChangeAvailable == true && preferences.value?.isChangeLoginBanned == false
     }
 }
 
