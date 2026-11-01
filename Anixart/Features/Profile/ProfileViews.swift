@@ -95,17 +95,18 @@ struct ProfileView: View {
                             .font(.ax(.subheadline)).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center).padding()
                     }
-                    VStack(spacing: 0) {
-                        sectionChips
-                        if isOrderingBadges, let account = model.viewerAccount {
-                            ProfileInlineBadgeOrderView(profileID: profileID, account: account) {
-                                isOrderingBadges = false
-                                Task { await load(force: true) }
-                            }
-                        } else { sectionContent(profile) }
+                    ProfileThemedSection(profile: profile) {
+                        VStack(spacing: 0) {
+                            sectionChips
+                            if isOrderingBadges, let account = model.viewerAccount {
+                                ProfileInlineBadgeOrderView(profileID: profileID, account: account) {
+                                    isOrderingBadges = false
+                                    Task { await load(force: true) }
+                                }
+                            } else { sectionContent(profile) }
+                        }
+                        .padding(.bottom, 16)
                     }
-                    .padding(.bottom, 16)
-                    .background { ProfileShowcaseBackground(theme: profile.showcaseTheme) }
                     if profile.isStatsHidden != true {
                         ProfileActivitySection(profile: profile, viewer: model.viewerKey)
                     }

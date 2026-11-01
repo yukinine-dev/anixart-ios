@@ -56,6 +56,27 @@ final class ProfileThemeRenderingTests: XCTestCase {
     }
 
     @MainActor
+    func testThemeCoversBothSectionChipsAndNonBadgeContent() throws {
+        for enabled in [true, false] {
+            let profile = try profileTestDecode(Profile.self,
+                "{\"id\":42,\"theme_enabled\":\(enabled),\"theme_gradient_start_color\":\"#FF0000\","
+                    + "\"theme_gradient_end_color\":\"#FF0000\",\"theme_gradient_angle\":\"left_to_right\"}")
+            let section = ProfileThemedSection(profile: profile) {
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: 32)
+                    Color.clear.frame(height: 64)
+                }
+            }
+            .background(Color(.sRGB, red: 0, green: 0, blue: 1, opacity: 1))
+            let pixels = try render(section, size: CGSize(width: 64, height: 96))
+            for y in [16, 80] {
+                assertProfileThemePixel(pixels, x: 32, y: y,
+                                        red: enabled ? 255 : 0, green: 0, blue: enabled ? 0 : 255)
+            }
+        }
+    }
+
+    @MainActor
     func testNativeTilesKeepTheirOriginalScaleAndTopLeftOrientation() throws {
         let image = ProfileThemeTestImages.bitmap()
         let fixture = try ProfileThemeTestPixels(image)

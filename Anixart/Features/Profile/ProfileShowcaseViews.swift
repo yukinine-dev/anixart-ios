@@ -1,14 +1,33 @@
 import SwiftUI
 import AnixartKit
 
+/// Use the same flat profile theme for both the pinned showcase and the whole
+/// interchangeable section, including its chips and any non-badge content.
+@MainActor
+struct ProfileThemedSection<Content: View>: View {
+    let profile: Profile
+    let content: Content
+
+    init(profile: Profile, @ViewBuilder content: () -> Content) {
+        self.profile = profile
+        self.content = content()
+    }
+
+    var body: some View {
+        content.background { ProfileShowcaseBackground(theme: profile.showcaseTheme) }
+    }
+}
+
 @MainActor
 struct ProfileBadgeShowcase: View {
     let profile: Profile
     let badges: [Badge]
     let viewer: ProfileViewerKey?
     var body: some View {
-        ProfileBadgeStrip(badges: Array(badges.prefix(ProfileEditorRules.showcaseLimit)), profileID: profile.id, viewer: viewer)
-            .padding(.vertical, 22)
+        ProfileThemedSection(profile: profile) {
+            ProfileBadgeStrip(badges: Array(badges.prefix(ProfileEditorRules.showcaseLimit)), profileID: profile.id, viewer: viewer)
+                .padding(.vertical, 22)
+        }
     }
 }
 
