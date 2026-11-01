@@ -72,7 +72,7 @@ extension Related {
 
     public var posterURLs: [URL] {
         var seen = Set<URL>()
-        let urls = (images ?? []).compactMap(AnixartURL.image)
+        let urls = (images ?? []).compactMap { AnixartURL.image($0) }
         let candidates = urls.isEmpty ? [AnixartURL.image(image)].compactMap { $0 } : urls
         return candidates.filter { seen.insert($0).inserted }
     }
