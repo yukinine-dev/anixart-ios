@@ -228,6 +228,16 @@ final class ProfileModelTests: XCTestCase {
         XCTAssertNotEqual(profile.showcaseTheme, theme)
     }
 
+    func testLastActivityDateUsesUnixSecondsAndKeepsMissingValuesUnknown() throws {
+        let timestamp = 1_700_000_000
+        let profile = try decode(Profile.self, "{\"id\":42,\"last_activity_time\":\(timestamp)}")
+        XCTAssertEqual(profile.lastActivityDate?.timeIntervalSince1970, TimeInterval(timestamp))
+        for json in [#"{"id":42}"#, #"{"id":42,"last_activity_time":null}"#,
+                     #"{"id":42,"last_activity_time":0}"#, #"{"id":42,"last_activity_time":-1}"#] {
+            XCTAssertNil(try decode(Profile.self, json).lastActivityDate)
+        }
+    }
+
     func testStatusAndNicknameLimitsCountUTF16WithoutSplittingGraphemes() {
         XCTAssertTrue(ProfileEditorRules.isValidStatus(String(repeating: "🙂", count: 40)))
         XCTAssertFalse(ProfileEditorRules.isValidStatus(String(repeating: "🙂", count: 41)))

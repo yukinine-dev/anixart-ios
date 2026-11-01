@@ -399,7 +399,7 @@ struct ProfileEnforcementAppealView: View {
     }
 
     private func submit() async {
-        guard canSubmit, let account, let enforcement = resource.value?.enforcement else { return }
+        guard canSubmit, let account else { return }
         let draft = message.trimmingCharacters(in: .whitespacesAndNewlines)
         isSaving = true
         errorMessage = nil

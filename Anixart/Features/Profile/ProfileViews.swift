@@ -327,7 +327,7 @@ struct ProfileView: View {
             .padding(.top, 2)
             if !ownsProfile {
                 Button { showsRegistration.toggle() } label: {
-                    Text(profile.isOnline == true ? "В сети" : "Последняя активность: \(Format.relativeDate(profile.lastActivityTime) ?? "—")")
+                    Text(profile.isOnline == true ? "В сети" : "Последняя активность: \(Format.relativeDate(profile.lastActivityDate) ?? "—")")
                         .font(.ax(.caption)).foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)

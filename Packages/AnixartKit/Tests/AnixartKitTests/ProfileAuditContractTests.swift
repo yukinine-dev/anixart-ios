@@ -47,7 +47,7 @@ final class ProfileAuditContractTests: XCTestCase {
         let config = try decode(TogglesResponse.self, #"{"code":0,"minBlogCreateRatingScore":5}"#)
         XCTAssertEqual(ProfileCapabilities.minimumBlogReputation(toggles: config), 5)
         XCTAssertFalse(ProfileCapabilities.mayCreateBlog(reputation: 4, toggles: config))
-        XCTAssertTrue(ProfileCapabilities.mayCreateBlog(reputation: 5, togggles: config))
+        XCTAssertTrue(ProfileCapabilities.mayCreateBlog(reputation: 5, toggles: config))
     }
 
     func testAllCommentSortsUseTheVerifiedOneBasedValues() async throws {
