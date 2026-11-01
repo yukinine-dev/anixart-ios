@@ -1,8 +1,8 @@
 import Foundation
 import AnixartKit
 
-/// Home screen. Each block is a separate endpoint, so they load concurrently and
-/// a block that fails is simply omitted rather than taking the screen down.
+/// Each block is a separate endpoint. Partial failures keep the other blocks (and
+/// previously loaded refresh data) usable, without presenting a failure as empty.
 @MainActor
 @Observable
 final class DiscoverViewModel {
@@ -14,13 +14,25 @@ final class DiscoverViewModel {
 
     private(set) var isLoading = false
     private(set) var errorMessage: String?
+    private(set) var failedBlocks: [String] = []
 
-    private let client: AnixartClient
     private let session: SessionController
+    let viewer: ProfileViewerKey
+    private var generation = 0
+    private var hasAttemptedLoad = false
 
-    init(client: AnixartClient, session: SessionController) {
-        self.client = client
+    init(session: SessionController) {
         self.session = session
+        self.viewer = session.viewerKey
+    }
+
+    var hasCurrentViewer: Bool { viewer == session.viewerKey }
+    var showsRecommendationExplanation: Bool {
+        hasCurrentViewer && hasAttemptedLoad && viewer.account != nil && recommendations.isEmpty
+            && !failedBlocks.contains("Рекомендации")
+    }
+    var partialErrorMessage: String? {
+        failedBlocks.isEmpty ? nil : "Не удалось обновить: " + failedBlocks.joined(separator: ", ") + "."
     }
 
     var isEmpty: Bool {
@@ -29,55 +41,79 @@ final class DiscoverViewModel {
     }
 
     func loadIfNeeded() async {
-        guard isEmpty, !isLoading else { return }
+        guard !hasAttemptedLoad, !isLoading else { return }
         await load()
     }
 
     func load() async {
+        guard hasCurrentViewer, !Task.isCancelled else { return }
+        generation += 1
+        let token = generation
         isLoading = true
         errorMessage = nil
+        defer { if token == generation { isLoading = false } }
 
-        // `client` is an actor, so capturing it (rather than `self`) keeps these child
-        // tasks sendable while the view model stays on the main actor.
-        let client = self.client
-        let signedIn = session.isSignedIn
+        let session = self.session
+        let viewer = self.viewer
 
-        // The blocks load together; each one keeps its own failure to itself.
         async let bannersTask = Self.attempt {
-            try await client.send(DiscoverEndpoints.interesting()).items
+            try await session.sendViewerRequest(DiscoverEndpoints.interesting(), for: viewer).items
         }
         async let discussingTask = Self.attempt {
-            try await client.send(DiscoverEndpoints.discussing()).items
+            try await session.sendViewerRequest(DiscoverEndpoints.discussing(), for: viewer).items
         }
         async let commentsTask = Self.attempt {
-            try await client.send(DiscoverEndpoints.commentsOfTheWeek()).items
+            try await session.sendViewerRequest(DiscoverEndpoints.commentsOfTheWeek(), for: viewer).items
         }
         async let watchingTask = Self.attempt { () -> [Release] in
-            guard signedIn else { return [] }
-            return try await client.send(DiscoverEndpoints.watching(page: 0)).items
+            guard viewer.account != nil else { return [] }
+            return try await session.sendViewerRequest(DiscoverEndpoints.watching(page: 0), for: viewer).items
         }
         async let recommendationsTask = Self.attempt { () -> [Release] in
-            guard signedIn else { return [] }
-            return try await client.send(DiscoverEndpoints.recommendations(page: 0)).items
+            guard viewer.account != nil else { return [] }
+            return try await session.sendViewerRequest(DiscoverEndpoints.recommendations(page: 0), for: viewer).items
         }
 
-        banners = (await bannersTask ?? []).filter { $0.isHidden != true }
-        discussing = await discussingTask ?? []
-        commentsOfTheWeek = await commentsTask ?? []
-        continueWatching = await watchingTask ?? []
-        recommendations = await recommendationsTask ?? []
+        let (bannerResult, discussingResult, commentResult, watchingResult, recommendationResult) =
+            await (bannersTask, discussingTask, commentsTask, watchingTask, recommendationsTask)
+        guard token == generation, hasCurrentViewer, !Task.isCancelled else { return }
+        // Do not commit a half-cancelled snapshot from a disappearing view.
+        guard !bannerResult.wasCancelled, !discussingResult.wasCancelled, !commentResult.wasCancelled,
+              !watchingResult.wasCancelled, !recommendationResult.wasCancelled else { return }
 
-        isLoading = false
-        if isEmpty {
-            errorMessage = "Не удалось загрузить главную. Проверьте соединение."
+        failedBlocks = []
+        if let value = bannerResult.value { banners = Self.unique(value.filter { $0.isHidden != true }) }
+        else { failedBlocks.append("Интересное") }
+        if let value = discussingResult.value { discussing = Self.unique(value) }
+        else { failedBlocks.append("Сейчас обсуждают") }
+        if let value = commentResult.value { commentsOfTheWeek = Self.unique(value) }
+        else { failedBlocks.append("Комментарии недели") }
+        if let value = watchingResult.value { continueWatching = Self.unique(value) }
+        else { failedBlocks.append("Продолжить просмотр") }
+        if let value = recommendationResult.value { recommendations = Self.unique(value) }
+        else { failedBlocks.append("Рекомендации") }
+
+        hasAttemptedLoad = true
+        if isEmpty, !failedBlocks.isEmpty {
+            errorMessage = partialErrorMessage
         }
     }
 
-    /// Runs a block and swallows its failure, so one dead block does not blank the screen.
-    /// `nonisolated static` so it can run off the main actor inside `async let`.
+    private static func unique<Item: Identifiable>(_ items: [Item]) -> [Item] {
+        var seen = Set<Item.ID>()
+        return items.filter { seen.insert($0.id).inserted }
+    }
+
     private nonisolated static func attempt<T: Sendable>(
         _ work: @Sendable () async throws -> T
-    ) async -> T? {
-        try? await work()
+    ) async -> DiscoverBlockResult<T> {
+        do { return .loaded(try await work()) }
+        catch { return ProfileRequestFailure.isCancellation(error) ? .cancelled : .failed }
     }
+}
+
+private enum DiscoverBlockResult<Value: Sendable>: Sendable {
+    case loaded(Value), failed, cancelled
+    var value: Value? { if case .loaded(let value) = self { return value }; return nil }
+    var wasCancelled: Bool { if case .cancelled = self { return true }; return false }
 }

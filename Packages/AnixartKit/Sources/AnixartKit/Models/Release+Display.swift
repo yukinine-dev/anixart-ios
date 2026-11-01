@@ -37,6 +37,31 @@ extension Release {
         ratingValue.map { String(format: "%.1f", $0) }
     }
 
+    /// The detail histogram header keeps two decimals; compact rows use one.
+    public var ratingDetailText: String? {
+        ratingValue.map { String(format: "%.2f", $0) }
+    }
+
+    public var validatedYourVote: Int? {
+        guard let yourVote, (1...5).contains(yourVote) else { return nil }
+        return yourVote
+    }
+
+    /// Today's discussion count is not the release's lifetime comment count.
+    public var dailyDiscussionText: String? {
+        guard let commentPerDayCount, commentPerDayCount >= 0 else { return nil }
+        let word: String
+        if (11...14).contains(commentPerDayCount % 100) { word = "комментариев" }
+        else {
+            switch commentPerDayCount % 10 {
+            case 1: word = "комментарий"
+            case 2...4: word = "комментария"
+            default: word = "комментариев"
+            }
+        }
+        return "\(commentPerDayCount) \(word)"
+    }
+
     /// `ProfileUiController` uses my_vote for the profile being viewed. your_vote
     /// belongs to the viewer and must never fill a missing score on someone else's page.
     public var profileRating: Int? {

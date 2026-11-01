@@ -12,7 +12,7 @@ struct HomeView: View {
     @State private var isShowingSettings = false
     @State private var isShowingSearch = false
     @State private var isShowingTabSettings = false
-    @State private var listTarget: Release?
+    @State private var isShowingDefaultTab = false
 
     var body: some View {
         NavigationStack {
@@ -26,7 +26,7 @@ struct HomeView: View {
                     case .custom:
                         CustomFilterTabView(preferences: preferences)
                     case let tab:
-                        HomeTabListView(tab: tab, onOverflow: { listTarget = $0 })
+                        HomeTabListView(tab: tab)
                     }
                 }
             }
@@ -37,14 +37,10 @@ struct HomeView: View {
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView()
             }
-            // The row's overflow goes straight to the list picker: on a browsing tab
-            // the only thing worth doing to a release you have not opened is filing it.
-            .sheet(item: $listTarget) { release in
-                ListPickerSheet(current: release.listStatus) { status in
-                    Task { await setList(status, for: release) }
-                }
+            .sheet(isPresented: $isShowingDefaultTab) {
+                HomeDefaultTabSheet(preferences: preferences)
             }
-            .task {
+            .task(id: env.session.viewerKey) {
                 if selection == nil { selection = preferences.defaultTab }
                 await env.session.refreshNotificationCount()
             }
@@ -54,54 +50,7 @@ struct HomeView: View {
     // MARK: - Header
 
     private var header: some View {
-        GlassGroup(spacing: 12) {
-            headerContent
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-    }
-
-    private var headerContent: some View {
-        HStack(spacing: 12) {
-            Button {
-                isShowingSearch = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                    Text("Поиск аниме")
-                    Spacer(minLength: 0)
-                }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .glassPill()
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                isShowingSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.ax(.title3))
-                    .foregroundStyle(.secondary)
-            }
-
-            NavigationLink {
-                NotificationsView()
-            } label: {
-                Image(systemName: "bell")
-                    .font(.ax(.title3))
-                    .foregroundStyle(.secondary)
-                    .overlay(alignment: .topTrailing) {
-                        if env.session.unreadNotifications > 0 {
-                            Circle()
-                                .fill(Theme.accent)
-                                .frame(width: 8, height: 8)
-                                .offset(x: 3, y: -2)
-                        }
-                    }
-            }
-        }
+        BrowsingHeader(onSearch: { isShowingSearch = true }, onSettings: { isShowingSettings = true })
     }
 
     // MARK: - Tabs
@@ -110,8 +59,14 @@ struct HomeView: View {
         HStack(spacing: 0) {
             // The Android strip pins the filter button to the left of the scrolling
             // tabs rather than scrolling it away with them.
-            Button {
-                isShowingTabSettings = true
+            Menu {
+                Button("Изменить вкладку по умолч.") { isShowingDefaultTab = true }
+                Button("Настроить мою вкладку") {
+                    // Opening this route selects the custom tab, but does not
+                    // change the device's separately saved launch default.
+                    selection = .custom
+                    isShowingTabSettings = true
+                }
             } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.ax(.title3))
@@ -119,6 +74,7 @@ struct HomeView: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Настройки вкладок")
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -182,16 +138,6 @@ struct HomeView: View {
         }
     }
 
-    private func setList(_ status: ProfileListStatus?, for release: Release) async {
-        guard env.session.isSignedIn else {
-            env.session.promptSignIn()
-            return
-        }
-        guard let status else { return }
-        _ = try? await env.client.send(
-            BookmarkEndpoints.addToList(releaseID: release.id, status: status)
-        )
-    }
 }
 
 /// Release search, reached from the Главная search field.
@@ -199,46 +145,52 @@ struct HomeView: View {
 struct HomeSearchView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var model: CatalogViewModel?
+    @State private var isShowingFilter = false
 
     var body: some View {
-        List {
-            if let model {
-                if model.isSearching && model.searchResults.isEmpty {
-                    HStack { Spacer(); ProgressView(); Spacer() }
-                } else if let error = model.searchError {
-                    StatusMessageView(
-                        title: "Поиск не удался",
-                        message: error,
-                        systemImage: "wifi.exclamationmark"
-                    )
-                } else if model.isShowingSearch && model.searchResults.isEmpty {
-                    StatusMessageView(
-                        title: "Ничего не найдено",
-                        message: "Проверьте написание названия",
-                        systemImage: "magnifyingglass"
-                    )
-                } else {
-                    ForEach(model.searchResults) { release in
-                        NavigationLink {
-                            ReleaseDetailView(releaseID: release.id, preloaded: release)
-                        } label: {
-                            ReleaseRow(release: release)
-                        }
-                    }
+        Group {
+            if let model, model.hasCurrentViewer {
+                if model.hasAppliedFilter, !model.isShowingSearch {
+                    FilteredReleasesView(filter: model.filter, title: "Результаты фильтра", viewer: model.viewer, paginator: model.browse)
+                        .id(ObjectIdentifier(model.browse))
+                } else { ReleaseSearchResultsView(model: model) }
+            }
+            else { ProgressView() }
+        }
+        .navigationTitle(model?.hasAppliedFilter == true && model?.isShowingSearch == false ? "Результаты фильтра" : "Поиск")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if let model { ReleaseSearchScopeMenu(model: model) }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { isShowingFilter = true } label: {
+                    Image(systemName: (model?.activeFilterCount ?? 0) > 0
+                          ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                 }
+                .accessibilityLabel("Полный фильтр")
+                .disabled(model?.hasCurrentViewer != true)
             }
         }
-        .listStyle(.plain)
-        .navigationTitle("Поиск")
-        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingFilter) {
+            if let model {
+                FilterSheet(current: model.filter, onApply: { model.apply(filter: $0) }, onReset: { model.resetFilter() })
+            }
+        }
         .searchable(
             text: Binding(get: { model?.query ?? "" }, set: { model?.query = $0 }),
             prompt: "Поиск аниме"
         )
-        .task {
-            if model == nil { model = CatalogViewModel(client: env.client) }
+        .task(id: env.session.viewerKey) {
+            if model?.viewer != env.session.viewerKey {
+                model = CatalogViewModel(session: env.session, filter: model?.filter ?? FilterRequest(),
+                                         query: model?.query ?? "", searchScope: model?.searchScope ?? .all,
+                                         hasAppliedFilter: model?.hasAppliedFilter ?? false)
+                isShowingFilter = false
+            }
         }
-        .task(id: model?.query) {
+        .task(id: model?.searchKey) {
             await model?.search()
         }
     }

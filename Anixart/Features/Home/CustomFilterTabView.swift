@@ -11,7 +11,7 @@ struct CustomFilterTabView: View {
 
     let preferences: HomePreferences
 
-    @State private var paginator: Paginator<Release>?
+    @State private var model: ReleaseFeedModel?
     @State private var isShowingSettings = false
     @State private var opened: Release?
     @State private var listTarget: Release?
@@ -32,13 +32,17 @@ struct CustomFilterTabView: View {
             )
         }
         .sheet(item: $listTarget) { release in
-            ListPickerSheet(current: release.listStatus) { status in
-                Task { await addToList(status, release: release) }
-            }
+            if let model { ReleaseQuickActionsSheet(release: release, viewer: model.viewer, feed: model) }
         }
         .navigationDestination(item: $opened) { release in
-            ReleaseDetailView(releaseID: release.id, preloaded: release)
+            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
         }
+        .onChange(of: preferences.customFilter) { _, new in
+            if new == nil { model = nil }
+            listTarget = nil
+            opened = nil
+        }
+        .onChange(of: env.session.viewerKey) { _, _ in listTarget = nil; opened = nil }
     }
 
     private var emptyState: some View {
@@ -63,9 +67,9 @@ struct CustomFilterTabView: View {
 
     private func list(for filter: CustomTabFilter) -> some View {
         List {
-            if let paginator {
+            if let model, model.hasCurrentViewer, model.filter == filter.filterRequest {
                 PaginatedContent(
-                    paginator: paginator,
+                    paginator: model.paginator,
                     emptyTitle: "Ничего не найдено",
                     emptyMessage: "К сожалению, не удалось ничего найти по заданным фильтрам"
                 ) { release in
@@ -80,7 +84,7 @@ struct CustomFilterTabView: View {
             }
         }
         .listStyle(.plain)
-        .refreshable { await paginator?.reload() }
+        .refreshable { await model?.paginator.reload() }
         .safeAreaInset(edge: .top) {
             Button {
                 isShowingSettings = true
@@ -98,24 +102,12 @@ struct CustomFilterTabView: View {
             .background(.bar)
         }
         // Reloads whenever the stored filter changes.
-        .task(id: filter) {
-            let client = env.client
-            let request = filter.filterRequest
-            paginator = Paginator { page in
-                try await client.send(CatalogEndpoints.filter(request, page: page))
+        .task(id: ReleaseFeedKey(filter: filter.filterRequest, viewer: env.session.viewerKey)) {
+            if model?.viewer != env.session.viewerKey || model?.filter != filter.filterRequest {
+                model = ReleaseFeedModel(filter: filter.filterRequest, session: env.session)
             }
-            await paginator?.loadFirstPageIfNeeded()
+            let current = model
+            await current?.paginator.loadFirstPageIfNeeded()
         }
-    }
-
-    private func addToList(_ status: ProfileListStatus?, release: Release) async {
-        guard env.session.isSignedIn else {
-            env.session.promptSignIn()
-            return
-        }
-        guard let status else { return }
-        _ = try? await env.client.send(
-            BookmarkEndpoints.addToList(releaseID: release.id, status: status)
-        )
     }
 }

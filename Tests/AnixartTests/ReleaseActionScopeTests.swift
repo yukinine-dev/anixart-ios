@@ -12,6 +12,11 @@ final class ReleaseActionScopeTests: XCTestCase {
         return ReleaseDetailViewModel(releaseID: 71, preloaded: release, session: rig.session)
     }
 
+    private func detailResponse(isFavorite: Bool, listStatus: Int? = 1) -> String {
+        let status = listStatus.map { String($0) } ?? "null"
+        return "{\"code\":0,\"release\":{\"id\":71,\"is_favorite\":\(isFavorite),\"profile_list_status\":\(status),\"your_vote\":2}}"
+    }
+
     @MainActor
     func testOlderDetailLoadCannotOverwriteOptimisticFavoriteChange() async throws {
         let rig = ProfileTestRig()
@@ -32,6 +37,7 @@ final class ReleaseActionScopeTests: XCTestCase {
         await loading.value
         XCTAssertEqual(model.release?.isFavorite, true)
         XCTAssertTrue(model.isPerformingAction)
+        rig.api.enqueue("/release/71", json: detailResponse(isFavorite: true))
         mutation.respond(#"{"code":0}"#)
         await favorite.value
         XCTAssertEqual(rig.api.requests(to: "/profile/42").count, 1)
@@ -54,6 +60,7 @@ final class ReleaseActionScopeTests: XCTestCase {
         XCTAssertTrue(rig.api.requests(to: "/release/71").isEmpty)
         XCTAssertTrue(rig.api.requests(to: "/profile/list/add/3/71").isEmpty)
         XCTAssertEqual(rig.api.requests(to: "/favorite/add/71").count, 1)
+        rig.api.enqueue("/release/71", json: detailResponse(isFavorite: true))
         held.respond(#"{"code":0}"#)
         await favorite.value
     }
@@ -93,6 +100,7 @@ final class ReleaseActionScopeTests: XCTestCase {
                 XCTAssertEqual(rig.api.requests(to: "/profile/42").count, refreshes)
 
                 rig.api.enqueue(path, json: #"{"code":0}"#)
+                rig.api.enqueue("/release/71", json: detailResponse(isFavorite: !wasFavorite))
                 await model.toggleFavorite()
                 XCTAssertEqual(model.release?.isFavorite, !wasFavorite)
                 XCTAssertNil(model.actionError)
@@ -122,6 +130,7 @@ final class ReleaseActionScopeTests: XCTestCase {
                 XCTAssertEqual(rig.api.requests(to: "/profile/42").count, refreshes)
 
                 rig.api.enqueue(path, json: #"{"code":0}"#)
+                rig.api.enqueue("/release/71", json: detailResponse(isFavorite: false, listStatus: destination?.rawValue))
                 await model.setList(destination)
                 XCTAssertEqual(model.release?.profileListStatus, destination?.rawValue)
                 XCTAssertNil(model.actionError)

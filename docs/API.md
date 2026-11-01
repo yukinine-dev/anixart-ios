@@ -570,6 +570,26 @@ in the Swift source.
 | POST | `search/profiles/{page}` | `PageableResponse<Profile>` | `path:page (int)`, `query:token (String)` |
 | POST | `search/releases/{page}` | `ReleaseSearchResponse` | `path:page (int)`, `query:token (String)`, `header:API-Version (String)` |
 
+`ReleaseSearchPresenter` explicitly passes **`API-Version: v2`**, not the client's
+generic `2`. The v2 response has `releases` and an optional `related` franchise
+(including its `description`, `name_ru`, `images`, `release_count`), not a pageable
+envelope. Only page zero updates that suggestion. A raw page with at least 25
+releases enables the next page; deduplicating repeated IDs must not change this
+boundary. `RelatedPresenter` also passes `v2` for `related/{relatedId}/{page}`;
+the ID is the franchise ID, not the selected release ID. These values were read
+from the original APK DEX on 2 Nov 2026, not inferred from the visible UI order.
+
+Live, token-free reads on 2 Nov 2026 also confirmed that paging metadata is not
+uniform. `filter/0` and `filter/1` can both report `current_page: 0` and
+`total_page_count: 0` despite returning different full 25-item pages. Related and
+video responses also use zero page counts while further pages exist; video
+`total_count` can be a running count. Collection-containing responses can instead
+report the final page index: a response with `total_page_count: 392` still has 24
+items on page 392. Known 25-item browsing routes therefore continue using the raw
+response length and the requested page index, before deduplication, rather than
+treating these fields as a universal number of pages. The wire DTOs retain the
+server values; unrelated paginator callers keep their existing strategy.
+
 ### TypeApi
 
 | Method | Path | Returns | Parameters |

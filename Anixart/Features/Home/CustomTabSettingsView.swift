@@ -9,7 +9,6 @@ import AnixartKit
 /// APK's `arrays.xml` (`FilterOptions`), not from free text.
 @MainActor
 struct CustomTabSettingsView: View {
-    @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
 
     let current: CustomTabFilter
@@ -17,11 +16,13 @@ struct CustomTabSettingsView: View {
     let onReset: () -> Void
 
     @State private var draft = CustomTabFilter()
-    @State private var availableTypes: [EpisodeType] = []
 
-    private static let ageRatingOptions = ["0+", "6+", "12+", "16+", "18+"]
-        .enumerated()
-        .map { FilterOption($0.offset, title: $0.element) }
+    init(current: CustomTabFilter, onApply: @escaping (CustomTabFilter) -> Void, onReset: @escaping () -> Void) {
+        self.current = current
+        self.onApply = onApply
+        self.onReset = onReset
+        _draft = State(initialValue: current)
+    }
 
     var body: some View {
         NavigationStack {
@@ -40,13 +41,6 @@ struct CustomTabSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Закрыть") { dismiss() }
-                }
-            }
-            .task {
-                draft = current
-                if availableTypes.isEmpty,
-                   let response = try? await env.client.send(ReleaseEndpoints.allTypes()) {
-                    availableTypes = response.types ?? []
                 }
             }
         }
@@ -91,18 +85,6 @@ struct CustomTabSettingsView: View {
             selection: $draft.genres
         )
 
-        if !draft.genres.isEmpty {
-            SingleChoiceField(
-                title: "Режим жанров",
-                options: GenresMode.allCases.map { FilterOption($0.rawValue, title: $0.title) },
-                label: \.title,
-                selection: Binding(
-                    get: { FilterOption(draft.genresMode.rawValue, title: draft.genresMode.title) },
-                    set: { draft.genresMode = $0.flatMap { GenresMode(rawValue: $0.value) } ?? .all }
-                )
-            )
-        }
-
         MultiChoiceField(
             title: "Исключить закладки",
             footnote: "Исключит из выдачи все релизы, содержащиеся в вышеуказанных списках закладок.",
@@ -111,90 +93,6 @@ struct CustomTabSettingsView: View {
             selection: $draft.profileListExclusions
         )
 
-        if !availableTypes.isEmpty {
-            MultiChoiceField(
-                title: "Варианты озвучек",
-                options: availableTypes.map { FilterOption($0.id, title: $0.displayName) },
-                label: \.title,
-                selection: Binding(
-                    get: {
-                        draft.types.compactMap { id in
-                            availableTypes.first { $0.id == id }
-                                .map { FilterOption($0.id, title: $0.displayName) }
-                        }
-                    },
-                    set: { draft.types = $0.map(\.value) }
-                )
-            )
-        }
-
-        SearchableChoiceField(
-            title: "Студия",
-            options: FilterOptions.studios.map { FilterOption($0) },
-            label: \.title,
-            selection: Binding(
-                get: { draft.studio.isEmpty ? nil : FilterOption(draft.studio) },
-                set: { draft.studio = $0?.value ?? "" }
-            )
-        )
-
-        SingleChoiceField(
-            title: "Первоисточник",
-            options: SourceMaterial.allCases,
-            label: \.title,
-            selection: $draft.source
-        )
-
-        YearRangeField(startYear: $draft.startYear, endYear: $draft.endYear)
-
-        SingleChoiceField(
-            title: "Сезон",
-            options: ReleaseSeason.allCases,
-            label: { $0.title.capitalizedFirst },
-            selection: $draft.season
-        )
-
-        SingleChoiceField(
-            title: "Эпизодов",
-            options: EpisodeCountPreset.allCases,
-            label: \.title,
-            selection: $draft.episodes
-        )
-
-        SingleChoiceField(
-            title: "Статус",
-            options: AiringStatus.allCases,
-            label: \.title,
-            selection: $draft.status
-        )
-
-        SingleChoiceField(
-            title: "Длительность эпизода",
-            options: EpisodeDurationPreset.allCases,
-            label: \.title,
-            selection: $draft.episodeDuration
-        )
-
-        MultiChoiceField(
-            title: "Возрастное ограничение",
-            options: Self.ageRatingOptions,
-            label: \.title,
-            selection: Binding(
-                get: { draft.ageRatings.compactMap { value in Self.ageRatingOptions.first { $0.value == value } } },
-                set: { draft.ageRatings = $0.map(\.value).sorted() }
-            )
-        )
-
-        SingleChoiceField(
-            title: "Сортировка",
-            footnote: draft.sort.title,
-            options: CatalogSort.displayOrder,
-            label: \.shortTitle,
-            selection: Binding(
-                get: { draft.sort },
-                set: { draft.sort = $0 ?? .dateUpdateDescending }
-            )
-        )
     }
 
     private var actions: some View {

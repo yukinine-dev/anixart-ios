@@ -16,6 +16,7 @@ struct ReleaseDetailView: View {
     @State private var isShowingListPicker = false
     @State private var isShowingRating = false
     @State private var isShowingCollectionPicker = false
+    @State private var isShowingTitles = false
     @State private var isDescriptionExpanded = false
 
     init(releaseID: Int, preloaded: Release? = nil, viewer: ProfileViewerKey? = nil) {
@@ -29,6 +30,10 @@ struct ReleaseDetailView: View {
             ProfileViewerNotice(viewer: viewer)
             if viewer == env.session.viewerKey, let model {
                 if let release = model.release {
+                    if let error = model.errorMessage {
+                        StatusMessageView(title: "Не удалось обновить данные релиза", message: error,
+                                          systemImage: "wifi.exclamationmark", retry: { await model.load() })
+                    }
                     content(for: release, model: model)
                 } else if let error = model.errorMessage {
                     StatusMessageView(
@@ -45,6 +50,10 @@ struct ReleaseDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .refreshable { await model?.load() }
+        .sheet(isPresented: $isShowingTitles) {
+            if let release = model?.release { ReleaseTitlesView(release: release) }
+        }
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
             if let account = viewer?.account, viewer == env.session.viewerKey {
                 NavigationLink { ProfileNotificationVoicesSelector(account: account, releaseID: releaseID) } label: {
@@ -71,6 +80,7 @@ struct ReleaseDetailView: View {
             isShowingListPicker = false
             isShowingRating = false
             isShowingCollectionPicker = false
+            isShowingTitles = false
         }
         .alert(
             "Не получилось",
@@ -117,9 +127,9 @@ struct ReleaseDetailView: View {
                 screenshots(release)
             }
 
-            if let related = release.relatedReleases, !related.isEmpty {
+            if release.related != nil || !(release.relatedReleases?.isEmpty ?? true) {
                 sectionRule
-                relatedSection(release, releases: related)
+                relatedSection(release, releases: release.relatedReleases ?? [])
             }
 
             sectionRule
@@ -142,7 +152,7 @@ struct ReleaseDetailView: View {
         }
         .sheet(isPresented: $isShowingRating) {
             RatingSheet(
-                current: release.yourVote,
+                current: release.validatedYourVote,
                 distribution: release,
                 onVote: { score in Task { await model.vote(score) } },
                 onRemove: { Task { await model.removeVote() } }
@@ -191,37 +201,41 @@ struct ReleaseDetailView: View {
     // MARK: - Title
 
     private func titleBlock(_ release: Release) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                NavigationLink {
-                    ReleaseTitlesView(release: release)
-                } label: {
+        Button { isShowingTitles = true } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Image(systemName: "info.circle")
                         .font(.ax(.title3))
                         .foregroundStyle(.secondary)
+                    Text(release.displayTitle)
+                        .font(.ax(.title2, .bold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(release.displayTitle)
-                    .font(.ax(.title2, .bold))
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    if let subtitle = release.displaySubtitle {
+                        Text(subtitle)
+                            .font(.ax(.subheadline))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if let age = release.ageRatingText {
+                        Text(age)
+                            .font(.ax(.caption2, .medium))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    }
+                }
+                .padding(.leading, 32)
             }
-
-            HStack(spacing: 8) {
-                if let subtitle = release.displaySubtitle {
-                    Text(subtitle)
-                        .font(.ax(.subheadline))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                if let age = release.ageRatingText {
-                    Text(age)
-                        .font(.ax(.caption2, .medium))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                }
-            }
-            .padding(.leading, 32)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Названия релиза: \(release.displayTitle)")
         .padding(.horizontal)
         .padding(.top, Theme.Spacing.row)
     }
@@ -409,30 +423,21 @@ struct ReleaseDetailView: View {
     private func genres(_ release: Release) -> some View {
         let list = release.genreList
         if !list.isEmpty {
-            NavigationLink {
-                GenreReleasesView(genres: list, viewer: viewer)
-            } label: {
-                Text(underlinedJoin(list))
-                    .font(.ax(.subheadline))
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    .padding(.top, Theme.Spacing.section)
+            FlowRow(spacing: 4) {
+                ForEach(Array(list.enumerated()), id: \.offset) { index, genre in
+                    NavigationLink {
+                        GenreReleasesView(genres: [genre], viewer: viewer)
+                    } label: {
+                        Text(genre + (index < list.count - 1 ? "," : ""))
+                            .underline().font(.ax(.subheadline)).foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+            .padding(.top, Theme.Spacing.section)
         }
-    }
-
-    private func underlinedJoin(_ items: [String]) -> AttributedString {
-        var result = AttributedString()
-        for (index, item) in items.enumerated() {
-            var piece = AttributedString(item)
-            piece.underlineStyle = .single
-            result.append(piece)
-            if index < items.count - 1 { result.append(AttributedString(", ")) }
-        }
-        return result
     }
 
     private func descriptionBlock(_ description: String) -> some View {
@@ -466,29 +471,39 @@ struct ReleaseDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.row) {
                     ForEach(Array(banners.enumerated()), id: \.offset) { _, banner in
-                        NavigationLink {
-                            ReleaseVideosView(release: release, category: banner.name, viewer: viewer)
-                        } label: {
-                            ZStack {
-                                CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    Rectangle().fill(.quaternary)
-                                }
-                                .overlay(.black.opacity(0.35))
-                                Text(banner.name ?? "Видео")
-                                    .font(.ax(.title2, .medium))
-                                    .foregroundStyle(.white)
-                            }
-                            .frame(width: 260, height: 146)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
+                        videoBanner(banner, release: release)
                     }
                 }
                 .padding(.horizontal)
             }
         }
+    }
+
+    @ViewBuilder
+    private func videoBanner(_ banner: ReleaseVideoBanner, release: Release) -> some View {
+        switch banner.destination {
+        case .category(let id):
+            NavigationLink {
+                ReleaseVideosView(release: release, categoryID: id, categoryTitle: banner.name, viewer: viewer)
+            } label: { videoBannerContent(banner) }
+            .buttonStyle(.plain)
+        case .web(let url):
+            Link(destination: url) { videoBannerContent(banner) }.buttonStyle(.plain)
+        case nil:
+            videoBannerContent(banner).accessibilityHint("Ссылка недоступна")
+        }
+    }
+
+    private func videoBannerContent(_ banner: ReleaseVideoBanner) -> some View {
+        ZStack {
+            CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
+                image.resizable().scaledToFill()
+            } placeholder: { Rectangle().fill(.quaternary) }
+            .overlay(.black.opacity(0.35))
+            Text(banner.name ?? "Видео").font(.ax(.title2, .medium)).foregroundStyle(.white)
+        }
+        .frame(width: 260, height: 146)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: - Rating
@@ -499,7 +514,7 @@ struct ReleaseDetailView: View {
 
             HStack(alignment: .center, spacing: Theme.Spacing.section) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(release.ratingText ?? "—")
+                    Text(release.ratingDetailText ?? "—")
                         .font(.ax(fixed: 54, .bold))
                         .monospacedDigit()
                     Text(Plural.votes(release.voteCount ?? 0))
@@ -513,7 +528,7 @@ struct ReleaseDetailView: View {
 
             StarRatingRow(
                 avatarURL: env.session.profile?.avatarURL,
-                current: release.yourVote ?? 0,
+                current: release.validatedYourVote ?? 0,
                 onVote: { score in
                     guard let vote = ReleaseVote(rawValue: score) else { return }
                     Task { await model.vote(vote) }
@@ -588,7 +603,7 @@ struct ReleaseDetailView: View {
             SectionHeader(title: "Связанные релизы") {
                 if let related = release.related {
                     NavigationLink("Показать все") {
-                        RelatedReleasesView(related: related, viewer: viewer)
+                        RelatedReleasesView(related: related, viewer: viewer, context: .release(release.id))
                     }
                     .font(.ax(.subheadline))
                 }
@@ -598,9 +613,10 @@ struct ReleaseDetailView: View {
                     NavigationLink {
                         ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
                     } label: {
-                        RelatedReleaseRow(release: item)
+                        RelatedReleaseRow(release: item, isCurrent: item.id == release.id)
                     }
                     .buttonStyle(.plain)
+                    .disabled(item.id == release.id)
                 }
             }
             .padding(.horizontal)
@@ -769,6 +785,7 @@ struct StarRatingRow: View {
 @MainActor
 struct RelatedReleaseRow: View {
     let release: Release
+    var isCurrent = false
 
     var body: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.row) {
@@ -779,6 +796,9 @@ struct RelatedReleaseRow: View {
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                if isCurrent {
+                    Text("Вы здесь").font(.ax(.caption, .medium)).foregroundStyle(Theme.accent)
+                }
                 HStack(spacing: 8) {
                     if let year = release.year, !year.isEmpty {
                         Text("\(year) год")

@@ -48,7 +48,7 @@ final class HomePreferences {
     }
 
     func rename(customTabTo name: String) {
-        customTabName = name.trimmingCharacters(in: .whitespaces)
+        customTabName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         defaults.set(customTabName, forKey: Key.customTabName)
     }
 
@@ -65,9 +65,9 @@ final class HomePreferences {
 
 /// What the user picked in "Настройки вкладки".
 ///
-/// Kept separate from `FilterRequest` because the two are not the same shape: this
-/// holds the UI's presets, and `filterRequest` resolves them into the ranges the
-/// server wants, exactly as `CustomFilterTabPresenter` does.
+/// The original custom settings form has four fields, not the complete filter.
+/// Legacy extended keys remain Codable for previously saved alpha data, but are
+/// not silently applied as constraints that this form cannot display or edit.
 struct CustomTabFilter: Codable, Hashable, Sendable {
     var country: String = ""
     var category: ReleaseCategory?
@@ -88,42 +88,17 @@ struct CustomTabFilter: Codable, Hashable, Sendable {
 
     var filterRequest: FilterRequest {
         FilterRequest(
-            sort: sort,
             category: category,
-            status: status,
-            season: season,
-            startYear: startYear,
-            endYear: endYear,
-            episodes: episodes,
-            episodeDuration: episodeDuration,
             country: country,
-            studio: studio,
-            source: source,
             genres: genres.isEmpty ? nil : genres,
-            genresMode: genres.isEmpty ? nil : genresMode,
-            types: types.isEmpty ? nil : types,
-            ageRatings: ageRatings.isEmpty ? nil : ageRatings,
+            genresMode: genres.isEmpty ? nil : .any,
             profileListExclusions: profileListExclusions.isEmpty ? nil : profileListExclusions
-        )
+        ).normalized
     }
 
     /// How many constraints are set, for the badge on the filter button.
     var activeCount: Int {
-        var count = 0
-        if !country.isEmpty { count += 1 }
-        if category != nil { count += 1 }
-        if status != nil { count += 1 }
-        if !genres.isEmpty { count += 1 }
-        if !profileListExclusions.isEmpty { count += 1 }
-        if !types.isEmpty { count += 1 }
-        if !studio.isEmpty { count += 1 }
-        if source != nil { count += 1 }
-        if startYear != nil || endYear != nil { count += 1 }
-        if episodes != nil { count += 1 }
-        if episodeDuration != nil { count += 1 }
-        if season != nil { count += 1 }
-        if !ageRatings.isEmpty { count += 1 }
-        return count
+        filterRequest.activeConstraintCount
     }
 }
 

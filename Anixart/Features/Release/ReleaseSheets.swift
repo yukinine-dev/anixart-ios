@@ -113,7 +113,7 @@ struct RatingSheet: View {
                 }
                 .padding(.horizontal)
 
-                if current != nil {
+                if let current, (1...5).contains(current) {
                     Button("Убрать оценку", role: .destructive) {
                         onRemove()
                         dismiss()

@@ -3,11 +3,10 @@ import AnixartKit
 
 /// Drives one infinitely-scrolling list.
 ///
-/// Anixart pages are zero-based and report `total_page_count`, so the paginator
-/// knows when it has reached the end instead of probing for an empty page. It also
-/// guards against the two bugs these lists usually have: a second load firing while
-/// the first is in flight, and a stale response from a previous query overwriting
-/// newer results.
+/// Requests are zero-based. Existing callers use their metadata strategy; known
+/// browsing endpoints opt into raw page sizes because their metadata can be a
+/// placeholder or final page index. Loading guards and generations keep duplicate
+/// fetches and stale responses from overwriting newer results.
 @MainActor
 @Observable
 final class Paginator<Item: Identifiable & Codable & Sendable> {
@@ -29,11 +28,16 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
     private var generation = 0
     private var hasLoadedFirstPage = false
     private let continuesWithoutPageCount: Bool
+    /// Opt-in for browsing APIs whose metadata is zero, a last-page index or
+    /// stale/current_page=0. Unrelated callers retain metadata-based paging.
+    private let rawPageSize: Int?
     private(set) var failedPage: Int?
 
-    init(continuesWithoutPageCount: Bool = false, fetch: @escaping @Sendable (Int) async throws -> PageableResponse<Item>) {
+    init(continuesWithoutPageCount: Bool = false, rawPageSize: Int? = nil, fetch: @escaping @Sendable (Int) async throws -> PageableResponse<Item>) {
+        precondition(rawPageSize.map { $0 > 0 } ?? true, "rawPageSize must be positive")
         self.fetch = fetch
         self.continuesWithoutPageCount = continuesWithoutPageCount
+        self.rawPageSize = rawPageSize
     }
 
     var isLoadingFirstPage: Bool { state == .loading && items.isEmpty }
@@ -65,7 +69,7 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
             var seen = Set<Item.ID>()
             items = page.items.filter { seen.insert($0.id).inserted }
             totalCount = page.totalCount
-            hasMore = continuesWithoutPageCount && page.totalPageCount == nil ? !page.items.isEmpty : !page.isLastPage
+            hasMore = canContinue(after: page)
             nextPage = 1
             hasLoadedFirstPage = true
             state = .idle
@@ -106,7 +110,7 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
             var known = Set(items.map(\.id))
             items.append(contentsOf: response.items.filter { known.insert($0.id).inserted })
             totalCount = response.totalCount
-            hasMore = continuesWithoutPageCount && response.totalPageCount == nil ? !response.items.isEmpty : !response.isLastPage
+            hasMore = canContinue(after: response)
             nextPage = page + 1
             state = .idle
         } catch {
@@ -115,6 +119,14 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
             failedPage = page
             state = .failed(Self.message(for: error))
         }
+    }
+
+    private func canContinue(after page: PageableResponse<Item>) -> Bool {
+        // Count before deduplication, and never use cumulative total_count or the
+        // response's stale current_page to choose the next requested index.
+        if let rawPageSize { return page.items.count >= rawPageSize }
+        if continuesWithoutPageCount, page.totalPageCount == nil { return !page.items.isEmpty }
+        return !page.isLastPage
     }
 
     /// Replaces one item in place, for optimistic updates.

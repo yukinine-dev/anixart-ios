@@ -130,26 +130,32 @@ enum LaunchScreen: Equatable {
     }
 }
 
-/// Opens whatever release `release/random` hands back. Only reachable through
-/// the `-anixart-screen release` launch argument the smoke test uses.
+/// Opens a random release's detail, never a player. Used by Обзор and CI's
+/// `-anixart-screen release` smoke route; a failure has an explicit retry.
 @MainActor
 struct RandomReleaseScreen: View {
     @Environment(AppEnvironment.self) private var env
-    @State private var release: Release?
+    @State private var model: RandomReleaseViewModel?
 
     var body: some View {
         Group {
-            if let release {
-                ReleaseDetailView(releaseID: release.id, preloaded: release)
+            if let model, !model.hasCurrentViewer {
+                ProfileViewerNotice(viewer: model.viewer)
+            } else if let model, let release = model.release {
+                ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model.viewer).id(release.id)
+            } else if let model, let error = model.errorMessage {
+                StatusMessageView(title: "Не удалось выбрать релиз", message: error,
+                                  systemImage: "wifi.exclamationmark", retry: { await model.load() })
             } else {
                 ProgressView()
             }
         }
         .task {
-            guard release == nil else { return }
-            let response = try? await env.client.send(ReleaseEndpoints.random(extended: true))
-            release = response?.release
+            if model == nil { model = RandomReleaseViewModel(session: env.session) }
+            if model?.release == nil { await model?.load() }
         }
+        .toolbar(.visible, for: .navigationBar)
+        .onChange(of: env.session.viewerKey) { _, current in if model?.viewer != current { model?.invalidate() } }
     }
 }
 

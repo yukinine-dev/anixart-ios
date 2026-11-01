@@ -46,7 +46,8 @@ public enum ReleaseEndpoints {
     /// Other entries in the same franchise. `relatedID` is `Release.related.id`,
     /// not the release id.
     public static func related(relatedID: Int, page: Int) -> Endpoint<PageableResponse<Release>> {
-        Endpoint(path: "related/\(relatedID)/\(page)")
+        // RelatedPresenter uses the same v2 contract as release search.
+        Endpoint(path: "related/\(relatedID)/\(page)", headers: ["API-Version": "v2"])
     }
 
     public static func streamingPlatforms(releaseID: Int) -> Endpoint<PageableResponse<ReleaseStreamingPlatform>> {
@@ -79,7 +80,7 @@ public enum ReleaseVideoEndpoints {
         Endpoint(path: "releaseVideoFavorite/delete/\(videoID)", auth: .required)
     }
     public static func videos(releaseID: Int, page: Int) -> Endpoint<PageableResponse<ReleaseVideo>> {
-        Endpoint(path: "video/release/\(releaseID)/\(page)")
+        Endpoint(path: "video/release/\(releaseID)/\(page)", auth: .none)
     }
 
     public static func videos(
@@ -87,6 +88,6 @@ public enum ReleaseVideoEndpoints {
         categoryID: Int,
         page: Int
     ) -> Endpoint<PageableResponse<ReleaseVideo>> {
-        Endpoint(path: "video/release/\(releaseID)/category/\(categoryID)/\(page)")
+        Endpoint(path: "video/release/\(releaseID)/category/\(categoryID)/\(page)", auth: .none)
     }
 }

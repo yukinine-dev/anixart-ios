@@ -1,33 +1,37 @@
 import SwiftUI
+import UIKit
 import AnixartKit
 
 /// The ⓘ next to the title: all three titles the release carries.
 @MainActor
 struct ReleaseTitlesView: View {
+    @Environment(\.dismiss) private var dismiss
     let release: Release
 
     var body: some View {
-        List {
-            if let ru = release.titleRu, !ru.isEmpty {
-                field("Название", ru)
+        NavigationStack {
+            List {
+                ForEach(release.titleFields) { field in
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(field.label).font(.ax(.caption)).foregroundStyle(.secondary)
+                            Text(field.value).font(.ax(.subheadline)).textSelection(.enabled)
+                        }
+                        Spacer(minLength: 0)
+                        Button { UIPasteboard.general.string = field.value } label: {
+                            Image(systemName: "doc.on.doc").font(.ax(.body))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Скопировать: \(field.label)")
+                    }
+                    .padding(.vertical, 2)
+                }
             }
-            if let original = release.titleOriginal, !original.isEmpty {
-                field("Оригинальное название", original)
-            }
-            if let alt = release.titleAlt, !alt.isEmpty {
-                field("Альтернативные названия", alt)
-            }
+            .navigationTitle("Названия")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Закрыть") { dismiss() } } }
         }
-        .navigationTitle("Названия")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func field(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.ax(.caption)).foregroundStyle(.secondary)
-            Text(value).font(.ax(.subheadline)).textSelection(.enabled)
-        }
-        .padding(.vertical, 2)
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -83,11 +87,7 @@ struct ReleaseCollectionsView: View {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }
             if paginator == nil {
-                let session = env.session
-                let id = releaseID
-                paginator = Paginator { page in
-                    try await session.sendViewerRequest(CollectionEndpoints.containing(releaseID: id, page: page), for: viewer)
-                }
+                paginator = BrowsingPaginators.releaseCollections(releaseID: releaseID, viewer: viewer, session: env.session)
             }
             await paginator?.loadFirstPageIfNeeded()
         }
@@ -178,23 +178,25 @@ struct ReleaseVideosView: View {
     @Environment(AppEnvironment.self) private var env
 
     let release: Release
-    var category: String?
+    let categoryID: Int?
+    let categoryTitle: String?
 
     @State private var viewer: ProfileViewerKey?
-    @State private var paginator: Paginator<ReleaseVideo>?
+    @State private var model: ReleaseVideosViewModel?
     @State private var playing: ReleaseVideo?
 
-    init(release: Release, category: String? = nil, viewer: ProfileViewerKey? = nil) {
+    init(release: Release, categoryID: Int? = nil, categoryTitle: String? = nil, viewer: ProfileViewerKey? = nil) {
         self.release = release
-        self.category = category
+        self.categoryID = categoryID
+        self.categoryTitle = categoryTitle
         _viewer = State(initialValue: viewer)
     }
 
     var body: some View {
         List {
             ProfileViewerNotice(viewer: viewer)
-            if viewer == env.session.viewerKey, let paginator {
-                PaginatedContent(paginator: paginator, emptyTitle: "Видео пока нет") { video in
+            if viewer == env.session.viewerKey, let model {
+                PaginatedContent(paginator: model.paginator, emptyTitle: "Видео пока нет") { video in
                     Button {
                         playing = video
                     } label: {
@@ -221,33 +223,31 @@ struct ReleaseVideosView: View {
                             }
                         }
                     }
+                    .disabled(video.playbackURL == nil)
+                    .accessibilityHint(video.playbackURL == nil ? "Ссылка на видео недоступна" : "")
                 }
             }
         }
         .listStyle(.plain)
-        .navigationTitle(category ?? "Видео")
+        .navigationTitle(categoryTitle ?? "Видео")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .refreshable { await paginator?.reload() }
+        .refreshable { await model?.paginator.reload() }
         .fullScreenCover(item: $playing) { video in
-            if viewer == env.session.viewerKey, let url = (video.playerUrl ?? video.url).flatMap(URL.init(string:)) {
+            if viewer == env.session.viewerKey, let url = video.playbackURL {
                 WebPlayerSheet(url: url, title: video.title ?? "Видео")
             }
         }
         .task {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }
-            if paginator == nil {
-                let session = env.session
-                let id = release.id
-                paginator = Paginator { page in
-                    try await session.sendViewerRequest(ReleaseVideoEndpoints.videos(releaseID: id, page: page), for: viewer)
-                }
+            if model == nil {
+                model = ReleaseVideosViewModel(releaseID: release.id, categoryID: categoryID, viewer: viewer, session: env.session)
             }
-            await paginator?.loadFirstPageIfNeeded()
+            await model?.paginator.loadFirstPageIfNeeded()
         }
         .onChange(of: env.session.viewerKey) { _, current in
-            if viewer != current { paginator = nil; playing = nil }
+            if viewer != current { model = nil; playing = nil }
         }
     }
 }
@@ -284,7 +284,7 @@ struct StreamingPlatformsView: View {
                     } else if let page = resource.value, !page.items.isEmpty {
                         ForEach(page.items) { platform in
                             Button {
-                                if let url = platform.url.flatMap(URL.init(string:)) { openURL(url) }
+                                if let url = platform.destinationURL { openURL(url) }
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 3) {
@@ -303,6 +303,8 @@ struct StreamingPlatformsView: View {
                                 .padding(.horizontal)
                             }
                             .buttonStyle(.plain)
+                            .disabled(platform.destinationURL == nil)
+                            .accessibilityHint(platform.destinationURL == nil ? "Ссылка на сервис недоступна" : "")
                         }
                     } else {
                         Text("К сожалению, не удалось найти официальные проверенные стриминговые сервисы")
@@ -397,7 +399,7 @@ struct GenreReleasesView: View {
             if paginator == nil {
                 let session = env.session
                 let request = FilterRequest(genres: genres)
-                paginator = Paginator { page in
+                paginator = Paginator(rawPageSize: 25) { page in
                     try await session.sendViewerRequest(CatalogEndpoints.filter(request, page: page), for: viewer)
                 }
             }

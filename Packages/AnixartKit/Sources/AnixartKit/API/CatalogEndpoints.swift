@@ -25,7 +25,9 @@ public enum CatalogEndpoints {
         Endpoint(
             method: .post,
             path: "search/releases/\(page)",
-            body: .json(SearchRequest(query: query, scope: scope))
+            body: .json(SearchRequest(query: query, scope: scope)),
+            // ReleaseSearchPresenter explicitly passes "v2", not the global "2".
+            headers: ["API-Version": "v2"]
         )
     }
 

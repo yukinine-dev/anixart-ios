@@ -58,10 +58,9 @@ final class ReleaseDetailViewModel {
             release = loaded
         } catch {
             guard generation == loadGeneration, hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) else { return }
-            // Keep a preloaded release on screen; only report when there is nothing.
-            if release == nil {
-                errorMessage = Paginator<Release>.message(for: error)
-            }
+            // Keep the preload usable, but do not silently pass incomplete list
+            // metadata off as a successfully loaded extended detail response.
+            errorMessage = Paginator<Release>.message(for: error)
         }
     }
 
@@ -71,7 +70,8 @@ final class ReleaseDetailViewModel {
     // then reverts if the server disagrees.
 
     func setList(_ status: ProfileListStatus?) async {
-        guard let current = release else { return }
+        guard hasCurrentViewer, !Task.isCancelled, let current = release else { return }
+        guard current.profileListStatus != status?.rawValue else { return }
         let endpoint: Endpoint<StatusResponse>
         if let status {
             endpoint = BookmarkEndpoints.addToList(releaseID: releaseID, status: status)
@@ -86,12 +86,16 @@ final class ReleaseDetailViewModel {
 
         do {
             try await session.sendConfirmedAccountRequest(endpoint, for: account)
-            await session.refreshProfile(for: account)
         } catch {
             guard hasCurrentViewer else { return }
             release?.profileListStatus = previous
             showActionError(error)
+            return
         }
+        // Only the write can roll back its optimistic field. Aggregate read
+        // failure/cancellation is reported separately and keeps the acknowledgement.
+        await load(allowDuringAction: true)
+        await session.refreshProfile(for: account)
     }
 
     func toggleFavorite() async {
@@ -107,27 +111,34 @@ final class ReleaseDetailViewModel {
             } else {
                 try await session.sendConfirmedAccountRequest(BookmarkEndpoints.addFavorite(releaseID: releaseID), for: account)
             }
-            await session.refreshProfile(for: account)
         } catch {
             guard hasCurrentViewer else { return }
             release?.isFavorite = wasFavorite
             showActionError(error)
+            return
         }
+        await load(allowDuringAction: true)
+        await session.refreshProfile(for: account)
     }
 
     func vote(_ score: ReleaseVote) async {
-        await changeVote(ReleaseEndpoints.vote(releaseID: releaseID, score: score))
+        await changeVote(ReleaseEndpoints.vote(releaseID: releaseID, score: score), value: score.rawValue)
     }
 
     func removeVote() async {
-        await changeVote(ReleaseEndpoints.deleteVote(releaseID: releaseID))
+        guard let vote = release?.yourVote, (1...5).contains(vote) else { return }
+        await changeVote(ReleaseEndpoints.deleteVote(releaseID: releaseID), value: nil)
     }
 
-    private func changeVote(_ endpoint: Endpoint<StatusResponse>) async {
+    private func changeVote(_ endpoint: Endpoint<StatusResponse>, value: Int?) async {
+        guard release != nil else { return }
         guard let account = beginAction() else { return }
         defer { isPerformingAction = false }
         do {
             try await session.sendConfirmedAccountRequest(endpoint, for: account)
+            // Own stars are acknowledged even when the following aggregate read
+            // fails. That read's failure remains visible on the detail screen.
+            release?.yourVote = value
             // The aggregate grade changes server-side, so refetch rather than guess.
             await load(allowDuringAction: true)
             await session.refreshProfile(for: account)

@@ -12,7 +12,7 @@ struct CatalogView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let model {
+                if let model, model.hasCurrentViewer {
                     content(model)
                 } else {
                     ProgressView()
@@ -27,6 +27,9 @@ struct CatalogView: View {
                 prompt: "Название аниме"
             )
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if let model { ReleaseSearchScopeMenu(model: model) }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isShowingFilter = true
@@ -46,13 +49,16 @@ struct CatalogView: View {
                     )
                 }
             }
-            .task {
-                if model == nil { model = CatalogViewModel(client: env.client) }
-                await model?.browse.loadFirstPageIfNeeded()
+            .task(id: env.session.viewerKey) {
+                if model?.viewer != env.session.viewerKey {
+                    model = CatalogViewModel(session: env.session, filter: model?.filter ?? FilterRequest(),
+                                             query: model?.query ?? "", searchScope: model?.searchScope ?? .all)
+                    isShowingFilter = false
+                }
             }
             // Re-runs (and cancels the previous run) on every keystroke; the debounce
             // lives in `search()`.
-            .task(id: model?.query) {
+            .task(id: model?.searchKey) {
                 await model?.search()
             }
         }
@@ -61,7 +67,7 @@ struct CatalogView: View {
     @ViewBuilder
     private func content(_ model: CatalogViewModel) -> some View {
         if model.isShowingSearch {
-            searchResults(model)
+            ReleaseSearchResultsView(model: model)
         } else {
             ScrollView {
                 LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.Spacing.section) {
@@ -71,7 +77,7 @@ struct CatalogView: View {
                         emptyMessage: "Попробуйте изменить фильтры"
                     ) { release in
                         NavigationLink {
-                            ReleaseDetailView(releaseID: release.id, preloaded: release)
+                            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model.viewer)
                         } label: {
                             ReleaseCard(release: release)
                         }
@@ -81,44 +87,8 @@ struct CatalogView: View {
                 .padding()
             }
             .refreshable { await model.browse.reload() }
+            .task(id: ObjectIdentifier(model.browse)) { await model.browse.loadFirstPageIfNeeded() }
         }
-    }
-
-    @ViewBuilder
-    private func searchResults(_ model: CatalogViewModel) -> some View {
-        List {
-            if model.isSearching && model.searchResults.isEmpty {
-                HStack { Spacer(); ProgressView(); Spacer() }
-            } else if let error = model.searchError {
-                StatusMessageView(title: "Поиск не удался", message: error, systemImage: "wifi.exclamationmark")
-            } else if model.searchResults.isEmpty {
-                StatusMessageView(
-                    title: "Ничего не найдено",
-                    message: "Проверьте написание названия",
-                    systemImage: "magnifyingglass"
-                )
-            } else {
-                if let related = model.relatedSuggestion, let name = related.nameRu {
-                    Section("Франшиза") {
-                        NavigationLink {
-                            RelatedReleasesView(related: related)
-                        } label: {
-                            Label(name, systemImage: "rectangle.stack")
-                        }
-                    }
-                }
-                Section {
-                    ForEach(model.searchResults) { release in
-                        NavigationLink {
-                            ReleaseDetailView(releaseID: release.id, preloaded: release)
-                        } label: {
-                            ReleaseRow(release: release)
-                        }
-                    }
-                }
-            }
-        }
-        .listStyle(.plain)
     }
 }
 
@@ -127,11 +97,15 @@ struct CatalogView: View {
 struct RelatedReleasesView: View {
     @Environment(AppEnvironment.self) private var env
     let related: Related
+    let context: RelatedReleasesContext
     @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
+    @State private var opened: Release?
+    @State private var actionTarget: Release?
 
-    init(related: Related, viewer: ProfileViewerKey? = nil) {
+    init(related: Related, viewer: ProfileViewerKey? = nil, context: RelatedReleasesContext = .franchise) {
         self.related = related
+        self.context = context
         _viewer = State(initialValue: viewer)
     }
 
@@ -139,34 +113,56 @@ struct RelatedReleasesView: View {
         List {
             ProfileViewerNotice(viewer: viewer)
             if viewer == env.session.viewerKey, let paginator {
-                PaginatedContent(paginator: paginator, emptyTitle: "Нет связанных релизов") { release in
-                    NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
-                    } label: {
-                        RelatedReleaseRow(release: release)
+                if context.showsFranchiseHeader {
+                    Section {
+                        Text(related.displayName).font(.ax(.title2, .bold))
+                        if let description = related.description, !description.isEmpty {
+                            Text(description).font(.ax(.subheadline)).textSelection(.enabled)
+                        }
+                        if let count = related.releaseCountText {
+                            Text(count).font(.ax(.caption)).foregroundStyle(.secondary)
+                        }
                     }
+                }
+                PaginatedContent(paginator: paginator, emptyTitle: "Нет связанных релизов") { release in
+                    ReleaseListRow(release: release, showsSeasonAndCategory: true) { actionTarget = release }
+                        .onTapGesture { opened = release }
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                 }
             }
         }
         .listStyle(.plain)
-        .navigationTitle(related.nameRu ?? "Франшиза")
+        .navigationTitle(context.title(for: related))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .refreshable { await paginator?.reload() }
+        .navigationDestination(item: $opened) { release in
+            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
+        }
+        .sheet(item: $actionTarget) { release in
+            if let viewer { ReleaseQuickActionsSheet(release: release, viewer: viewer) }
+        }
         .task {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }
             if paginator == nil {
-                let session = env.session
-                let relatedID = related.id
-                paginator = Paginator { page in
-                    try await session.sendViewerRequest(ReleaseEndpoints.related(relatedID: relatedID, page: page), for: viewer)
-                }
+                paginator = BrowsingPaginators.related(relatedID: related.id, viewer: viewer, session: env.session)
             }
             await paginator?.loadFirstPageIfNeeded()
         }
         .onChange(of: env.session.viewerKey) { _, current in
-            if viewer != current { paginator = nil }
+            if viewer != current { paginator = nil; opened = nil; actionTarget = nil }
         }
+    }
+}
+
+enum RelatedReleasesContext: Equatable {
+    case franchise
+    case release(Int)
+
+    var showsFranchiseHeader: Bool { self == .franchise }
+    func title(for related: Related) -> String {
+        showsFranchiseHeader ? related.displayName : "Связанные релизы"
     }
 }

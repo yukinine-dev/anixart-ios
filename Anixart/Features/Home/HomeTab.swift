@@ -43,6 +43,21 @@ enum HomeTab: Hashable, Identifiable, CaseIterable {
         }
     }
 
+    /// Confirmed on the original phone's default-tab dialog, 2 Nov 2026.
+    var summary: String {
+        switch self {
+        case .custom: return "Персонально настроенный раздел"
+        case .anime: return "Японская анимация"
+        case .donghua: return "Китайская анимация"
+        case .latest: return "Недавно добавленные и обновленные релизы"
+        case .ongoing: return "Сериалы, которые выходят сейчас"
+        case .announced: return "Будущие релизы и новинки"
+        case .finished: return "Полностью вышедшие релизы"
+        case .movies: return "Полнометражные анимационные фильмы"
+        case .ova: return "Специальные и дополнительные эпизоды"
+        }
+    }
+
     /// The filter this tab sends, or `nil` for the custom tab, which builds its own.
     var filter: FilterRequest? {
         switch self {

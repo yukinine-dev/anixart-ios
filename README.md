@@ -18,18 +18,17 @@ CI builds and runs this on macOS. Successful runs verify:
   **unit tests pass**.
 - **It launches.** A simulator boots the app, and the job fails if a crash report
   appears or the process is gone 25 seconds later. It survives.
-- **It talks to the real API, correctly.** The launch screenshot shows the discover
-  feed populated with live Anixart content — banners, "Сейчас обсуждают", posters,
-  episode counts. Every request came back `200` with payloads of 70–255 KB, and the
-  client logged **no decode failure, no transport failure and no API error code**.
-  That is the end-to-end check on the reverse-engineered wire format: the JSON keys
-  taken out of the APK match what the server actually sends.
+- **It decodes live API responses.** The probe and launch/profile/release smoke
+  routes read configuration and public catalogue, profile and release content.
+  The smoke job fails on an app decoder error. This checks the reverse-engineered
+  JSON keys against real server payloads, not only against offline fixtures; it
+  does not establish that every navigation route or hosting works.
 
 What that does **not** cover:
 
 - **Only the launch, public-profile and release-detail smoke routes are exercised.**
   Catalogue, filter, search, the episode drill-down, bookmarks and comments compile and
-  are wired to verified endpoints, but are not clicked through. Owner-only profile
+  are wired to APK-verified endpoints, but are not clicked through in the simulator. Owner-only profile
   flows have offline regression tests, not an end-to-end simulator account check.
 - **Playback is untested.** Both players are the least certain part of the port — see
   "Known risks" in `docs/PORTING.md`.
@@ -38,6 +37,13 @@ What that does **not** cover:
 CI results apply only to the exact tested revision. Badge previews, recent history,
 ordering and Lottie have offline fixtures; those do not establish full live parity.
 Syntax checking on Windows is not Swift typechecking or XCTest.
+
+The 2 Nov 2026 Home/Discover audit used text UI trees from the original Android
+application, not the reconstructed design. It adds offline regressions for
+viewer-scoped feeds/actions, release-search paging and franchise navigation,
+banner/video-category contracts and random-release failures. Each revision requires
+a fresh macOS build and test run; an earlier alpha's green CI does not verify later
+changes. Android observations are not iOS runtime or full-parity checks.
 
 Alongside the run, these were checked mechanically:
 
@@ -128,8 +134,9 @@ are confirmed versus inferred.
 
 ## Feature coverage
 
-Implemented: the Главная tabs (Моя вкладка plus the eight catalogue presets),
-discover feed, catalogue with the full filter, search, release detail,
+Implemented: the Главная tabs (four-field Моя вкладка plus the eight catalogue presets),
+explicit device-local default-tab selection, discover feed and its five browsing shortcuts,
+catalogue with the full filter, paginated release search with franchise results, release detail,
 voice-over/source/episode drill-down, playback (native and embedded), watch lists, favourites,
 history, collections, comments, profiles, friends, schedule, notifications, email sign-in and
 registration. Profiles include the six privacy-filtered sections, editor/account-health flows,

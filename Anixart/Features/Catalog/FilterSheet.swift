@@ -2,7 +2,7 @@ import SwiftUI
 import AnixartKit
 
 /// Catalogue filter. Mirrors the fields `FilterRequest` accepts in the APK; the
-/// genre and voice-over lists come from the server so they stay in step with it.
+/// genre/country/studio options come from the APK, voice-over types from the API.
 @MainActor
 struct FilterSheet: View {
     @Environment(AppEnvironment.self) private var env
@@ -14,9 +14,17 @@ struct FilterSheet: View {
 
     @State private var draft = FilterRequest()
     @State private var availableTypes: [EpisodeType] = []
-    @State private var genreInput = ""
+    @State private var isLoadingTypes = false
+    @State private var typesError: String?
 
     private let ageRatingLabels = ["0+", "6+", "12+", "16+", "18+"]
+
+    init(current: FilterRequest, onApply: @escaping (FilterRequest) -> Void, onReset: @escaping () -> Void) {
+        self.current = current
+        self.onApply = onApply
+        self.onReset = onReset
+        _draft = State(initialValue: current.normalized)
+    }
 
     var body: some View {
         NavigationStack {
@@ -125,25 +133,16 @@ struct FilterSheet: View {
                 }
 
                 Section {
-                    ForEach(draft.genres ?? [], id: \.self) { genre in
-                        HStack {
-                            Text(genre)
-                            Spacer()
-                            Button {
-                                draft.genres?.removeAll { $0 == genre }
-                            } label: {
-                                Image(systemName: "minus.circle.fill").foregroundStyle(.red)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    HStack {
-                        TextField("Добавить жанр", text: $genreInput)
-                        Button("Добавить") { addGenre() }
-                            .disabled(genreInput.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
+                    GroupedMultiChoiceField(
+                        title: "Жанры",
+                        groups: FilterOptions.genreGroups.map { (title: $0.title, options: $0.genres) },
+                        selection: Binding(get: { draft.genres ?? [] }, set: {
+                            draft.genres = $0.isEmpty ? nil : $0
+                            if !$0.isEmpty, draft.genresMode == nil { draft.genresMode = GenresMode.any.rawValue }
+                        })
+                    )
                     Picker("Режим", selection: Binding(
-                        get: { draft.genresMode.flatMap(GenresMode.init(rawValue:)) ?? .all },
+                        get: { draft.genresMode.flatMap(GenresMode.init(rawValue:)) ?? .any },
                         set: {
                             draft.genresMode = $0.rawValue
                             draft.isGenresExcludeModeEnabled = $0 == .exclude ? true : nil
@@ -156,7 +155,7 @@ struct FilterSheet: View {
                 } header: {
                     Text("Жанры")
                 } footer: {
-                    Text("Жанр указывается так, как он назван в каталоге, например «Драма».")
+                    Text((draft.genresMode.flatMap(GenresMode.init(rawValue:)) ?? .any).title)
                 }
 
                 if !availableTypes.isEmpty {
@@ -164,6 +163,13 @@ struct FilterSheet: View {
                         ForEach(availableTypes) { type in
                             Toggle(type.displayName, isOn: binding(forType: type.id))
                         }
+                    }
+                } else if isLoadingTypes {
+                    Section("Озвучка") { ProgressView() }
+                } else if let typesError {
+                    Section("Озвучка") {
+                        Text(typesError).font(.ax(.subheadline)).foregroundStyle(.secondary)
+                        Button("Повторить") { Task { await loadTypes() } }
                     }
                 }
 
@@ -178,8 +184,17 @@ struct FilterSheet: View {
                 }
 
                 Section("Прочее") {
-                    TextField("Студия", text: optionalText($draft.studio))
-                    TextField("Страна", text: optionalText($draft.country))
+                    SearchableChoiceField(
+                        title: "Студия", options: FilterOptions.studios.map { FilterOption($0) }, label: \.title,
+                        selection: Binding(get: { draft.studio.map { FilterOption($0) } }, set: { draft.studio = $0?.value })
+                    )
+                    SearchableChoiceField(
+                        title: "Страна", options: FilterOptions.countries.map { FilterOption($0) }, label: \.title,
+                        selection: Binding(get: { draft.country.map { FilterOption($0) } }, set: { draft.country = $0?.value })
+                    )
+                }
+                if let validation = draft.validationMessage {
+                    Section { Text(validation).font(.ax(.subheadline)).foregroundStyle(.red) }
                 }
             }
             .navigationTitle("Фильтры")
@@ -193,19 +208,14 @@ struct FilterSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Применить") {
-                        onApply(draft)
+                        onApply(draft.normalized)
                         dismiss()
                     }
                     .fontWeight(.semibold)
+                    .disabled(draft.validationMessage != nil)
                 }
             }
-            .task {
-                draft = current
-                if availableTypes.isEmpty,
-                   let response = try? await env.client.send(ReleaseEndpoints.allTypes()) {
-                    availableTypes = response.types ?? []
-                }
-            }
+            .task { if availableTypes.isEmpty { await loadTypes() } }
         }
     }
 
@@ -223,20 +233,18 @@ struct FilterSheet: View {
         }
     }
 
-    private func optionalText(_ binding: Binding<String?>) -> Binding<String> {
-        Binding(
-            get: { binding.wrappedValue ?? "" },
-            set: { binding.wrappedValue = $0.isEmpty ? nil : $0 }
-        )
-    }
-
-    private func addGenre() {
-        let genre = genreInput.trimmingCharacters(in: .whitespaces)
-        guard !genre.isEmpty else { return }
-        var genres = draft.genres ?? []
-        if !genres.contains(genre) { genres.append(genre) }
-        draft.genres = genres
-        genreInput = ""
+    private func loadTypes() async {
+        guard !isLoadingTypes else { return }
+        isLoadingTypes = true
+        typesError = nil
+        defer { isLoadingTypes = false }
+        let viewer = env.session.viewerKey
+        do {
+            let response = try await env.session.sendViewerRequest(ReleaseEndpoints.allTypes(), for: viewer)
+            availableTypes = response.types ?? []
+        } catch {
+            if !ProfileRequestFailure.isCancellation(error) { typesError = Paginator<Release>.message(for: error) }
+        }
     }
 
     private func binding(forAgeRating index: Int) -> Binding<Bool> {

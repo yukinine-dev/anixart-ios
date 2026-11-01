@@ -5,11 +5,13 @@ import AnixartKit
 /// then title, the episode counter and rating on one line, and a description excerpt.
 ///
 /// Each row is its own card so the list reads as a stack of titles rather than one
-/// run of text, and the excerpt is capped at three lines so the text column stays
+/// run of text, and the excerpt is capped at four lines so the text column stays
 /// about as tall as the poster instead of stretching the row.
 @MainActor
 struct ReleaseListRow: View {
     let release: Release
+    var showsSeasonAndCategory = false
+    var showsDailyDiscussion = false
     var onOverflow: (() -> Void)?
 
     private let posterWidth: CGFloat = 96
@@ -41,12 +43,25 @@ struct ReleaseListRow: View {
                 }
 
                 metadata
+                if showsDailyDiscussion, let discussion = release.dailyDiscussionText {
+                    Text(discussion).font(.ax(.caption)).foregroundStyle(.secondary)
+                }
+
+                if showsSeasonAndCategory {
+                    HStack(spacing: 8) {
+                        if let season = release.seasonAndYear {
+                            Text(release.year?.isEmpty == false ? "\(season) г." : season)
+                        }
+                        if let category = release.category?.name, !category.isEmpty { Text(category) }
+                    }
+                    .font(.ax(.caption)).foregroundStyle(.secondary)
+                }
 
                 if let description = release.description, !description.isEmpty {
                     Text(description)
                         .font(.ax(.footnote))
                         .foregroundStyle(.secondary)
-                        .lineLimit(3)
+                        .lineLimit(4)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

@@ -2,8 +2,9 @@ import Foundation
 
 /// Anixart's paging envelope (`com.swiftsoft.anixartd.network.response.PageableResponse`).
 ///
-/// Pages are zero-based: `filter/0` is the first page. `totalPageCount` is the number
-/// of pages, so the last page index is `totalPageCount - 1`.
+/// Requests are zero-based: `filter/0` is the first page. These fields preserve the
+/// server's wire values. Some browsing endpoints use zero placeholders or a final
+/// page index, not a number of pages; their callers need explicit raw-size paging.
 public struct PageableResponse<Element: Codable & Sendable>: Codable, Sendable, AnixartResponse {
     public var code: Int?
     public var content: [Element]?
@@ -35,7 +36,8 @@ public struct PageableResponse<Element: Codable & Sendable>: Codable, Sendable, 
 
     public var items: [Element] { content ?? [] }
 
-    /// Index to request next, or `nil` when this was the last page.
+    /// Legacy metadata-based next index, retained for existing callers. It is not
+    /// suitable for endpoints with placeholder/final-index page counts.
     public var nextPage: Int? {
         let current = currentPage ?? 0
         let total = totalPageCount ?? 0

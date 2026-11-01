@@ -55,9 +55,9 @@ user's place.
 
 | Area | Screens | Notes |
 |---|---|---|
-| Главная | tab strip, nine tabs | Моя вкладка (device-local filter, with its full settings screen) plus the eight presets, each mapped to the exact `filter/{page}` query `HomeFragment` sends; long-press sets the default tab |
-| Discover | обзор feed | banners, discussing, continue watching, recommendations, comments of the week; blocks load concurrently and a failed block is omitted rather than taking the screen down |
-| Catalogue | browse, filter, search | full `FilterRequest`: sort, category, status, season, years, episode count, age rating, genres with all three match modes, voice-over, "hide what's already in my lists" |
+| Главная | tab strip, nine tabs | Моя вкладка has its separate four-field device-local settings (country, category, genres, excluded lists), plus the eight APK filter presets. tabSettings exposes default selection and custom settings; ordinary switching never rewrites the launch default. Long-press remains an additional default shortcut |
+| Discover | обзор feed and browsing shortcuts | banners, Обсуждаемое сегодня with daily comment counts, continue watching, recommendations and comments of the week; blocks load concurrently. Partial refresh failures keep existing data and expose retry. Popular, Schedule, Collections, Filter and Random routes use existing typed endpoints |
+| Catalogue | browse, full filter, search | full `FilterRequest`: sort, country, studio, source material, category, status, season, years, episode count/duration, age rating, genres with all three match modes, voice-over, excluded account lists. Release search pages by the APK's raw 25-item rule, preserves page-zero franchise metadata and exposes same-page retry |
 | Release | detail, titles, videos, streaming platforms, collections | poster over its own blurred backdrop, the list/bookmark/comments row, Воспроизвести with the last added episode under it, the icon fact lines, genre links, description with Подробнее, Видео banners, rating histogram with star voting, В списках у людей, Кадры, Связанные релизы, the collection links, Рекомендуем также and the comment preview |
 | Playback | "Выберите вариант", episode list, player | the voice-over list with the Все/Озвучки/Субтитры filter, episode and view counts, and the СУБТИТРЫ and НОВИНКА badges; then the hosting picker and episodes. `AVPlayer` for direct URLs, `WKWebView` for `iframe` episodes; watched marks, resume, progress reporting |
 | Bookmarks | 8 tabs | collections, history, favourites and the five watch lists, with the sort order the Android app offers |
@@ -119,6 +119,43 @@ Profile revisions require a fresh macOS build, the offline `AnixartKitTests` and
 `AnixartTests` suites, and iOS visual/runtime checks before claiming parity.
 OAuth binding and blog/article creation/editing remain unimplemented, not silently
 replaced by manual token entry or an account mutation on opening an information page.
+
+### Home/Discover/Release verification limits (2 Nov 2026)
+
+The reference is the original `com.swiftsoft.anixartd` phone app. The coordinator's
+read-only text trees confirmed the tab menu/default descriptions, custom and full
+filter contexts, franchise search card and distinct related-list route, row actions,
+title-copy sheet, two-decimal detail rating, current-release marker and Discover
+shortcuts. No reference screenshots were opened by the implementation agent, and
+no account/default/filter setting was changed on the reference phone.
+
+Static DEX contracts additionally confirm `API-Version: v2` on release search and
+related paging, first-page-only franchise suggestions, the 25-result search page
+boundary, banner types (1 release, 2 URL, 3 collection), and video banner actions
+(0 category ID from `value`, 1 URL). Generated DTOs were not hand-edited. Video-list
+reads are token-free; authenticated reads and writes keep the viewer/session that
+opened the screen. Home list writes require an explicit `code: 0`, support removal,
+and rebase positional paging after acknowledgement. Random opens detail, not playback.
+
+Earlier alphas stored full-filter fields in the custom-tab preference. Those keys
+are still decoded/encoded rather than destructively migrated, but do not become
+invisible constraints in the four-field custom form. Genres there use Any matching,
+as its observed explanatory text states; the complete catalogue filter retains all
+three modes. Opening custom settings selects that tab without changing its launch
+default. Applying/resetting settings remains an explicit device-local action.
+
+Offline tests cover stale loads, cancellation, refresh/retry, guest reads and wrong
+viewer writes, search paging/suggestions, filters, URL validation and random errors.
+Windows tree-sitter checks are syntax checks only. Each revision needs fresh macOS
+typechecking/XCTest; navigation, pagination, Dynamic Type and physical-iOS runtime
+checks remain distinct from offline model tests and smoke launches. Successful
+earlier profile/player CI is not proof for later browsing changes.
+
+Still unverified/not ported here: voice input, the recommendation help content behind
+"Узнать подробнее", full screenshot viewing, source-material information links,
+all full-video/category layouts and broader collection/feed editing. Existing watch
+and player flows were not redesigned. Preview lists and text-only observations do
+not establish complete Android/iOS parity.
 
 ## Typography
 

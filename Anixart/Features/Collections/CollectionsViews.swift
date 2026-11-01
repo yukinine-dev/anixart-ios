@@ -171,11 +171,7 @@ struct CollectionDetailView: View {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }
             if paginator == nil {
-                let session = env.session
-                let id = collection.id
-                paginator = Paginator { page in
-                    try await session.sendViewerRequest(CollectionEndpoints.releases(collectionID: id, page: page), for: viewer)
-                }
+                paginator = BrowsingPaginators.collectionReleases(collectionID: collection.id, viewer: viewer, session: env.session)
             }
             await paginator?.loadFirstPageIfNeeded()
         }

@@ -100,6 +100,69 @@ public struct FilterRequest: Codable, Hashable, Sendable {
             && (types?.isEmpty ?? true) && (ageRatings?.isEmpty ?? true)
             && (profileListExclusions?.isEmpty ?? true)
     }
+
+    /// Count constraint groups, including the fields offered by both filter UIs.
+    /// Sort order alone does not make a catalogue filtered.
+    public var activeConstraintCount: Int {
+        [
+            categoryId != nil, statusId != nil, season != nil,
+            startYear != nil || endYear != nil,
+            episodesFrom != nil || episodesTo != nil,
+            episodeDurationFrom != nil || episodeDurationTo != nil,
+            !(country?.isEmpty ?? true), !(studio?.isEmpty ?? true), !(source?.isEmpty ?? true),
+            !(genres?.isEmpty ?? true), !(types?.isEmpty ?? true),
+            !(ageRatings?.isEmpty ?? true), !(profileListExclusions?.isEmpty ?? true)
+        ].filter { $0 }.count
+    }
+
+    /// Reject a contradictory year range instead of returning a misleading empty
+    /// list. Future years are allowed for announced releases.
+    public var validationMessage: String? {
+        if let startYear, startYear <= 0 { return "Укажите положительный год начала." }
+        if let endYear, endYear <= 0 { return "Укажите положительный год окончания." }
+        if let startYear, let endYear, startYear > endYear {
+            return "Год начала не может быть позже года окончания."
+        }
+        return nil
+    }
+
+    /// A guest has no account lists to exclude. Keep the device-local preference
+    /// unchanged so signing in restores its effect.
+    public var withoutProfileListExclusions: FilterRequest {
+        var request = self
+        request.profileListExclusions = nil
+        return request
+    }
+
+    /// Canonical UI output: empty selections are absent, and deleting the last
+    /// genre also removes its mode/flag rather than keeping a phantom filter.
+    public var normalized: FilterRequest {
+        var request = self
+        request.country = Self.nonblank(country)
+        request.studio = Self.nonblank(studio)
+        request.source = Self.nonblank(source)
+        request.genres = Self.nonemptyUnique(genres?.compactMap { Self.nonblank($0) })
+        request.types = Self.nonemptyUnique(types)
+        request.ageRatings = Self.nonemptyUnique(ageRatings)
+        request.profileListExclusions = Self.nonemptyUnique(profileListExclusions)
+        if request.genres == nil {
+            request.genresMode = nil
+            request.isGenresExcludeModeEnabled = nil
+        }
+        return request
+    }
+
+    private static func nonblank(_ text: String?) -> String? {
+        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        return text
+    }
+
+    private static func nonemptyUnique<Value: Hashable>(_ values: [Value]?) -> [Value]? {
+        guard let values else { return nil }
+        var seen = Set<Value>()
+        let unique = values.filter { seen.insert($0).inserted }
+        return unique.isEmpty ? nil : unique
+    }
 }
 
 /// Body of the `POST search/*` endpoints.
