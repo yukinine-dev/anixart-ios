@@ -40,16 +40,16 @@ final class ProfileThemeRenderingTests: XCTestCase {
     }
 
     @MainActor
-    func testShowcaseRendersFlatProfileThemeAndHonorsDisabledFlag() throws {
+    func testSectionRendersFlatProfileThemeAndHonorsDisabledFlag() throws {
         for enabled in [true, false] {
             let profile = try profileTestDecode(Profile.self,
                 "{\"id\":42,\"theme_enabled\":\(enabled),\"theme_gradient_start_color\":\"#FF0000\","
                     + "\"theme_gradient_end_color\":\"#FF0000\",\"theme_gradient_angle\":\"left_to_right\","
                     + "\"theme\":{\"id\":999,\"theme_enabled\":true,\"theme_gradient_start_color\":\"#00FF00\"}}")
-            let showcase = ProfileBadgeShowcase(profile: profile, badges: [], viewer: nil)
+            let section = ProfileThemedSection(profile: profile) { Color.clear }
                 .environment(AppEnvironment.preview())
                 .background(Color(.sRGB, red: 0, green: 0, blue: 1, opacity: 1))
-            let pixels = try render(showcase, size: CGSize(width: 64, height: 64))
+            let pixels = try render(section, size: CGSize(width: 64, height: 64))
             assertProfileThemePixel(pixels, x: 32, y: 32,
                                     red: enabled ? 255 : 0, green: 0, blue: enabled ? 0 : 255)
         }

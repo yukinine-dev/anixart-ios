@@ -1,11 +1,14 @@
 Build `__BUILD__` from `__SHA__`.
 
-## Player fixes
+## Profile updates
 
-- AVPlayer failures now show an error with retry, web fallback and close actions.
-- Retry opens a new player item while keeping the source URL, quality, speed and position.
-- Late events from replaced or stopped items cannot interrupt recovery.
-- Kodik routing uses the original hosting URL; web fallback does not repeat the wrapper advert after the Kodik gate.
+- Badge previews use four columns, conditional overflow and independent pin/selection markers; partial entries retain their artwork.
+- The installed nickname badge opens its details; "Change badge" opens the selection screen without changing the account. Compact tiles retain related-release subtitles.
+- Animated badges use native Lottie, paused off-screen, in the background, for Reduce Motion and for resource saving.
+- Recent badges are cached per account and sent as CSV; foreign profile reads do not borrow that history.
+- Badge changes require a current owner snapshot and explicit server acknowledgement, including after signing in again to the same account.
+- Both reorder screens use an explicit Save/Cancel draft; cancelled refreshes cannot submit an acknowledged order twice.
+- Nickname editing waits for both availability and restrictions, with retry after a failed load.
 
 ## Before you install
 
@@ -26,6 +29,12 @@ CI compiled it, ran the AnixartKit and app XCTest suites, booted a simulator, la
 confirmed the process survives with no crash report. It then relaunches the app straight
 onto a profile and onto a release page and photographs both, so those two screens are
 checked to render against live data with no decode failures.
+
+Profile regression tests use isolated fixtures for artwork, recent history, ownership,
+ordering, cancellation and nickname availability. Read-only Android checks use the
+original phone app, not a reconstructed design. This does not establish full runtime
+parity on a physical iOS device; live public-pinned and animated badge examples remain
+verification gaps in `docs/PORTING.md`.
 
 Player XCTest covers native AVPlayer failure and recovery using a local PCM WAV file,
 resume position, speed, quality, stale callbacks, stop and web-fallback routing. Live

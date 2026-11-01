@@ -320,12 +320,19 @@ struct ProfileVideosSection: View {
 struct ProfileBadgesSection: View {
     let profile: Profile
     let viewer: ProfileViewerKey?
+    var errorMessage: String?
+    var retry: (() async -> Void)?
 
     var body: some View {
+        let preview = ProfileBadgePreview(badges: profile.badgesPreview ?? [], totalCount: profile.badgeCount)
         VStack(spacing: 16) {
-            if let badges = profile.badgesPreview, !badges.isEmpty {
-                ProfileBadgePreviewGrid(badges: badges, totalCount: profile.badgeCount, profileID: profile.id, viewer: viewer)
-            } else { ProfileEmptySection() }
+            if !preview.isEmpty {
+                ProfileBadgePreviewGrid(badges: profile.badgesPreview ?? [], totalCount: profile.badgeCount,
+                                        profileID: profile.id, viewer: viewer)
+            } else if errorMessage == nil { ProfileEmptySection() }
+            if let errorMessage {
+                StatusMessageView(title: "Не удалось обновить значки", message: errorMessage, retry: retry)
+            }
         }
     }
 }

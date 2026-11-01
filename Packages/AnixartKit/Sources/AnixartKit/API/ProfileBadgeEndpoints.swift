@@ -9,7 +9,8 @@ public enum ProfileBadgeEndpoints {
         Endpoint(path: "achievement/get/\(code)", query: ["badge_id": String(badgeID)], auth: .required)
     }
 
-    public static func sections(profileID: Int, recent: String? = nil) -> Endpoint<ProfileBadgeSectionsResponse> {
+    /// `recent` is an owner-only CSV of IDs; foreign reads send an empty string.
+    public static func sections(profileID: Int, recent: String? = "") -> Endpoint<ProfileBadgeSectionsResponse> {
         Endpoint(path: "profile/\(profileID)/badge/list", query: ["recent": recent])
     }
 

@@ -34,6 +34,7 @@ struct ProfileView: View {
     let viewer: ProfileViewerKey?
 
     @State private var model = ProfileViewModel()
+    @State private var installedBadge = ProfileInstalledBadgeModel()
     @State private var isShowingSettings = false
     @State private var isShowingSearch = false
     @State private var searchViewer: ProfileViewerKey?
@@ -82,8 +83,9 @@ struct ProfileView: View {
                 VStack(spacing: 0) {
                     identity(profile)
                     actions(profile)
-                    if !showcased.isEmpty {
-                        ProfileBadgeShowcase(profile: profile, badges: showcased, viewer: model.viewerKey)
+                    if let errorMessage {
+                        StatusMessageView(title: "Не удалось обновить профиль", message: errorMessage,
+                                          retry: { await load(force: true) })
                     }
                     sectionDivider
                     if profile.isCountsHidden != true {
@@ -137,6 +139,7 @@ struct ProfileView: View {
                                   viewerAccount: env.session.accountKey)) { await load(force: true) }
         .onChange(of: env.session.viewerKey) { _, current in
             model.invalidate(for: current)
+            installedBadge.invalidate(for: current)
             notice = nil
             pendingBlock = nil
             blockAccount = nil
@@ -153,6 +156,13 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $isShowingSettings) { SettingsView() }
         .sheet(item: $report) { ProfileReportView(target: $0) }
+        .sheet(item: $installedBadge.detail) { presentation in
+            installedBadge.sheet(for: presentation)
+                .task {
+                    await installedBadge.badges.load(profileID: presentation.profileID, session: env.session,
+                                                      viewer: presentation.viewer)
+                }
+        }
         .fullScreenCover(item: $gallery) { ProfileImageGalleryView(urls: $0.urls, initialIndex: $0.initialIndex) }
         .sheet(isPresented: $showsReputation) { ProfileReputationHelpView(score: profile?.ratingScore ?? 0) }
         .sheet(isPresented: $showsStatusEditor) {
@@ -281,6 +291,14 @@ struct ProfileView: View {
                     }
                     .buttonStyle(.plain)
                 } else { Text(profile.displayLogin).font(.ax(.title2, .bold)) }
+                if let badge = profile.selectedBadge {
+                    Button {
+                        installedBadge.open(profile: profile, viewer: model.viewerKey, currentViewer: env.session.viewerKey)
+                    } label: { ProfileBadgeImage(badge: badge, size: 24) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Открыть установленный значок")
+                    .disabled(!hasCurrentViewer)
+                }
                 if profile.isSponsor ?? false {
                     Image(systemName: "crown.fill")
                         .font(.ax(.subheadline))
@@ -518,6 +536,8 @@ struct ProfileView: View {
                         if (2...ProfileEditorRules.showcaseLimit).contains(showcased.count) {
                             section = .badges
                             isOrderingBadges = true
+                        } else if model.badgeErrorMessage != nil {
+                            notice = "Не удалось проверить закреплённые значки. Обновите профиль и попробуйте снова."
                         } else { notice = "Закрепите хотя бы два значка, чтобы изменить порядок." }
                     } label: {
                         Label("Изменить порядок", systemImage: "arrow.up.arrow.down")
@@ -557,7 +577,8 @@ struct ProfileView: View {
             if profile.isCountsHidden == true { hiddenCountsNotice }
             else { ProfileVideosSection(profile: profile, viewer: model.viewerKey) }
         case .badges:
-            ProfileBadgesSection(profile: profile, viewer: model.viewerKey)
+            ProfileBadgesSection(profile: profile, viewer: model.viewerKey,
+                                 errorMessage: model.badgeErrorMessage, retry: { await load(force: true) })
         }
     }
 

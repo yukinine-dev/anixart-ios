@@ -70,6 +70,8 @@ public enum ProfileEditorRules {
     public static let minimumCoverReputation = 3
     public static let passwordLimit = 32
     public static let avatarAnimationByteLimit = 4 * 1024 * 1024
+    // Common overflow row sizes, retained for compatibility, not hard maxima.
+    // ProfileBadgePreview handles full rows, pinned tails and complete lists.
     public static let badgePreviewLimit = 7
     public static let categoryBadgePreviewLimit = 11
 
