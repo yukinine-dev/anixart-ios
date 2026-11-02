@@ -6,8 +6,12 @@ import AnixartKit
 @MainActor
 @Observable
 final class CatalogViewModel {
-    var query = ""
-    var searchScope: SearchScope = .all
+    var query = "" {
+        didSet { if query != oldValue { inputRevision += 1; closeVoiceSearch() } }
+    }
+    var searchScope: SearchScope = .all {
+        didSet { if searchScope != oldValue { inputRevision += 1; closeVoiceSearch() } }
+    }
     private(set) var filter = FilterRequest()
     private(set) var hasAppliedFilter: Bool
 
@@ -15,8 +19,14 @@ final class CatalogViewModel {
     private var searchModel: ReleaseSearchModel?
     let viewer: ProfileViewerKey
     private let session: SessionController
+    private(set) var voiceInput: VoiceSearchModel?
+    private var voiceContextIsActive = false
+    private var inputRevision = 0
+    @ObservationIgnored private let voiceServiceFactory: @MainActor () -> any VoiceInputService
+    @ObservationIgnored private var voiceStartTask: Task<Void, Never>?
 
-    init(session: SessionController, filter: FilterRequest = FilterRequest(), query: String = "", searchScope: SearchScope = .all, hasAppliedFilter: Bool = false) {
+    init(session: SessionController, filter: FilterRequest = FilterRequest(), query: String = "", searchScope: SearchScope = .all,
+         hasAppliedFilter: Bool = false, voiceServiceFactory: (@MainActor () -> any VoiceInputService)? = nil) {
         self.session = session
         self.viewer = session.viewerKey
         self.filter = filter.normalized
@@ -24,11 +34,49 @@ final class CatalogViewModel {
         self.searchScope = searchScope
         self.hasAppliedFilter = hasAppliedFilter
         self.browse = Self.makePaginator(session: session, viewer: session.viewerKey, filter: filter.normalized)
+        self.voiceServiceFactory = voiceServiceFactory ?? { SystemVoiceInputService() }
     }
 
     var hasCurrentViewer: Bool { viewer == session.viewerKey }
     var normalizedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     var isShowingSearch: Bool { !normalizedQuery.isEmpty }
+    var isVoiceSearchAvailable: Bool { hasCurrentViewer && voiceContextIsActive && query.isEmpty }
+
+    func setVoiceSearchActive(_ active: Bool) {
+        guard voiceContextIsActive != active else { return }
+        voiceContextIsActive = active
+        if !active { closeVoiceSearch() }
+    }
+
+    func beginVoiceSearch() {
+        guard isVoiceSearchAvailable, voiceInput == nil else { return }
+        let revision = inputRevision
+        let input = VoiceSearchModel(service: voiceServiceFactory(), isContextCurrent: { [weak self] in
+            guard let self else { return false }
+            return self.hasCurrentViewer && self.voiceContextIsActive && self.inputRevision == revision
+        }, onText: { [weak self] text in
+            guard let self, self.hasCurrentViewer, self.voiceContextIsActive, self.inputRevision == revision else { return }
+            self.query = text
+            self.closeVoiceSearch()
+        })
+        voiceInput = input
+        voiceStartTask = Task { await input.start() }
+    }
+
+    func retryVoiceSearch(ifCurrent expected: VoiceSearchModel? = nil) {
+        if let expected, voiceInput !== expected { return }
+        guard isVoiceSearchAvailable, let voiceInput else { return }
+        voiceStartTask?.cancel()
+        voiceStartTask = Task { await voiceInput.start() }
+    }
+
+    func closeVoiceSearch(ifCurrent expected: VoiceSearchModel? = nil) {
+        if let expected, voiceInput !== expected { return }
+        voiceInput?.cancel()
+        voiceStartTask?.cancel()
+        voiceStartTask = nil
+        voiceInput = nil
+    }
 
     /// Never show rows (or navigate using their account fields) for an older query
     /// during the debounce, or for a viewer that has signed out.
@@ -46,6 +94,8 @@ final class CatalogViewModel {
     func apply(filter newFilter: FilterRequest) {
         let normalized = newFilter.normalized
         guard hasCurrentViewer, normalized.validationMessage == nil else { return }
+        inputRevision += 1
+        closeVoiceSearch()
         let needsNewBrowse = normalized != filter || isShowingSearch || searchModel != nil
         query = ""
         searchModel?.invalidate()
@@ -59,6 +109,8 @@ final class CatalogViewModel {
         // Reset only the general filter, not a running title search or device
         // HomePreferences. A reset while searching must not dispatch a new search.
         guard hasCurrentViewer, filter != FilterRequest() else { return }
+        inputRevision += 1
+        closeVoiceSearch()
         filter = FilterRequest()
         browse = Self.makePaginator(session: session, viewer: viewer, filter: filter)
     }

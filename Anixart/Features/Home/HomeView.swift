@@ -144,6 +144,7 @@ struct HomeView: View {
 @MainActor
 struct HomeSearchView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.scenePhase) private var scenePhase
     @State private var model: CatalogViewModel?
     @State private var isShowingFilter = false
 
@@ -165,6 +166,9 @@ struct HomeSearchView: View {
                 if let model { ReleaseSearchScopeMenu(model: model) }
             }
             ToolbarItem(placement: .topBarTrailing) {
+                if let model { ReleaseSearchInputButton(model: model) }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button { isShowingFilter = true } label: {
                     Image(systemName: (model?.activeFilterCount ?? 0) > 0
                           ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
@@ -178,18 +182,29 @@ struct HomeSearchView: View {
                 FilterSheet(current: model.filter, onApply: { model.apply(filter: $0) }, onReset: { model.resetFilter() })
             }
         }
+        .sheet(isPresented: voiceSearchPresentationBinding(model)) {
+            if let input = model?.voiceInput {
+                VoiceSearchSheet(model: input, onCancel: { model?.closeVoiceSearch(ifCurrent: input) },
+                                 onRetry: { model?.retryVoiceSearch(ifCurrent: input) })
+            }
+        }
         .searchable(
             text: Binding(get: { model?.query ?? "" }, set: { model?.query = $0 }),
             prompt: "Поиск аниме"
         )
         .task(id: env.session.viewerKey) {
             if model?.viewer != env.session.viewerKey {
+                model?.setVoiceSearchActive(false)
                 model = CatalogViewModel(session: env.session, filter: model?.filter ?? FilterRequest(),
                                          query: model?.query ?? "", searchScope: model?.searchScope ?? .all,
                                          hasAppliedFilter: model?.hasAppliedFilter ?? false)
                 isShowingFilter = false
             }
+            model?.setVoiceSearchActive(scenePhase == .active)
         }
+        .onAppear { model?.setVoiceSearchActive(scenePhase == .active) }
+        .onDisappear { model?.setVoiceSearchActive(false) }
+        .onChange(of: scenePhase) { _, phase in model?.setVoiceSearchActive(phase == .active) }
         .task(id: model?.searchKey) {
             await model?.search()
         }

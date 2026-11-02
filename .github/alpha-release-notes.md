@@ -1,5 +1,13 @@
 Build `__BUILD__` from `__SHA__`.
 
+## Remaining browsing routes
+
+- Native voice input starts only on an explicit microphone-button tap or Retry. Permission failures, cancellation, manual edits, session changes and inactive scenes stop the attempt; audio configuration is restored on cleanup.
+- Recommendation help shows the original APK's information text rather than invented iOS-side eligibility rules.
+- Release screenshots open full-screen at the tapped index, with paging, accessible controls, fresh image retry and at most three retained frames. Reduce Motion avoids spatial paging.
+- Source-material links use the original release-search route with `searchBy: 5`, without replacing the user's title search or filter.
+- The full video hub loads category blocks, streaming services and recent videos; later pages keep raw-count pagination. Streaming refresh failures expose retry.
+
 ## Home, search and release updates
 
 - Tab settings include an explicit launch-default selector and separate four-field settings for the device-local custom tab.
@@ -59,8 +67,11 @@ advert-to-video transition is not a required passing test.
 
 Catalogue, search, filter dialogs, the episode drill-down, bookmarks and comments are
 built and have offline regressions where noted, but are not clicked through in the
-simulator. Voice input, recommendation help, the full screenshot gallery and source
-information links are not completed by this browsing patch. This has only ever run
-in a simulator, never on a physical iOS device.
+simulator. Voice authorization/audio and gallery lifecycle tests use injected mocks:
+they do not activate a real microphone or prove native permission, gesture, rotation
+or playback hand-back behavior. Those flows still require physical-iOS checks.
+Video submission/appeal creation, social account binding and blog editing remain
+outside this browsing patch. This has only ever run in a simulator, never on a
+physical iOS device.
 
 See [`docs/PORTING.md`](../blob/__SHA__/docs/PORTING.md) for what is not implemented yet.

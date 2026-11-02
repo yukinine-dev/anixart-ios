@@ -274,6 +274,13 @@ public enum SearchScope: Int, Codable, CaseIterable, Sendable {
     case titleRu = 1
     case titleOriginal = 2
     case titleAlt = 3
+    /// ReleaseFragment's source# link -> MainActivity -> ReleaseSearchFragment:
+    /// the source label is SEARCH_QUERY and SEARCH_BY is 5 (original APK).
+    case sourceMaterial = 5
+
+    /// Keep the title-search menu unchanged. Source search is a distinct deep
+    /// link from a release's fact line, not an inferred additional title field.
+    public static let titleSearchScopes: [SearchScope] = [.all, .titleRu, .titleOriginal, .titleAlt]
 
     public var title: String {
         switch self {
@@ -281,6 +288,7 @@ public enum SearchScope: Int, Codable, CaseIterable, Sendable {
         case .titleRu: return "По русскому названию"
         case .titleOriginal: return "По оригинальному названию"
         case .titleAlt: return "По альтернативным названиям"
+        case .sourceMaterial: return "По первоисточнику"
         }
     }
 }

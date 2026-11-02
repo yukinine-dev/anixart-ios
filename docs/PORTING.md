@@ -57,8 +57,8 @@ user's place.
 |---|---|---|
 | Главная | tab strip, nine tabs | Моя вкладка has its separate four-field device-local settings (country, category, genres, excluded lists), plus the eight APK filter presets. tabSettings exposes default selection and custom settings; ordinary switching never rewrites the launch default. Long-press remains an additional default shortcut |
 | Discover | обзор feed and browsing shortcuts | banners, Обсуждаемое сегодня with daily comment counts, continue watching, recommendations and comments of the week; blocks load concurrently. Partial refresh failures keep existing data and expose retry. Popular, Schedule, Collections, Filter and Random routes use existing typed endpoints |
-| Catalogue | browse, full filter, search | full `FilterRequest`: sort, country, studio, source material, category, status, season, years, episode count/duration, age rating, genres with all three match modes, voice-over, excluded account lists. Release search pages by the APK's raw 25-item rule, preserves page-zero franchise metadata and exposes same-page retry |
-| Release | detail, titles, videos, streaming platforms, collections | poster over its own blurred backdrop, the list/bookmark/comments row, Воспроизвести with the last added episode under it, the icon fact lines, genre links, description with Подробнее, Видео banners, rating histogram with star voting, В списках у людей, Кадры, Связанные релизы, the collection links, Рекомендуем также and the comment preview |
+| Catalogue | browse, full filter, search, native voice input | full `FilterRequest`: sort, country, studio, source material, category, status, season, years, episode count/duration, age rating, genres with all three match modes, voice-over, excluded account lists. Release search pages by the APK's raw 25-item rule, preserves page-zero franchise metadata and exposes same-page retry. Voice input is explicit, permission-aware and scoped to the current query/viewer/scene |
+| Release | detail, titles, video hub/categories, streaming platforms, collections | poster over its own blurred backdrop, the list/bookmark/comments row, Воспроизвести with the last added episode under it, the icon fact lines, genre and source-material search links, description with Подробнее, Видео banners and full hub, rating histogram with star voting, В списках у людей, full-screen Кадры, Связанные релизы, the collection links, Рекомендуем также and the comment preview |
 | Playback | "Выберите вариант", episode list, player | the voice-over list with the Все/Озвучки/Субтитры filter, episode and view counts, and the СУБТИТРЫ and НОВИНКА badges; then the hosting picker and episodes. `AVPlayer` for direct URLs, `WKWebView` for `iframe` episodes; watched marks, resume, progress reporting |
 | Bookmarks | 8 tabs | collections, history, favourites and the five watch lists, with the sort order the Android app offers |
 | Collections | favourites list, detail | bookmark/unbookmark, paginated releases |
@@ -151,11 +151,50 @@ typechecking/XCTest; navigation, pagination, Dynamic Type and physical-iOS runti
 checks remain distinct from offline model tests and smoke launches. Successful
 earlier profile/player CI is not proof for later browsing changes.
 
-Still unverified/not ported here: voice input, the recommendation help content behind
-"Узнать подробнее", full screenshot viewing, source-material information links,
-all full-video/category layouts and broader collection/feed editing. Existing watch
-and player flows were not redesigned. Preview lists and text-only observations do
-not establish complete Android/iOS parity.
+The browsing follow-up wires four previously missing routes without reference
+images. Voice input uses native Speech/AVFoundation and the two privacy descriptions
+in `project.yml`. Only a microphone-button tap or explicit Retry requests permission
+or starts audio. Partial text stays in the sheet until a final result or Find; cancel,
+manual input, scope/filter changes, account changes, disappearance and inactive
+scenes retire the attempt. Recording is bounded to 60 seconds. The audio lease
+restores category/mode/options, preserves an existing playback category's activation,
+and does not overwrite a newer player configuration. AVAudioSession does not expose
+its prior active flag, so this is a documented restoration policy, not proof of
+identical playback behaviour on a device. Tests use mocks, never real permissions/audio.
+
+Recommendation help is the APK's native information dialog: `DiscoverFragment`
+binds `btn_recommendations_more` to `Ll1Il1I11lI.onClick` case 1, using
+`string/information`, `string/no_recommendation_info` and `string/understand`.
+Its text is copied verbatim, including the 20 positively rated releases and daily
+refresh statement; neither is implemented as a guessed iOS-side eligibility rule.
+
+The original `format_source_link` is `source#<Release.source>`. Its listener sends
+event `ll1IIlIl`; `MainActivity.IIl1llI111` opens `ReleaseSearchFragment` with the
+source label as `SEARCH_QUERY` and `SEARCH_BY: 5`. This was checked from DEX plus
+literal reflection descriptors, not guessed as a web URL or `filter/{page}`.
+The iOS link uses that v2 search, keeps the viewer that opened the release, leaves
+the ordinary four title-search choices unchanged, and does not touch Home's query
+or preferences. Unknown source names remain plain text rather than invented links.
+
+`ReleaseFragment.onScreenshot` passes the source array and tapped index to its
+viewer. The iOS full-screen gallery also keeps original order/duplicate URLs,
+uses native paging and accessible previous/next/close controls, retries failed
+images with fresh cached-loader reads, and retains only the selected frame plus
+two neighbours at at most 2048 pixels per longest edge. Inactive scenes release
+frame state; viewer changes and closing invalidate callbacks. Reduce Motion uses
+a stationary page with the same controls. No gallery image or screenshot was
+opened by the implementation agent.
+
+Full Video now reads `video/release/{id}` for `blocks`, `streaming_platforms` and
+`last_videos`, then the subsequent token-free `/{page}` requests. Category carousels
+link to the original category IDs; their Show all boundary uses the raw 25 count.
+Video information reuses the existing detail route; the player itself is unchanged.
+Video submission/appeal creation and broader collection/feed editing remain separate.
+
+Native permission prompts, speech availability, audio hand-back, full layouts,
+gallery gestures/rotation, Dynamic Type and physical-iOS behaviour remain unverified.
+The new offline suites require a fresh macOS build/XCTest; Windows parsing and
+Android static/text observations do not establish complete Android/iOS parity.
 
 ## Typography
 

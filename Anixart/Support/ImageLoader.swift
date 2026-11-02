@@ -75,7 +75,7 @@ actor ImageLoader {
 
         if let existing = inFlight[key] {
             let image = await existing.value
-            return Task.isCancelled ? nil : image
+            return Task.isCancelled || existing.isCancelled ? nil : image
         }
 
         let generation = self.generation
@@ -85,7 +85,7 @@ actor ImageLoader {
         }
         inFlight[key] = task
         let image = await task.value
-        guard generation == self.generation else { return nil }
+        guard generation == self.generation, !task.isCancelled else { return nil }
         inFlight[key] = nil
 
         if let image {
@@ -95,16 +95,36 @@ actor ImageLoader {
         return Task.isCancelled ? nil : image
     }
 
+    /// An explicit failed-image retry must not reuse a cached corrupt/HTML
+    /// response or an older in-flight decode. Ordinary callers keep their cache
+    /// policy and request coalescing; successful retries refill the bounded cache.
+    func retryImage(for url: URL, pixelSize: CGFloat) async -> UIImage? {
+        guard !Task.isCancelled else { return nil }
+        let key = ImageRequestKey(url: url, pixelSize: pixelSize)
+        inFlight.removeValue(forKey: key)?.cancel()
+        dataInFlight.removeValue(forKey: url)?.cancel()
+        let generation = self.generation
+        guard let data = await Self.fetchData(url, cachePolicy: .reloadIgnoringLocalCacheData),
+              !Task.isCancelled, generation == self.generation,
+              let image = Self.downsample(data, pixelSize: CGFloat(key.pixelSize)) else { return nil }
+        let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+        decoded.setObject(image, forKey: key.cacheKey, cost: cost)
+        return image
+    }
+
     /// Theme GIFs use the same byte cache/mirror fallback as still images, but
     /// decode frames on demand. Concurrent requests share bytes, not thumbnails
     /// of different sizes.
     func data(for url: URL) async -> Data? {
-        if let task = dataInFlight[url] { return await task.value }
+        if let task = dataInFlight[url] {
+            let data = await task.value
+            return Task.isCancelled || task.isCancelled ? nil : data
+        }
         let generation = self.generation
         let task = Task { await Self.fetchData(url) }
         dataInFlight[url] = task
         let data = await task.value
-        guard generation == self.generation else { return nil }
+        guard generation == self.generation, !task.isCancelled else { return nil }
         dataInFlight[url] = nil
         return data
     }
@@ -115,11 +135,12 @@ actor ImageLoader {
     /// the request comes from, and the API publishes `mirror-static.anixart.tv`
     /// for exactly that. One host is tried, then the other, rather than both at
     /// once: a race would double the load on a host that is already struggling.
-    private static func fetchData(_ url: URL) async -> Data? {
+    private static func fetchData(_ url: URL, cachePolicy: URLRequest.CachePolicy = .returnCacheDataElseLoad) async -> Data? {
         let mirror = AnixartURL.mirrored(url)
         for candidate in (mirror == url ? [url] : [url, mirror]) {
             do {
-                let (data, response) = try await session.data(from: candidate)
+                let request = URLRequest(url: candidate, cachePolicy: cachePolicy)
+                let (data, response) = try await session.data(for: request)
                 if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                     continue
                 }

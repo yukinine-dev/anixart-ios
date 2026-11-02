@@ -49,6 +49,8 @@ targets:
         CFBundleDisplayName: Anixart
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSMicrophoneUsageDescription: Микрофон используется только по нажатию кнопки голосового поиска, чтобы ввести название аниме.
+        NSSpeechRecognitionUsageDescription: Распознавание речи используется только по нажатию кнопки голосового поиска, чтобы ввести название аниме.
         UILaunchScreen:
           UIColorName: AccentColor
         UISupportedInterfaceOrientations:

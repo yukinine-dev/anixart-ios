@@ -18,6 +18,7 @@ struct ReleaseDetailView: View {
     @State private var isShowingCollectionPicker = false
     @State private var isShowingTitles = false
     @State private var isDescriptionExpanded = false
+    @State private var screenshotGallery: ReleaseScreenshotPresentation?
 
     init(releaseID: Int, preloaded: Release? = nil, viewer: ProfileViewerKey? = nil) {
         self.releaseID = releaseID
@@ -54,6 +55,9 @@ struct ReleaseDetailView: View {
         .sheet(isPresented: $isShowingTitles) {
             if let release = model?.release { ReleaseTitlesView(release: release) }
         }
+        .fullScreenCover(item: $screenshotGallery) { presentation in
+            ReleaseScreenshotGalleryView(presentation: presentation)
+        }
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
             if let account = viewer?.account, viewer == env.session.viewerKey {
                 NavigationLink { ProfileNotificationVoicesSelector(account: account, releaseID: releaseID) } label: {
@@ -81,6 +85,7 @@ struct ReleaseDetailView: View {
             isShowingRating = false
             isShowingCollectionPicker = false
             isShowingTitles = false
+            screenshotGallery = nil
         }
         .alert(
             "Не получилось",
@@ -385,7 +390,16 @@ struct ReleaseDetailView: View {
                 factLine("calendar", line)
             }
             if let source = release.sourceMaterialName {
-                factLine("target", "Первоисточник \(source)", underlined: source)
+                if let destination = release.sourceMaterialSearch, let viewer {
+                    NavigationLink { SourceMaterialSearchView(source: destination, viewer: viewer) } label: {
+                        factLine("target", "Первоисточник \(source)", underlined: source)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Первоисточник: \(source)")
+                } else {
+                    factLine("target", "Первоисточник \(source)")
+                        .accessibilityHint("Ссылка недоступна")
+                }
             }
             if let line = release.studioAndDirectorLine {
                 factLine("person.3", line)
@@ -579,18 +593,26 @@ struct ReleaseDetailView: View {
     // MARK: - Screenshots, related, collections, recommendations
 
     private func screenshots(_ release: Release) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.row) {
+        let urls = release.screenshotURLs
+        return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             SectionHeader(title: "Кадры")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(release.screenshotURLs, id: \.self) { url in
-                        CachedAsyncImage(url: url, maxPixelSize: 520) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
-                            Rectangle().fill(.quaternary)
+                    ForEach(Array(urls.enumerated()), id: \.offset) { index, url in
+                        Button {
+                            guard let viewer, viewer == env.session.viewerKey else { return }
+                            screenshotGallery = ReleaseScreenshotPresentation(urls: urls, initialIndex: index, viewer: viewer)
+                        } label: {
+                            CachedAsyncImage(url: url, maxPixelSize: 520) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                Rectangle().fill(.quaternary)
+                            }
+                            .frame(width: 240, height: 135)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
-                        .frame(width: 240, height: 135)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Открыть кадр \(index + 1) из \(urls.count)")
                     }
                 }
                 .padding(.horizontal)

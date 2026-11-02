@@ -45,6 +45,13 @@ banner/video-category contracts and random-release failures. Each revision requi
 a fresh macOS build and test run; an earlier alpha's green CI does not verify later
 changes. Android observations are not iOS runtime or full-parity checks.
 
+Browsing follow-up adds native, explicitly started speech input, the APK's
+recommendation information dialog, full-screen screenshot paging and the
+source-material search link (`searchBy: 5`), plus the full video hub's category and
+streaming blocks. Permission/audio and gallery lifecycle regressions use injected
+mocks, never a real microphone. Native permission dialogs, speech availability,
+audio restoration and gallery gestures still need iOS runtime verification.
+
 Alongside the run, these were checked mechanically:
 
 - all 92 endpoint paths were diffed against the 296 Retrofit annotations extracted
@@ -137,7 +144,8 @@ are confirmed versus inferred.
 Implemented: the Главная tabs (four-field Моя вкладка plus the eight catalogue presets),
 explicit device-local default-tab selection, discover feed and its five browsing shortcuts,
 catalogue with the full filter, paginated release search with franchise results, release detail,
-voice-over/source/episode drill-down, playback (native and embedded), watch lists, favourites,
+explicit native voice search, full-screen screenshots, source-material search,
+the video hub and categories, voice-over/source/episode drill-down, playback (native and embedded), watch lists, favourites,
 history, collections, comments, profiles, friends, schedule, notifications, email sign-in and
 registration. Profiles include the six privacy-filtered sections, editor/account-health flows,
 badge categories and pin markers, whole-section themes, native JSON badge animations and

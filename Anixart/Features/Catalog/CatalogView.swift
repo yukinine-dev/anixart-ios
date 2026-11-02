@@ -4,6 +4,7 @@ import AnixartKit
 @MainActor
 struct CatalogView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.scenePhase) private var scenePhase
     @State private var model: CatalogViewModel?
     @State private var isShowingFilter = false
 
@@ -31,6 +32,9 @@ struct CatalogView: View {
                     if let model { ReleaseSearchScopeMenu(model: model) }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    if let model { ReleaseSearchInputButton(model: model) }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isShowingFilter = true
                     } label: {
@@ -38,6 +42,8 @@ struct CatalogView: View {
                               ? "line.3.horizontal.decrease.circle.fill"
                               : "line.3.horizontal.decrease.circle")
                     }
+                    .accessibilityLabel("Полный фильтр")
+                    .disabled(model?.hasCurrentViewer != true)
                 }
             }
             .sheet(isPresented: $isShowingFilter) {
@@ -49,13 +55,24 @@ struct CatalogView: View {
                     )
                 }
             }
+            .sheet(isPresented: voiceSearchPresentationBinding(model)) {
+                if let input = model?.voiceInput {
+                    VoiceSearchSheet(model: input, onCancel: { model?.closeVoiceSearch(ifCurrent: input) },
+                                     onRetry: { model?.retryVoiceSearch(ifCurrent: input) })
+                }
+            }
             .task(id: env.session.viewerKey) {
                 if model?.viewer != env.session.viewerKey {
+                    model?.setVoiceSearchActive(false)
                     model = CatalogViewModel(session: env.session, filter: model?.filter ?? FilterRequest(),
                                              query: model?.query ?? "", searchScope: model?.searchScope ?? .all)
                     isShowingFilter = false
                 }
+                model?.setVoiceSearchActive(scenePhase == .active)
             }
+            .onAppear { model?.setVoiceSearchActive(scenePhase == .active) }
+            .onDisappear { model?.setVoiceSearchActive(false) }
+            .onChange(of: scenePhase) { _, phase in model?.setVoiceSearchActive(phase == .active) }
             // Re-runs (and cancels the previous run) on every keystroke; the debounce
             // lives in `search()`.
             .task(id: model?.searchKey) {

@@ -1,9 +1,9 @@
 # Anixart API, as the Android client calls it
 
-Reverse-engineered from **Anixart 10.5** (`com.swiftsoft.anixartd`, versionCode 1050) by
-decompiling the APK and reading its Retrofit interfaces. This is a description of the
-server's existing public API, written so the port can speak to it correctly; nothing here
-was obtained by probing or bypassing the service.
+Reverse-engineered from **Anixart 10.5** (`com.swiftsoft.anixartd`, versionCode 26101718) by
+decompiling the APK and reading its Retrofit interfaces, with selected response shapes
+checked through ordinary public API reads. This describes the server's existing API
+so the port can speak to it correctly; no access controls were bypassed.
 
 **300 endpoints** across 42 Retrofit interfaces.
 
@@ -507,6 +507,15 @@ in the Swift source.
 | GET | `/video/release/{releaseId}/category/{categoryId}/{page}` | `PageableResponse<ReleaseVideo>` | `path:releaseId (long)`, `path:categoryId (long)`, `path:page (int)` |
 | GET | `/video/release/{releaseId}/{page}` | `PageableResponse<ReleaseVideo>` | `path:releaseId (long)`, `path:page (int)` |
 
+The full Video hub uses **`/video/release/{releaseId}`**, not its `/{page}`
+endpoint. `ReleaseVideosResponse` carries `release`, `blocks` (each with `category`
+and `videos`), `last_videos`, `streaming_platforms` and `can_appeal`. These exact
+keys came from the APK's Jackson annotations/default field names. `last_videos`
+seeds the recent list; subsequent pages use the requested index and raw 25 rule.
+`ReleaseVideosUiController` also uses 25 raw block videos as its category Show all
+boundary. All three release-video read shapes are token-free and retain the
+generic API version; they must not inherit release search's `v2` override.
+
 ### ReleaseVideoAppealApi
 
 | Method | Path | Returns | Parameters |
@@ -578,6 +587,16 @@ releases enables the next page; deduplicating repeated IDs must not change this
 boundary. `RelatedPresenter` also passes `v2` for `related/{relatedId}/{page}`;
 the ID is the franchise ID, not the selected release ID. These values were read
 from the original APK DEX on 2 Nov 2026, not inferred from the visible UI order.
+
+The release's **source-material link** also uses release search: `format_source_link`
+contains `source#%1$s`, and the listener forwards the source label via `ll1IIlIl`
+to `MainActivity.IIl1llI111`. The factory for `ReleaseSearchFragment` receives
+`SEARCH_QUERY: <Release.source>` and **`SEARCH_BY: 5`**. Literal reflection
+descriptors confirm that factory; the first argument is the APK's static `-602`
+XOR the signed literal `0xfda3` (`-605`), which is 5. This is neither a guessed
+source-information URL nor a catalogue filter. The iOS route uses the same
+`search/releases/{page}` body and `v2` contract while keeping its four title-search
+menu choices separate.
 
 Live, token-free reads on 2 Nov 2026 also confirmed that paging metadata is not
 uniform. `filter/0` and `filter/1` can both report `current_page: 0` and

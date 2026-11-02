@@ -176,6 +176,7 @@ struct AddToCollectionSheet: View {
 @MainActor
 struct ReleaseVideosView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.scenePhase) private var scenePhase
 
     let release: Release
     let categoryID: Int?
@@ -183,7 +184,9 @@ struct ReleaseVideosView: View {
 
     @State private var viewer: ProfileViewerKey?
     @State private var model: ReleaseVideosViewModel?
+    @State private var overview: ReleaseVideoOverviewModel?
     @State private var playing: ReleaseVideo?
+    @State private var informationVideo: ReleaseVideo?
 
     init(release: Release, categoryID: Int? = nil, categoryTitle: String? = nil, viewer: ProfileViewerKey? = nil) {
         self.release = release
@@ -195,60 +198,65 @@ struct ReleaseVideosView: View {
     var body: some View {
         List {
             ProfileViewerNotice(viewer: viewer)
-            if viewer == env.session.viewerKey, let model {
-                PaginatedContent(paginator: model.paginator, emptyTitle: "Видео пока нет") { video in
-                    Button {
-                        playing = video
-                    } label: {
-                        HStack(spacing: Theme.Spacing.row) {
-                            CachedAsyncImage(url: AnixartURL.image(video.image), maxPixelSize: 240) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                Rectangle().fill(.quaternary)
-                            }
-                            .frame(width: 112, height: 63)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .overlay {
-                                Image(systemName: "play.fill").foregroundStyle(.white.opacity(0.9))
-                            }
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(video.title ?? "Видео")
-                                    .font(.ax(.subheadline))
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(2)
-                                if let category = video.category?.name {
-                                    Text(category).font(.ax(.caption)).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
+            if viewer == env.session.viewerKey {
+                if let overview {
+                    ReleaseVideoOverviewContent(model: overview, onPlay: play, onInfo: showInfo)
+                } else if let model {
+                    PaginatedContent(paginator: model.paginator, emptyTitle: "Видео пока нет") { video in
+                        ReleaseVideoListEntry(video: video, onPlay: { play(video) }, onInfo: { showInfo(video) })
                     }
-                    .disabled(video.playbackURL == nil)
-                    .accessibilityHint(video.playbackURL == nil ? "Ссылка на видео недоступна" : "")
-                }
+                } else { ProgressView().frame(maxWidth: .infinity).padding() }
             }
         }
         .listStyle(.plain)
         .navigationTitle(categoryTitle ?? "Видео")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .refreshable { await model?.paginator.reload() }
+        .refreshable {
+            if let overview { await overview.reload() }
+            else { await model?.paginator.reload() }
+        }
         .fullScreenCover(item: $playing) { video in
             if viewer == env.session.viewerKey, let url = video.playbackURL {
                 WebPlayerSheet(url: url, title: video.title ?? "Видео")
             }
         }
+        .sheet(item: $informationVideo) { video in
+            NavigationStack {
+                ProfileVideoDetailView(video: video, viewer: viewer)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Закрыть") { informationVideo = nil } } }
+            }
+        }
         .task {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }
-            if model == nil {
-                model = ReleaseVideosViewModel(releaseID: release.id, categoryID: categoryID, viewer: viewer, session: env.session)
+            if categoryID == nil {
+                if overview == nil { overview = ReleaseVideoOverviewModel(releaseID: release.id, viewer: viewer, session: env.session) }
+                await overview?.loadIfNeeded()
+            } else {
+                if model == nil {
+                    model = ReleaseVideosViewModel(releaseID: release.id, categoryID: categoryID, viewer: viewer, session: env.session)
+                }
+                await model?.paginator.loadFirstPageIfNeeded()
             }
-            await model?.paginator.loadFirstPageIfNeeded()
         }
+        .onDisappear { overview?.cancelLoads() }
         .onChange(of: env.session.viewerKey) { _, current in
-            if viewer != current { model = nil; playing = nil }
+            if viewer != current { overview?.invalidate(); overview = nil; model = nil; playing = nil; informationVideo = nil }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { playing = nil; informationVideo = nil }
+        }
+    }
+
+    private func play(_ video: ReleaseVideo) {
+        guard viewer == env.session.viewerKey, scenePhase == .active, video.playbackURL != nil else { return }
+        playing = video
+    }
+
+    private func showInfo(_ video: ReleaseVideo) {
+        guard viewer == env.session.viewerKey, scenePhase == .active else { return }
+        informationVideo = video
     }
 }
 
@@ -279,6 +287,10 @@ struct StreamingPlatformsView: View {
                         .padding(.horizontal)
                         .padding(.top, Theme.Spacing.row)
 
+                    if resource.value != nil, let error = resource.errorMessage {
+                        StatusMessageView(title: "Не удалось обновить сервисы", message: error,
+                                          systemImage: "wifi.exclamationmark", retry: load)
+                    }
                     if resource.value == nil {
                         ProfileResourceState(resource: resource, title: "Не удалось загрузить сервисы", retry: load)
                     } else if let page = resource.value, !page.items.isEmpty {
@@ -319,6 +331,7 @@ struct StreamingPlatformsView: View {
         .navigationTitle("Онлайн просмотр")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .refreshable { await load() }
         .task {
             if viewer == nil { viewer = env.session.viewerKey }
             await load()

@@ -96,7 +96,7 @@ struct ReleaseSearchScopeMenu: View {
     var body: some View {
         Menu {
             Picker("Искать", selection: $model.searchScope) {
-                ForEach(SearchScope.allCases, id: \.rawValue) { scope in
+                ForEach(SearchScope.titleSearchScopes, id: \.rawValue) { scope in
                     Text(scope.title).tag(scope)
                 }
             }

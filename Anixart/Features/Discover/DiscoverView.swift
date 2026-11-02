@@ -12,6 +12,7 @@ struct DiscoverView: View {
     @State private var appliedFilter: FilterRequest?
     @State private var opened: Release?
     @State private var actionTarget: Release?
+    @State private var isShowingRecommendationHelp = false
 
     var body: some View {
         NavigationStack {
@@ -42,6 +43,9 @@ struct DiscoverView: View {
                 if let viewer = model?.viewer { ReleaseQuickActionsSheet(release: release, viewer: viewer) }
             }
             .sheet(isPresented: $isShowingSettings) { SettingsView() }
+            .alert(RecommendationHelp.title, isPresented: $isShowingRecommendationHelp) {
+                Button(RecommendationHelp.dismissTitle, role: .cancel) { }
+            } message: { Text(RecommendationHelp.message) }
             .sheet(isPresented: $isShowingFilter) {
                 FilterSheet(current: filter, onApply: {
                     filter = $0
@@ -55,7 +59,9 @@ struct DiscoverView: View {
                 await model?.loadIfNeeded()
                 await env.session.refreshNotificationCount()
             }
-            .onChange(of: env.session.viewerKey) { _, _ in opened = nil; actionTarget = nil }
+            .onChange(of: env.session.viewerKey) { _, _ in
+                opened = nil; actionTarget = nil; isShowingRecommendationHelp = false
+            }
         }
     }
 
@@ -113,6 +119,8 @@ struct DiscoverView: View {
                         Text("На основе ваших оценок").font(.ax(.subheadline)).foregroundStyle(.secondary).padding(.horizontal)
                         Text("Продолжайте смотреть и оценивать аниме. Чем честнее выставлены оценки, тем точнее будут подобраны рекомендации.")
                             .font(.ax(.subheadline)).foregroundStyle(.secondary).padding(.horizontal)
+                        Button("Узнать подробнее") { isShowingRecommendationHelp = true }
+                            .font(.ax(.subheadline, .medium)).padding(.horizontal)
                     }
                 }
 

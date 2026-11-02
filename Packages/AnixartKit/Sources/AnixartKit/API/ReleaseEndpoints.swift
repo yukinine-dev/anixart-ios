@@ -72,6 +72,12 @@ public enum ReleaseEndpoints {
 
 /// `video/release/*` -- the trailers and previews behind the "Видео" section.
 public enum ReleaseVideoEndpoints {
+    /// ReleaseVideosPresenter.main: category carousels, streaming services and
+    /// the first recent-video page. Just like category/video pages, token-free.
+    public static func overview(releaseID: Int) -> Endpoint<ReleaseVideosResponse> {
+        Endpoint(path: "video/release/\(releaseID)", auth: .none)
+    }
+
     public static func addFavorite(videoID: Int) -> Endpoint<StatusResponse> {
         Endpoint(path: "releaseVideoFavorite/add/\(videoID)", auth: .required)
     }
