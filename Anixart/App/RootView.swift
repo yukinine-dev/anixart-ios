@@ -7,6 +7,7 @@ struct RootView: View {
     @State private var selection: Tab = LaunchScreen.current.tab
     @AppStorage(DeviceAppearancePreferenceKey.colorScheme) private var colorScheme = AppColorSchemePreference.system.rawValue
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+    @AppStorage(DeviceAppearancePreferenceKey.visualTheme) private var visualTheme = AppVisualTheme.original.rawValue
 
     enum Tab: Hashable, CaseIterable {
         // The original app has exactly these five root tabs; catalogue browsing
@@ -51,8 +52,9 @@ struct RootView: View {
                 tabs
             }
         }
-        .tint(Theme.accent)
-        .preferredColorScheme((AppColorSchemePreference(rawValue: colorScheme) ?? .system).colorScheme(lowPower: lowPower))
+        .anixartAppearance()
+        .preferredColorScheme(AppVisualTheme.stored(visualTheme).colorScheme(
+            normal: (AppColorSchemePreference(rawValue: colorScheme) ?? .system).colorScheme(lowPower: lowPower)))
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
             lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
         }

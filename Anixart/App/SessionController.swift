@@ -150,20 +150,34 @@ final class SessionController {
         await refreshNotificationCount()
     }
 
+    /// Cold-start fallback if the bounded restore never completed its credential
+    /// read. This does not erase the store or sign out an already restored owner;
+    /// the next cold start can restore normally. Cancelled reads cannot publish late.
+    func finishLaunchRestorationIfNeeded() {
+        guard state == .loading, !isChangingSession else { return }
+        state = .guest
+    }
+
     /// Picks up the host list and feature flags the server advertises.
     ///
     /// Best-effort: the hardcoded fallback host works on its own, so a failure here
     /// must not block the UI.
     func loadRemoteConfiguration() async {
-        if let urls = try? await client.send(ConfigEndpoints.urls()) {
+        guard !Task.isCancelled else { return }
+        let urls = try? await client.send(ConfigEndpoints.urls())
+        guard !Task.isCancelled else { return }
+        if let urls {
             await client.apply(urls)
         }
+        guard !Task.isCancelled else { return }
         // `config/toggles` was never fetched, which is why the Kodik path had
         // nothing to work with: `kodikAdIframeUrl`, `kodikVideoLinksUrl` and
         // `kodikIframeAd` all live here, and the APK reads them from the same
         // place. The model was generated at the start of this port; nobody had
         // asked the server for it.
-        toggles = try? await client.send(ConfigEndpoints.toggles())
+        let loadedToggles = try? await client.send(ConfigEndpoints.toggles())
+        guard !Task.isCancelled else { return }
+        toggles = loadedToggles
         // Said out loud, because its absence is silent everywhere else: without
         // it the Kodik path falls back to the bare page, and the only sign is a
         // player that does not open.

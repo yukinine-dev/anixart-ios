@@ -10,6 +10,11 @@ struct FeedView: View {
     @State private var showsSearch = false
     @State private var showsSettings = false
     @State private var onlySubscribedManaged = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
+    @Namespace private var tabIndicator
+    @State private var selectionMotion = SelectionMotionIntent<FeedTab>()
+    private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -18,13 +23,20 @@ struct FeedView: View {
                                searchTitle: "Поиск записей и блогов")
                 tabs
                 Divider()
-                if let model, model.hasCurrentViewer {
-                    if model.viewer.account == nil {
-                        SignInPromptView(message: "Войдите, чтобы читать свою ленту и свежие записи. Поиск записей, блогов и каналов доступен без входа.")
-                    } else {
-                        content(model)
+                Group {
+                    if let model, model.hasCurrentViewer {
+                        if model.viewer.account == nil {
+                            SignInPromptView(message: "Войдите, чтобы читать свою ленту и свежие записи. Поиск записей, блогов и каналов доступен без входа.")
+                        } else {
+                            content(model)
+                        }
+                    } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
+                }
+                .transaction {
+                    if selectionMotion.shouldAnimate(selection) {
+                        $0.animation = nil; $0.disablesAnimations = true
                     }
-                } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
+                }
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: FeedRouteContext.self) { context in
@@ -45,31 +57,48 @@ struct FeedView: View {
             .onChange(of: model?.actions.membershipRevision) { _, revision in
                 if let revision, revision > 0 { Task { await model?.rebaseAfterMembershipChange() } }
             }
-            .onChange(of: env.session.viewerKey) { _, _ in path = []; showsSearch = false }
+            .onChange(of: env.session.viewerKey) { _, _ in path = []; showsSearch = false; selectionMotion.reset() }
         }
     }
 
     private var loadKey: FeedLoadKey { FeedLoadKey(viewer: model?.viewer, tab: selection, onlySubscribed: onlySubscribedManaged) }
 
     private var tabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Spacing.tabGap) {
-                ForEach(FeedTab.visibleTabs(signedIn: env.session.isSignedIn)) { tab in
-                    Button { selection = tab } label: {
-                        VStack(spacing: 8) {
-                            if tab == .managed { Image(systemName: "star.circle").font(.ax(.title3)) }
-                            else { Text(tab.title).font(.ax(.title3, selection == tab ? .medium : .regular)) }
-                            Capsule().fill(selection == tab ? Color.primary : .clear).frame(height: 3)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Spacing.tabGap) {
+                    ForEach(FeedTab.visibleTabs(signedIn: env.session.isSignedIn)) { tab in
+                        Button { select(tab) } label: {
+                            VStack(spacing: 8) {
+                                if tab == .managed { Image(systemName: "star.circle").font(.ax(.title3)) }
+                                else { SelectionLabel(title: tab.title, isSelected: selection == tab) }
+                                SelectionUnderline(isSelected: selection == tab, namespace: tabIndicator)
+                            }
+                            .foregroundStyle(selection == tab ? Theme.selection : Color.secondary)
+                            .fixedSize().padding(.vertical, 10).contentShape(Rectangle())
                         }
-                        .foregroundStyle(selection == tab ? .primary : .secondary)
-                        .fixedSize().padding(.vertical, 10).contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .onKeyPress(.return) { select(tab, fromKeyboard: true); return .handled }
+                        .onKeyPress(.space) { select(tab, fromKeyboard: true); return .handled }
+                        .accessibilityLabel(tab.title)
+                        .accessibilityAddTraits(selection == tab ? [.isSelected] : [])
+                        .id(tab)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(tab.title)
-                    .accessibilityAddTraits(selection == tab ? [.isSelected] : [])
-                }
-            }.padding(.horizontal, 16)
+                }.padding(.horizontal, 16)
+            }
+            .onAppear { proxy.scrollTo(selection, anchor: .center) }
+            .onChange(of: selection) { _, tab in
+                guard tab == selection else { return }
+                motion.perform(animated: selectionMotion.shouldAnimate(tab)) { proxy.scrollTo(tab, anchor: .center) }
+                selectionMotion.complete(tab)
+            }
         }
+    }
+
+    private func select(_ tab: FeedTab, fromKeyboard: Bool = false) {
+        guard selection != tab else { return }
+        selectionMotion.register(tab, fromKeyboard: fromKeyboard)
+        motion.perform(animated: !fromKeyboard) { selection = tab }
     }
 
     @ViewBuilder

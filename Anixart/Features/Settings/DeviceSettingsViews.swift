@@ -4,6 +4,8 @@ enum DeviceAppearancePreferenceKey {
     static let colorScheme = "appearance.colorScheme"
     static let defaultBookmarks = "appearance.defaultBookmarks"
     static let resourceSaving = "appearance.resourceSaving"
+    static let visualTheme = "appearance.visualTheme"
+    static let accent = "appearance.accent"
 }
 
 enum AppColorSchemePreference: String, CaseIterable, Identifiable {
@@ -60,11 +62,26 @@ struct DeviceAppearanceSettingsView: View {
     @AppStorage(ProfileWatchTimeFormat.storageKey) private var watchTime = ProfileWatchTimeFormat.daysAndHours.rawValue
     @AppStorage(DeviceAppearancePreferenceKey.defaultBookmarks) private var bookmarks = BookmarksView.BookmarkTab.favorites.storageKey
     @State private var home = HomePreferences()
+    @AppStorage(DeviceAppearancePreferenceKey.visualTheme) private var visualTheme = AppVisualTheme.original.rawValue
+    @AppStorage(DeviceAppearancePreferenceKey.accent) private var accent = AppAccentChoice.anixart.rawValue
     var body: some View {
         Form {
+            Section {
+                Picker("Тема", selection: $visualTheme) {
+                    ForEach(AppVisualTheme.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+                Picker("Акцентный цвет", selection: $accent) {
+                    ForEach(AppAccentChoice.allCases) { value in
+                        Label { Text(value.title) } icon: { Circle().fill(value.seed.color).frame(width: 12, height: 12) }
+                            .tag(value.rawValue)
+                    }
+                }
+            } footer: { Text(AppVisualTheme.stored(visualTheme).detail) }
             Picker("Тёмная тема", selection: $colorScheme) {
                 ForEach(AppColorSchemePreference.allCases) { Text($0.title).tag($0.rawValue) }
             }
+            .disabled(AppVisualTheme.stored(visualTheme) == .oled)
+            AppTypefacePickerRow()
             Picker("Время просмотра в профиле", selection: $watchTime) {
                 ForEach(ProfileWatchTimeFormat.allCases) { Text($0.title).tag($0.rawValue) }
             }
@@ -77,6 +94,7 @@ struct DeviceAppearanceSettingsView: View {
                 }
             }
         }
+        .background(Theme.background)
         .navigationTitle("Внешний вид").navigationBarTitleDisplayMode(.inline)
     }
 }

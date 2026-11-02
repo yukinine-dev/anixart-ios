@@ -22,17 +22,20 @@ final class CatalogViewModel {
     private(set) var voiceInput: VoiceSearchModel?
     private var voiceContextIsActive = false
     private var inputRevision = 0
+    let history: ReleaseSearchHistoryStore?
     @ObservationIgnored private let voiceServiceFactory: @MainActor () -> any VoiceInputService
     @ObservationIgnored private var voiceStartTask: Task<Void, Never>?
 
     init(session: SessionController, filter: FilterRequest = FilterRequest(), query: String = "", searchScope: SearchScope = .all,
-         hasAppliedFilter: Bool = false, voiceServiceFactory: (@MainActor () -> any VoiceInputService)? = nil) {
+         hasAppliedFilter: Bool = false, history: ReleaseSearchHistoryStore? = nil,
+         voiceServiceFactory: (@MainActor () -> any VoiceInputService)? = nil) {
         self.session = session
         self.viewer = session.viewerKey
         self.filter = filter.normalized
         self.query = query
         self.searchScope = searchScope
         self.hasAppliedFilter = hasAppliedFilter
+        self.history = history
         self.browse = Self.makePaginator(session: session, viewer: session.viewerKey, filter: filter.normalized)
         self.voiceServiceFactory = voiceServiceFactory ?? { SystemVoiceInputService() }
     }
@@ -57,6 +60,7 @@ final class CatalogViewModel {
         }, onText: { [weak self] text in
             guard let self, self.hasCurrentViewer, self.voiceContextIsActive, self.inputRevision == revision else { return }
             self.query = text
+            self.rememberSearch()
             self.closeVoiceSearch()
         })
         voiceInput = input
@@ -88,6 +92,36 @@ final class CatalogViewModel {
 
     var activeFilterCount: Int { filter.activeConstraintCount }
     var searchKey: ReleaseSearchKey { ReleaseSearchKey(query: normalizedQuery, scope: searchScope, viewer: viewer) }
+
+    private var currentHistory: ReleaseSearchHistoryStore? {
+        guard hasCurrentViewer, let history, history.profileID == viewer.account?.profileID else { return nil }
+        return history
+    }
+
+    func rememberSearch() {
+        currentHistory?.remember(query: normalizedQuery, scope: searchScope)
+    }
+
+    func useHistory(_ entry: ReleaseSearchHistoryStore.Entry) {
+        guard let history = currentHistory,
+              let saved = history.entries.first(where: { $0.id == entry.id }) else { return }
+        searchScope = saved.scope
+        query = saved.query
+        rememberSearch()
+    }
+
+    @discardableResult
+    func removeHistoryEntry(id: String) -> Bool {
+        guard let history = currentHistory else { return false }
+        return history.remove(id: id)
+    }
+
+    @discardableResult
+    func clearHistory() -> Bool {
+        guard let history = currentHistory, !history.entries.isEmpty else { return false }
+        history.clear()
+        return true
+    }
 
     /// Explicit Apply switches contexts even when the normalized filter itself
     /// is unchanged. Filter fields never travel in search/releases requests.

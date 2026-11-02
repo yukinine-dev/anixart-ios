@@ -13,6 +13,11 @@ struct HomeView: View {
     @State private var isShowingSearch = false
     @State private var isShowingTabSettings = false
     @State private var isShowingDefaultTab = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
+    @Namespace private var tabIndicator
+    @State private var selectionMotion = SelectionMotionIntent<HomeTab>()
+    private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
     var body: some View {
         NavigationStack {
@@ -27,6 +32,13 @@ struct HomeView: View {
                         CustomFilterTabView(preferences: preferences)
                     case let tab:
                         HomeTabListView(tab: tab)
+                    }
+                }
+                // Only the tab indicator/strip moves. New lists and their loading
+                // state must not inherit the selection's animation transaction.
+                .transaction {
+                    if selectionMotion.shouldAnimate(selection ?? preferences.defaultTab) {
+                        $0.animation = nil; $0.disablesAnimations = true
                     }
                 }
             }
@@ -90,8 +102,9 @@ struct HomeView: View {
                     proxy.scrollTo(selection ?? preferences.defaultTab, anchor: .center)
                 }
                 .onChange(of: selection) { _, new in
-                    guard let new else { return }
-                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(new, anchor: .center) }
+                    guard let new, new == selection else { return }
+                    motion.perform(animated: selectionMotion.shouldAnimate(new)) { proxy.scrollTo(new, anchor: .center) }
+                    selectionMotion.complete(new)
                 }
             }
         }
@@ -111,23 +124,22 @@ struct HomeView: View {
         let isSelected = (selection ?? preferences.defaultTab) == tab
         let title = tab == .custom ? preferences.customTabTitle : tab.title
 
-        return Button {
-            withAnimation(.easeOut(duration: 0.15)) { selection = tab }
-        } label: {
+        return Button { select(tab) } label: {
             VStack(spacing: 8) {
-                Text(title)
-                    .font(.ax(.title3, isSelected ? .medium : .regular))
-                    .foregroundStyle(isSelected ? .primary : .secondary)
+                SelectionLabel(title: title, isSelected: isSelected)
+                    .foregroundStyle(isSelected ? Theme.selection : Color.secondary)
                 // The Android strip marks the active tab with a short rounded
                 // underline the width of the label.
-                Capsule()
-                    .fill(isSelected ? Color.primary : .clear)
-                    .frame(height: 4)
+                SelectionUnderline(isSelected: isSelected, namespace: tabIndicator, height: 4)
             }
             .fixedSize()
             .padding(.vertical, 10)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onKeyPress(.return) { select(tab, fromKeyboard: true); return .handled }
+        .onKeyPress(.space) { select(tab, fromKeyboard: true); return .handled }
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .contextMenu {
             Button {
                 preferences.setDefaultTab(tab)
@@ -138,6 +150,11 @@ struct HomeView: View {
         }
     }
 
+    private func select(_ tab: HomeTab, fromKeyboard: Bool = false) {
+        guard (selection ?? preferences.defaultTab) != tab else { return }
+        selectionMotion.register(tab, fromKeyboard: fromKeyboard)
+        motion.perform(animated: !fromKeyboard) { selection = tab }
+    }
 }
 
 /// Release search, reached from the Главная search field.
@@ -147,6 +164,7 @@ struct HomeSearchView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: CatalogViewModel?
     @State private var isShowingFilter = false
+    @State private var history: ReleaseSearchHistoryStore?
 
     var body: some View {
         Group {
@@ -193,12 +211,24 @@ struct HomeSearchView: View {
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: "Поиск аниме"
         )
+        .onSubmit(of: .search) { model?.rememberSearch() }
         .task(id: env.session.viewerKey) {
+            // Token replacement/reauthentication temporarily hides accountKey
+            // while retaining the signed-in profile. Do not turn its draft into
+            // guest history or erase it before the settled viewer is known.
+            if env.session.isSignedIn, env.session.viewerKey.account == nil {
+                model?.setVoiceSearchActive(false)
+                isShowingFilter = false
+                return
+            }
             if model?.viewer != env.session.viewerKey {
                 model?.setVoiceSearchActive(false)
+                let keepsQuery = model?.viewer.account?.profileID == env.session.viewerKey.account?.profileID
+                let retainedQuery = keepsQuery ? (model?.query ?? "") : ""
+                history = ReleaseSearchHistoryStore(profileID: env.session.viewerKey.account?.profileID)
                 model = CatalogViewModel(session: env.session, filter: model?.filter ?? FilterRequest(),
-                                         query: model?.query ?? "", searchScope: model?.searchScope ?? .all,
-                                         hasAppliedFilter: model?.hasAppliedFilter ?? false)
+                                          query: retainedQuery, searchScope: model?.searchScope ?? .all,
+                                         hasAppliedFilter: model?.hasAppliedFilter ?? false, history: history)
                 isShowingFilter = false
             }
             model?.setVoiceSearchActive(scenePhase == .active)

@@ -11,13 +11,18 @@ struct ProfileBlogSection: View {
     var retry: () async -> Void
     @State private var articles: Paginator<Article>?
     @State private var showsCreateInfo = false
+    @State private var showsUpgradeDialog = false
 
     private var ownsProfile: Bool { viewer == env.session.viewerKey && viewer?.account?.profileID == profile.id }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             if ownsProfile {
-                Button { showsCreateInfo = true } label: {
+                Button {
+                    let minimum = ProfileCapabilities.minimumBlogReputation(toggles: env.session.toggles)
+                    if ProfileBlogEntryPolicy.requiresUpgrade(profile: profile, channel: channel, minimum: minimum) { showsUpgradeDialog = true }
+                    else { showsCreateInfo = true }
+                } label: {
                     Label("Добавить запись…", systemImage: "square.and.pencil")
                         .font(.ax(.body)).frame(maxWidth: .infinity, alignment: .leading).padding()
                 }
@@ -57,22 +62,19 @@ struct ProfileBlogSection: View {
         .onChange(of: env.session.profileRevision) { _, _ in
             if viewer == env.session.viewerKey { Task { await articles?.reload() } }
         }
-        .onChange(of: env.session.viewerKey) { _, current in if viewer != current { articles = nil; showsCreateInfo = false } }
+        .onChange(of: env.session.viewerKey) { _, current in
+            if viewer != current { articles = nil; showsCreateInfo = false; showsUpgradeDialog = false }
+        }
+        .fullScreenCover(isPresented: $showsUpgradeDialog) {
+            ProfileBlogUpgradeDialog(score: profile.ratingScore ?? 0,
+                                     minimum: ProfileCapabilities.minimumBlogReputation(toggles: env.session.toggles))
+        }
         .sheet(isPresented: $showsCreateInfo) {
-            let minimum = ProfileCapabilities.minimumBlogReputation(toggles: env.session.toggles)
-            if !ProfileCapabilities.mayCreateBlog(reputation: profile.ratingScore, toggles: env.session.toggles) {
-                ProfileHelpSheet(title: "Публикация в профиле", paragraphs: [
-                    "Ваш уровень: \(profile.ratingScore ?? 0). Для создания блога необходим \(minimum)-й уровень репутации.",
-                    "Повышайте репутацию полезными комментариями, интересными коллекциями и новыми друзьями."
-                ])
-            } else {
-                // Editor launch/media-token bridging has no verified iOS flow yet.
-                // Do not create a blog just by opening this informational entry.
-                ProfileHelpSheet(title: "Добавить запись", paragraphs: [
-                    "Просмотр записей доступен. Создание и редактирование записей в клиенте iOS пока не поддерживаются.",
-                    "Существующий блог и обложка остаются доступны независимо от текущего уровня репутации."
-                ])
-            }
+            // Do not create a blog merely by opening this information.
+            ProfileHelpSheet(title: "Добавить запись", paragraphs: [
+                "Просмотр записей доступен. Создание и редактирование записей в клиенте iOS пока не поддерживаются.",
+                "Существующий блог и обложка остаются доступны независимо от текущего уровня репутации."
+            ])
         }
     }
 }

@@ -57,9 +57,10 @@ the original Android app: an always-visible native search field, full-pill hit
 area, centred franchise suggestion, outlined full-filter controls and original
 wide bookmark rows. Bookmarks occupy the third slot and default to Favourites
 unless explicitly configured otherwise. Recent viewing shows the embedded episode
-when the flat label is absent, with an absolute local date and time. Added offline
-regressions still require a fresh macOS build/XCTest run; Windows syntax checks
-do not verify these layouts or touch behaviour on iOS.
+when the flat label is absent. Profile views from the last 24 hours show a short
+relative age; older views and bookmark-history rows retain the exact local
+date/time. Added offline regressions still require a fresh macOS build/XCTest run;
+Windows syntax checks do not verify these layouts or touch behaviour on iOS.
 
 The root tabs are **Главная / Обзор / Закладки / Лента / Профиль**. There is no
 separate Catalogue tab. Feed browsing now has My feed, Fresh and Managed sections,
@@ -69,6 +70,43 @@ anonymous API `code: 401`); feed search is public. Blog subscription uses the AP
 friend-request route with an explicit explanation, not a channel-subscribe write.
 Publishing/editing posts and channels remains unimplemented. The added feed tests
 and Windows syntax checks still need a fresh macOS build and iOS runtime checks.
+
+Appearance/profile refinements add original neutral/lavender and carmine-accent
+themes, true-black OLED and a seed-driven **Monet-style** palette (not iOS wallpaper
+access), plus a live device-local **Roboto / native SF Pro** choice. Reputation
+and presence share a row; foreign reputation shows a profile-specific fact rather
+than the owner's help text. Reputation/contact information uses a sheet for compact
+layouts and large Dynamic Type, and an anchored popover in regular space. Tiny
+nonzero chart slices remain visible, and the
+profile's absent-blog API code is not presented as a failed login/load. The
+upgrade information dialog uses the original local Anixa artwork without creating
+a blog. Photo decoders retain ICC/alpha and explicitly render originals; no
+brightness filter is used or claimed as a proven fix for every image. These later
+edits require a new build/XCTest and iOS visual check, not Build 95's earlier result.
+
+Cold start now shows the same static app mark in the native launch screen and the
+runtime loading view. Configuration/session restoration precede warming the saved
+Home tab's first page; Home adopts that complete model instead of requesting it
+again. Errors/timeouts reveal normal retry UI. Unset custom filters and non-Home
+smoke routes skip irrelevant warm requests, and foreground/resume never restarts
+the coordinator. This is a new flow, not a verified physical-device launch result.
+
+Home search now has a device-local, account/guest-separated history of at most 20
+queries, recorded only on submit, history selection, opening a result or accepting
+voice input. Entries can be removed and clearing requires confirmation; intermediate
+typed prefixes, API results and tokens are not stored. Avatar commands use a native
+menu at the photo, with deletion still separately confirmed. Episode/view-age labels
+have independent spacing and a vertical fallback for large text. Tab indicators
+move briefly (220 ms), without animating the result list; Reduce Motion, resource
+saving and keyboard activation disable custom movement. These changes still need
+fresh macOS typechecking/XCTest and native-iOS interaction checks.
+
+Profile information has explicit close controls, scrollable content and a single
+identity presentation per profile. Avatar editing/gallery routes close that
+information first; the native avatar menu and separate deletion confirmation stay.
+Existing description, spoiler and episode-hint animations retain their original
+normal-mode timing but now obey Reduce Motion, resource saving and keyboard input.
+This does not add new reveal effects or establish physical-device smoothness.
 
 Alongside the run, these were checked mechanically:
 
@@ -159,7 +197,8 @@ are confirmed versus inferred.
 
 ## Feature coverage
 
-Implemented: the Главная tabs (four-field Моя вкладка plus the eight catalogue presets),
+Implemented: the icon-based cold-start flow, local Home query history, the Главная
+tabs (four-field Моя вкладка plus the eight catalogue presets),
 explicit device-local default-tab selection, discover feed and its five browsing shortcuts,
 the full filter and paginated release search with franchise results, release detail,
 explicit native voice search, full-screen screenshots, source-material search,
@@ -179,6 +218,8 @@ full matrix and the remaining verification limits.
 
 ## Licence and attribution
 
-Anixart, its API, its content and its branding belong to their owners. This port carries no
-Anixart assets — the app icon and accent colour are placeholders. It exists as a client for an
-API that is already public, and it is not affiliated with or endorsed by the Anixart team.
+Anixart, its API, its content and its branding belong to their owners. The original
+Anixa mascot used by the upgrade dialog is attributed in
+`Anixart/Resources/Images/ATTRIBUTION.md`; the port does not claim ownership. Its app
+icon remains a placeholder. This client is not affiliated with or endorsed by the
+Anixart team. SF Pro is used through Apple's system font API, not redistributed files.

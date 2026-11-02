@@ -7,6 +7,8 @@ import AnixartKit
 @MainActor
 struct ReleaseDetailView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
 
     let releaseID: Int
     var preloaded: Release?
@@ -19,6 +21,8 @@ struct ReleaseDetailView: View {
     @State private var isShowingTitles = false
     @State private var isDescriptionExpanded = false
     @State private var screenshotGallery: ReleaseScreenshotPresentation?
+
+    private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
     init(releaseID: Int, preloaded: Release? = nil, viewer: ProfileViewerKey? = nil) {
         self.releaseID = releaseID
@@ -463,15 +467,20 @@ struct ReleaseDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if !isDescriptionExpanded {
-                Button("Подробнее...") {
-                    withAnimation { isDescriptionExpanded = true }
-                }
+                Button("Подробнее...") { expandDescription() }
                 .font(.ax(.subheadline, .medium))
                 .foregroundStyle(.primary)
+                .onKeyPress(.return) { expandDescription(fromKeyboard: true); return .handled }
+                .onKeyPress(.space) { expandDescription(fromKeyboard: true); return .handled }
             }
         }
         .padding(.horizontal)
         .padding(.top, Theme.Spacing.row)
+    }
+
+    private func expandDescription(fromKeyboard: Bool = false) {
+        guard !isDescriptionExpanded else { return }
+        motion.perform(animated: !fromKeyboard, using: .default) { isDescriptionExpanded = true }
     }
 
     // MARK: - Video

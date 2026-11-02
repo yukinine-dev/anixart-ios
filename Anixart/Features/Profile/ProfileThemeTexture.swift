@@ -74,7 +74,7 @@ actor ProfileThemeFrameDecoder {
     var cachedFrameIndices: [Int] { (firstFrame == nil ? [] : [0]) + order }
 
     init?(data: Data, pixelSize: CGFloat) {
-        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+        guard let source = PhotoImageDecoder.source(from: data) else { return nil }
         self.source = source
         self.pixelSize = pixelSize.isFinite ? min(2048, max(1, pixelSize)) : 1200
         self.encodedByteCount = data.count
@@ -114,14 +114,8 @@ actor ProfileThemeFrameDecoder {
             order.append(index)
             return image
         }
-        let options = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: pixelSize
-        ] as [CFString: Any] as CFDictionary
-        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, index, options), !Task.isCancelled else { return nil }
-        let image = UIImage(cgImage: thumbnail)
+        guard let image = PhotoImageDecoder.thumbnail(from: source, at: index, pixelSize: pixelSize),
+              let thumbnail = image.cgImage, !Task.isCancelled else { return nil }
         let cost = thumbnail.bytesPerRow * thumbnail.height
         if index == 0 {
             firstFrame = image

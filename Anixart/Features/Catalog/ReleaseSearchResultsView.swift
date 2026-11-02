@@ -13,11 +13,12 @@ struct ReleaseSearchResultsView: View {
     var body: some View {
         List {
             if !model.isShowingSearch {
-                StatusMessageView(title: "Введите название аниме", systemImage: "magnifyingglass")
+                if let history = model.history, !history.entries.isEmpty { ReleaseSearchHistoryView(model: model, history: history) }
+                else { StatusMessageView(title: "Введите название аниме", systemImage: "magnifyingglass") }
             } else if let results = model.currentSearch {
                 if let related = results.related {
                     Section {
-                        RelatedSearchResultCard(related: related) { openedFranchise = related }
+                        RelatedSearchResultCard(related: related) { model.rememberSearch(); openedFranchise = related }
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
                     } header: {
@@ -28,7 +29,7 @@ struct ReleaseSearchResultsView: View {
                 Section {
                     ForEach(results.items) { release in
                         ReleaseListRow(release: release, style: .plain) { actionTarget = release }
-                        .onTapGesture { opened = release }
+                        .onTapGesture { model.rememberSearch(); opened = release }
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 12))

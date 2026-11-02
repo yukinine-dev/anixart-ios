@@ -16,6 +16,15 @@ struct CustomFilterTabView: View {
     @State private var opened: Release?
     @State private var listTarget: Release?
 
+    private var currentModel: ReleaseFeedModel? {
+        guard let filter = preferences.customFilter?.filterRequest else { return nil }
+        let key = ReleaseFeedKey(filter: filter, viewer: env.session.viewerKey)
+        if let model, model.hasCurrentViewer, model.viewer == key.viewer, model.filter == key.filter {
+            return model
+        }
+        return env.launch.prewarmedHomeFeed(for: .custom, key: key)
+    }
+
     var body: some View {
         Group {
             if let filter = preferences.customFilter {
@@ -32,10 +41,10 @@ struct CustomFilterTabView: View {
             )
         }
         .sheet(item: $listTarget) { release in
-            if let model { ReleaseQuickActionsSheet(release: release, viewer: model.viewer, feed: model) }
+            if let model = currentModel { ReleaseQuickActionsSheet(release: release, viewer: model.viewer, feed: model) }
         }
         .navigationDestination(item: $opened) { release in
-            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
+            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: currentModel?.viewer)
         }
         .onChange(of: preferences.customFilter) { _, new in
             if new == nil { model = nil }
@@ -67,7 +76,7 @@ struct CustomFilterTabView: View {
 
     private func list(for filter: CustomTabFilter) -> some View {
         List {
-            if let model, model.hasCurrentViewer, model.filter == filter.filterRequest {
+            if let model = currentModel, model.filter == filter.filterRequest {
                 PaginatedContent(
                     paginator: model.paginator,
                     emptyTitle: "Ничего не найдено",
@@ -84,7 +93,7 @@ struct CustomFilterTabView: View {
             }
         }
         .listStyle(.plain)
-        .refreshable { await model?.paginator.reload() }
+        .refreshable { await currentModel?.paginator.reload() }
         .safeAreaInset(edge: .top) {
             Button {
                 isShowingSettings = true
@@ -103,8 +112,10 @@ struct CustomFilterTabView: View {
         }
         // Reloads whenever the stored filter changes.
         .task(id: ReleaseFeedKey(filter: filter.filterRequest, viewer: env.session.viewerKey)) {
-            if model?.viewer != env.session.viewerKey || model?.filter != filter.filterRequest {
-                model = ReleaseFeedModel(filter: filter.filterRequest, session: env.session)
+            let key = ReleaseFeedKey(filter: filter.filterRequest, viewer: env.session.viewerKey)
+            if model?.viewer != key.viewer || model?.filter != key.filter {
+                model = env.launch.takePrewarmedHomeFeed(for: .custom, key: key)
+                    ?? ReleaseFeedModel(filter: key.filter, session: env.session)
             }
             let current = model
             await current?.paginator.loadFirstPageIfNeeded()

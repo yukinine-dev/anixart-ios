@@ -155,19 +155,9 @@ actor ImageLoader {
 
     /// Decodes straight to the size that will be drawn. Full-size decoding is
     /// what makes a long list stutter, not the download.
-    private static func downsample(_ data: Data, pixelSize: CGFloat) -> UIImage? {
-        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else { return nil }
-
-        let options = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: pixelSize
-        ] as [CFString: Any] as CFDictionary
-
-        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return nil }
-        return UIImage(cgImage: thumbnail)
+    static func downsample(_ data: Data, pixelSize: CGFloat) -> UIImage? {
+        guard !Task.isCancelled, let source = PhotoImageDecoder.source(from: data) else { return nil }
+        return PhotoImageDecoder.thumbnail(from: source, pixelSize: pixelSize)
     }
 }
 
@@ -194,7 +184,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     var body: some View {
         Group {
             if let image, loadedKey == requestKey {
-                content(Image(uiImage: image))
+                content(Image(uiImage: image).renderingMode(.original))
             } else {
                 placeholder()
             }

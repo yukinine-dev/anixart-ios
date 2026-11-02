@@ -1,10 +1,19 @@
 import SwiftUI
+import UIKit
 import AnixartKit
 
 /// Visual constants, kept in one place so screens stay consistent.
 enum Theme {
-    /// Anixart's accent, sampled from the Android app's primary colour.
-    static let accent = Color(red: 0.42, green: 0.36, blue: 0.91)
+    /// Dynamic native colours keep modal controls and explicit Font/Color callers
+    /// on the selected device-local theme, not the old placeholder violet.
+    static var accent: Color { themeColor(\.accent) }
+    static var background: Color { themeColor(\.background) }
+    static var surface: Color { themeColor(\.surface) }
+    static var raisedSurface: Color { themeColor(\.raisedSurface) }
+    static var selection: Color { themeColor(\.selection) }
+    private static func themeColor(_ key: KeyPath<AppThemePalette, ThemeRGB>) -> Color {
+        Color(uiColor: UIColor { traits in AppThemePalette.current(dark: traits.userInterfaceStyle == .dark)[keyPath: key].uiColor })
+    }
 
     enum Poster {
         /// Anixart posters are 3:4.

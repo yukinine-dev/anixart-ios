@@ -1,5 +1,15 @@
 Build `__BUILD__` from `__SHA__`.
 
+## Launch, appearance and native interactions
+
+- Cold start uses one shared, bounded configuration/session/Home preparation task. Home adopts the warmed first page, including retryable failures, without a second automatic initial request.
+- Device appearance adds original/accented/OLED/Monet-style themes and a live Roboto/SF Pro choice. Monet-style is a seed-based approximation, not access to the iOS wallpaper.
+- Home search keeps bounded, account/guest-separated local query history with individual removal and explicit clearing. Clearing the search field does not clear history.
+- Selected tab/chip highlights move with the existing 220 ms curve, and label/checkmark space stays stable. Profile sections, voice-over filters and hostings share the same selection behavior.
+- Reputation/contact information uses a native sheet in compact layouts, landscape or large Dynamic Type, with scrolling and explicit close controls. Regular-space popovers adapt when space becomes compact. Only one identity information window is owned by a profile.
+- The avatar retains its native Open/Edit/Delete menu and separate deletion confirmation. Opening information or the menu does not mutate the account.
+- Existing description, spoiler and episode-hint animations preserve their normal behavior but now respect Reduce Motion, resource saving and keyboard activation. No new reveal effects were added.
+
 ## Remaining browsing routes
 
 - Native voice input starts only on an explicit microphone-button tap or Retry. Permission failures, cancellation, manual edits, session changes and inactive scenes stop the attempt; audio configuration is restored on cleanup.
@@ -59,6 +69,12 @@ Browsing regressions also cover query/session isolation, raw-count pagination,
 franchise suggestions, filters, acknowledged row actions, URL validation and random
 failures. Public read-only API checks confirmed the v2 franchise response and the
 pagination metadata differences; those HTTP observations are not iOS UI tests.
+
+Additional offline tests cover bounded launch/handoff and timeout behavior, local
+query history, appearance/typeface/image handling, selection sizing and motion
+gates, plus adaptive information policy and stale dismissal callbacks. They do
+not verify actual popover arrow placement, native compact adaptation or frame
+rate on a physical iPhone.
 
 Player XCTest covers native AVPlayer failure and recovery using a local PCM WAV file,
 resume position, speed, quality, stale callbacks, stop and web-fallback routing. Live

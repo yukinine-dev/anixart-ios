@@ -10,12 +10,15 @@ final class AppEnvironment {
     let client: AnixartClient
     let session: SessionController
     let tokenStore: any TokenStore
+    let launch: AppLaunchCoordinator
 
     init(tokenStore: any TokenStore = KeychainTokenStore()) {
         let client = AnixartClient(tokenStore: tokenStore)
         self.client = client
         self.tokenStore = tokenStore
-        self.session = SessionController(client: client, tokenStore: tokenStore)
+        let session = SessionController(client: client, tokenStore: tokenStore)
+        self.session = session
+        self.launch = AppLaunchCoordinator(session: session)
     }
 
     /// Environment for previews: no keychain, no signed-in user.

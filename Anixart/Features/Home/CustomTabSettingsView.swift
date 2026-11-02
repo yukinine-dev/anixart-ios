@@ -34,7 +34,7 @@ struct CustomTabSettingsView: View {
                 .padding()
                 .padding(.bottom, 8)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Theme.background)
             .safeAreaInset(edge: .bottom) { actions }
             .navigationTitle("Настройки вкладки")
             .navigationBarTitleDisplayMode(.inline)

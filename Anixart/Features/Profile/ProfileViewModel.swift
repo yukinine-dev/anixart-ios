@@ -167,6 +167,12 @@ final class ProfileViewModel {
     private static func blog(for profile: Profile, session: SessionController, viewer: ProfileViewerKey) async -> Result<ChannelResponse, Error> {
         do {
             let response = try await session.sendViewerRequest(ChannelEndpoints.blog(profileID: profile.id), for: viewer)
+            if response.code == 2, response.channel != nil {
+                throw AnixartError.decoding(message: "Ответ об отсутствующем блоге содержит канал", path: "channel/blog/\(profile.id)")
+            }
+            if response.channel == nil, response.code != 0, response.code != 2 {
+                throw AnixartError.decoding(message: "Сервер не сообщил, существует ли блог", path: "channel/blog/\(profile.id)")
+            }
             if let owner = response.channel?.blogProfileId, owner != profile.id {
                 throw AnixartError.decoding(message: "Ответ содержит блог другого профиля", path: "channel/blog/\(profile.id)")
             }

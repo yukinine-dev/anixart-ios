@@ -16,9 +16,16 @@ struct HomeTabListView: View {
         ReleaseFeedKey(filter: tab.filter ?? FilterRequest(), viewer: env.session.viewerKey)
     }
 
+    private var currentModel: ReleaseFeedModel? {
+        if let model, model.hasCurrentViewer, model.viewer == feedKey.viewer, model.filter == feedKey.filter {
+            return model
+        }
+        return env.launch.prewarmedHomeFeed(for: tab, key: feedKey)
+    }
+
     var body: some View {
         List {
-            if let model, model.hasCurrentViewer, model.filter == feedKey.filter {
+            if let model = currentModel {
                 PaginatedContent(
                     paginator: model.paginator,
                     emptyTitle: "Пока ничего нет",
@@ -38,16 +45,18 @@ struct HomeTabListView: View {
             }
         }
         .listStyle(.plain)
-        .refreshable { await model?.paginator.reload() }
+        .refreshable { await currentModel?.paginator.reload() }
         .sheet(item: $listTarget) { release in
-            if let model { ReleaseQuickActionsSheet(release: release, viewer: model.viewer, feed: model) }
+            if let model = currentModel { ReleaseQuickActionsSheet(release: release, viewer: model.viewer, feed: model) }
         }
         .navigationDestination(item: $opened) { release in
-            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
+            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: currentModel?.viewer)
         }
         .task(id: feedKey) {
-            if model?.viewer != feedKey.viewer || model?.filter != feedKey.filter {
-                model = ReleaseFeedModel(filter: feedKey.filter, session: env.session)
+            let key = feedKey
+            if model?.viewer != key.viewer || model?.filter != key.filter {
+                model = env.launch.takePrewarmedHomeFeed(for: tab, key: key)
+                    ?? ReleaseFeedModel(filter: key.filter, session: env.session)
                 opened = nil
                 listTarget = nil
             }

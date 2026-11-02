@@ -57,7 +57,9 @@ public enum ChannelEndpoints {
     }
 
     public static func blog(profileID: Int) -> Endpoint<ChannelResponse> {
-        Endpoint(path: "channel/blog/\(profileID)")
+        // ChannelResponse.CHANNEL_NOT_FOUND=2 is an ordinary no-blog state for
+        // this profile read, not an authentication/network failure.
+        Endpoint(path: "channel/blog/\(profileID)", acceptedStatusCodes: [0, 2])
     }
 
     public static func uploadCover(channelID: Int, jpeg: Data) -> Endpoint<ChannelUploadCoverAvatarResponse> {

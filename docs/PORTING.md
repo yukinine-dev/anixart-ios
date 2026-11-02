@@ -57,7 +57,7 @@ user's place.
 |---|---|---|
 | Главная | tab strip, nine tabs | Моя вкладка has its separate four-field device-local settings (country, category, genres, excluded lists), plus the eight APK filter presets. tabSettings exposes default selection and custom settings; ordinary switching never rewrites the launch default. Long-press remains an additional default shortcut |
 | Discover | обзор feed and browsing shortcuts | banners, Обсуждаемое сегодня with daily comment counts, continue watching, recommendations and comments of the week; blocks load concurrently. Partial refresh failures keep existing data and expose retry. Popular, Schedule, Collections, Filter and Random routes use existing typed endpoints |
-| Search/filter | full filter, search, native voice input | browsing stays under Home/Discover/search, with no Catalogue root tab. Full `FilterRequest`: sort, country, studio, source material, category, status, season, years, episode count/duration, age rating, genres with all three match modes, voice-over, excluded account lists. Release search pages by the APK's raw 25-item rule, preserves page-zero franchise metadata and exposes same-page retry. Voice input is explicit, permission-aware and scoped to the current query/viewer/scene |
+| Search/filter | full filter, search, native voice input, local Home query history | browsing stays under Home/Discover/search, with no Catalogue root tab. Full `FilterRequest`: sort, country, studio, source material, category, status, season, years, episode count/duration, age rating, genres with all three match modes, voice-over, excluded account lists. Release search pages by the APK's raw 25-item rule, preserves page-zero franchise metadata and exposes same-page retry. Voice input is explicit, permission-aware and scoped to the current query/viewer/scene; the bounded query history has separate account/guest storage and explicit clear/remove |
 | Release | detail, titles, video hub/categories, streaming platforms, collections | poster over its own blurred backdrop, the list/bookmark/comments row, Воспроизвести with the last added episode under it, the icon fact lines, genre and source-material search links, description with Подробнее, Видео banners and full hub, rating histogram with star voting, В списках у людей, full-screen Кадры, Связанные релизы, the collection links, Рекомендуем также and the comment preview |
 | Playback | "Выберите вариант", episode list, player | the voice-over list with the Все/Озвучки/Субтитры filter, episode and view counts, and the СУБТИТРЫ and НОВИНКА badges; then the hosting picker and episodes. `AVPlayer` for direct URLs, `WKWebView` for `iframe` episodes; watched marks, resume, progress reporting |
 | Bookmarks | 8 tabs | third root-tab slot; collections, history, favourites and the five watch lists. Defaults to favourites, preserving explicit device preferences. Original wide rows and sort orders; account-scoped reads and acknowledged history removal |
@@ -226,8 +226,9 @@ metadata, excerpt and overflow layout rather than the compact subtitle/status ro
 
 Recent viewing reads the flat episode label or the embedded episode's name/positive
 position; it never infers the viewed episode from the release's total count. Its
-date is absolute (`d MMM yyyy в HH:mm`) in the device's current time zone, including
-for today's entries. Missing metadata is omitted without empty separators or an
+initial date format was absolute (`d MMM yyyy в HH:mm`) even for today's entries;
+the later follow-up below changes profile entries younger than 24 hours to relative
+age. Missing metadata is omitted without empty separators or an
 invented series. History rows in bookmarks also include the episode and exact time.
 Their requests retain the opening viewer, paginate by the APK's raw 25-item rule,
 and require an explicit successful deletion before rebasing positional pages.
@@ -285,14 +286,240 @@ three anonymous API reads, and did not operate/change the original phone account
 Fresh macOS typechecking/XCTest, physical-iOS navigation/layout checks and the
 separate publishing/editing implementation remain required before full parity.
 
+### Appearance/profile refinements (2 Nov 2026)
+
+Device appearance now separates light/dark policy, visual theme and accent.
+Original neutral surfaces/lavender and the APK's carmine colour are provided;
+OLED forces dark presentation with black base/bar backgrounds while preserving
+the user's normal light/dark choice for switching back. Monet-style is an explicit
+seed-driven tonal approximation, not a claim to access iOS wallpapers or Android
+system Monet colours. Theme-owned UIKit templates use setter-only appearance
+proxies and font-only copies; applying either colour or font changes preserves
+the other attributes and does not reset root-tab/navigation identity.
+
+The supplied original `dialog_blog_create` layout points to `anixa_wow.webp`. That
+unchanged local asset is attributed and bundled for a centred floating upgrade
+dialog with current/required reputation, progress, information and the three
+original feature descriptions. Opening it does not create a blog, play audio,
+publish a post or request permissions. An existing blog remains independent of
+creation reputation. `ChannelResponse.CHANNEL_NOT_FOUND=2` is accepted only for
+the profile-blog read and treated as normal absence; malformed, wrong-owner,
+transport and authentication failures are not silently reclassified as absence.
+
+Reputation shares the presence/registration baseline. Foreign taps show a small
+anchored popover identifying that profile's reputation; owner help remains separate.
+Friend/contact/menu controls share a row. The contact control exposes published
+social links; it is not represented as an implemented Anixart private-chat protocol.
+The extra Show lists statistics action is removed while legend/list navigation stays.
+Positive donut slices have a bounded minimum visual arc and proportional gaps;
+legend counts remain exact and zeros/negative values receive no arc.
+
+Both photo paths use ImageIO originals with ICC/alpha/EXIF retained and explicit
+original rendering. No old brightness/saturation filter or proven ICC stripping
+was found; tint, transparency and HDR remain possible visual factors. Extended-range
+bitmap preservation tests are not a claim to implement HEIF/JPEG gain-map policy.
+`AvatarColorTests` adds eight deterministic local methods, the typeface suite sixteen,
+and `AppearanceProfileRegressionTests` twelve. The latter includes palette contrast,
+OLED, font/colour coexistence, tiny slices, absence handling and mascot bundling.
+They require a fresh macOS XCTest run and actual iOS layouts/colour comparisons.
+This pass opened four additional reference screenshots: 13/49 conversation reads;
+both subagents used code/text only and opened zero screenshots.
+
+### Launch, search, recent viewing and motion follow-up (2 Nov 2026)
+
+`AppEnvironment` owns one `AppLaunchCoordinator`. `AnixartApp` mounts `AppLaunchView`;
+the root/screens are not created underneath a loading overlay, so their tasks cannot
+race configuration or start a duplicate first-page fetch. Native launch and runtime
+loading share the same centred 96-point `LaunchMark` and adaptive neutral background.
+The mark is a byte-identical copy of this port's current placeholder app icon, not
+new artwork or a claim to use Anixart's original icon. Resource hashing does not
+constitute an image-opening or visual validation step.
+This icon-led interstitial is the user's chosen presentation, not an Apple HIG
+mandate: Launching guidance prefers a launch screen close to the first content
+screen and discourages extra branding. Matching native/runtime loading limits the
+handoff change but does not make a logo-only loading screen a general HIG rule.
+
+Startup orders remote configuration (4-second deadline), session restoration
+(4 seconds), then only the saved Home default tab's first page (12 seconds). These
+are maximum stage budgets, not minimum display delays. An unset custom filter has
+no warm request; configured-but-unconstrained custom filters are valid. Profile,
+release/random-release, player, Kodik and Feed smoke routes skip Home warming.
+The completed `ReleaseFeedModel`, including failure state, is available for the
+first Home render and handed off once into its state. Tab/filter/viewer mismatches
+discard it; the immutable opening viewer prevents later-token borrowing. Existing
+`loadFirstPageIfNeeded()` guards do not repeat either success or a retryable failure.
+Only the initial warm attempt has the launch deadline; user retry, refresh and
+later pages retain normal client timeouts.
+
+The deadline race cancels the losing work without awaiting an uncooperative callback,
+so a view waiter's cancellation or slow store cannot trap startup. A still-loading
+credential read settles to guest without clearing the store; a cancelled late read
+cannot publish an owner under the visible Home feed, and the next cold start can
+restore normally. An already restored owner remains signed in when a supplementary
+profile/notification read times out. Cancelled configuration neither starts another
+config request nor applies late host/toggle changes. Failures expose the normal
+content/error/retry UI, not another automatic initial spinner or modal login.
+Foreground/resume does not replay startup or reset tab/navigation state. The launch
+overlay fades out using the 220 ms motion policy, does not intercept ready-content
+input, and disables fading for Reduce Motion, resource saving or Low Power Mode.
+No percent progress is fabricated, and launch requests no microphone/permissions.
+Full granular cold-start navigation/scroll restoration remains separate work;
+opening the saved Home default is not claimed to implement that entire HIG recommendation.
+
+`ReleaseSearchHistoryStore` persists only query/scope/last-use time under
+`search.release.history.<profileID>` or `search.release.history.guest`, with a
+20-entry bound. Explicit submit, selecting a saved query, opening a title/franchise
+result and accepting final/Find voice text record history; debounce/API completion,
+partial speech and intermediate typed prefixes do not. Clearing the field does not
+clear history. Individual removal is local; the bulk-clear dialog explains that
+bookmarks and viewing history are unchanged. Account switches clear a different
+owner's active query, while a refreshed session for the same profile can retain it.
+All model history commands check the current viewer and matching store owner;
+retired callbacks cannot write, remove or clear history. Writes reload preferences
+before merging so another search snapshot's queries are not silently overwritten.
+
+`ReleaseHistoryMetadata.viewedAt` uses “только что”, “минуту назад”, “2 мин назад”,
+“час назад” and “2 ч назад” for profile views younger than 24 hours. Older entries
+retain the exact local date/time, including the year. Small future clock skew up
+to 60 seconds is tolerated; genuinely future dates remain absolute. Missing dates
+or episode labels are not invented. `RecentViewingMetadata` separates the two
+labels with 12-point gaps around the separator and stacks them when width/Dynamic
+Type requires it. One minute timeline updates the active visible profile's list;
+the same schedule type pauses without replacing its rows/navigation links, and
+inactive/hidden views have no repeating schedule. Bookmark-history rows retain
+their independent exact-date/time presentation.
+
+The owner's avatar now opens a native SwiftUI `Menu` at the image for Open/Edit/
+Delete; opening it performs no account mutation. Deletion still opens the existing
+editor's explicit destructive confirmation. Foreign avatar taps remain a direct
+gallery route. HIG advises compact layouts to prefer a sheet over a popover; the
+earlier forced small reputation popover is an intentional user-requested exception,
+not a claim that Apple prescribes that layout.
+
+Motion code review:
+
+| Before | After | Why |
+|---|---|---|
+| Underlines changed in place without continuity | Matched tab indicators use a 220 ms move curve | Preserve which tab was selected without delaying input |
+| A selection animation could propagate into list replacement/loading | List content rejects the selection animation transaction | Avoid whole-list entrances, flashes or staggered result delays |
+| Initial/programmatic or keyboard changes could animate the strip | Only touch selection opts in; Return/Space use an animation-disabled transaction | Keep frequent keyboard input and initial positioning immediate |
+
+`AppMotionPolicy` disables custom animations for Reduce Motion or resource saving.
+Native navigation/menu transitions remain system-owned; themes, typed search text
+and viewing-time refreshes do not acquire a blanket animation. The only new haptic
+is a selection cue after acknowledged **local** history removal/clear, not every tap
+and not recording speech. No looping decorative animation or artificial delay is
+added. Motion purpose/easing/implementation and code review are complete; rapid
+retargeting, actual 60-fps behaviour and native keyboard/touch interaction are still
+pending iOS runtime validation.
+
+Apple's eight supplied HIG pages were accessible through official DocC JSON; six
+are component categories, so recommendations were read from their child articles.
+Applicable guidance includes [Menus](https://developer.apple.com/design/human-interface-guidelines/menus),
+[Launching](https://developer.apple.com/design/human-interface-guidelines/launching),
+[Loading](https://developer.apple.com/design/human-interface-guidelines/loading),
+[Progress indicators](https://developer.apple.com/design/human-interface-guidelines/progress-indicators),
+[Searching](https://developer.apple.com/design/human-interface-guidelines/searching),
+[Offering help](https://developer.apple.com/design/human-interface-guidelines/offering-help),
+[Motion](https://developer.apple.com/design/human-interface-guidelines/motion),
+[Playing haptics](https://developer.apple.com/design/human-interface-guidelines/playing-haptics)
+and [Privacy](https://developer.apple.com/design/human-interface-guidelines/privacy).
+The 24-hour cutoff, storage bound and 220 ms duration are implementation choices,
+not HIG mandates. Five root tabs are Anixart's structure, not an Apple requirement.
+Newer Liquid Glass and system experiences are not assumed available on iOS 17.
+
+`AppLaunchTests` adds 19 methods; `ReleaseSearchHistoryTests` adds 12 and
+`RecentViewingMotionTests` six, for 37 new methods in this follow-up. They cover
+startup order, warmed-model handoff, smoke/custom defaults, timeout/retry, stored
+and stale viewers, waiter cancellation, late config/credential callbacks, motion
+and storyboard layout, plus persistence/scopes, bounds, sparse/malformed data, guest/owner isolation,
+retired same/different-account callbacks, multiple snapshots, explicit versus
+automatic/voice recording, relative-time boundaries and paused schedules. Older-date
+regressions now inject the reference clock. These tests are not executed on
+Windows; syntax parsing is not Swift typechecking/XCTest. The conversation remains
+at 13/49 screenshot reads; this follow-up and HIG research opened none.
+
+Static validation parses launch asset JSON/XML, verifies native full-view 96-point
+centering constraints and the mark's byte equality, and parses 20 literal raw JSON
+fixtures. It does not compile the storyboard, run its layout tests or decode Swift
+models. The new timetable APIs were checked against Apple's documented iOS 15+
+availability; this is not a substitute for compiling against the deployment SDK.
+Windows Swift grammar review covers 46 changed files with no grammar findings or
+parser-process failures; the two altered session methods also have scoped checks.
+The configuration optional binding was separated from its awaited request so the
+cancellation boundary is explicit and the parser can handle it. This remains
+grammar checking, not Swift typechecking. No fresh macOS build, XCTest or physical-iOS
+verification has been performed for these changes, and no new IPA is claimed.
+
+### Smooth interactions, stage 1: selection controls (2 Nov 2026)
+
+`SelectionControls.swift` shares stable-size regular/medium labels, a matched
+underline and a travelling selected-chip fill. Home, Bookmarks and Feed reuse the
+underline; Profile sections, the All/Dubs/Subtitles selector and hosting chips
+reuse the fill. They retain the existing 220 ms move curve, original colours and
+native root tab bar. The checkmark has a reserved slot; larger text can scroll
+the selectors instead of clipping them. Profile/hosting targets are at least 44 pt.
+
+`SelectionMotionIntent` keeps only a pending input target. Keyboard, default and
+unrelated/older selections do not acquire touch motion, and completing an older
+target cannot retire a newer one. Repeated selections are ignored; a newer hosting
+choice cancels the prior UI-owned selection task. The episode model, request
+endpoints and playback flow remain unchanged. Background selection work can finish
+after navigation away so returning does not lose an in-flight hosting load.
+
+| Before | After | Why |
+|---|---|---|
+| Weight/checkmark changes shifted neighbouring labels | Both weights and the optional mark reserve their layout space | Keep the indicator's destination stable during selection |
+| Selected chip fills appeared independently | One matched fill travels between stable outlines | Show continuity between the previous and current choice |
+| Selection transactions could animate content or permanently suppress its motion | Selection-only content suppression; async hosting motion stays on the strip | Do not animate whole lists or disable future local interactions |
+
+`SelectionMotionTests` adds 11 methods covering input targets, rapid retargeting,
+older completions, keyboard, accessibility/resource saving and hosted label sizing
+with Dynamic Type/icons/checkmarks. XCTest, Swift typechecking and iOS frame-rate/
+touch validation are pending. Windows Tree-sitter reports no grammar findings in
+the eight changed Swift files, but its Node process aborts with a memory error on
+completion; this is not recorded as a clean validation run. `git diff --check`
+reports no whitespace errors in the tracked implementation changes.
+
+### Adaptive profile information and optional existing motion (2 Nov 2026)
+
+`ProfileInfoPresentationPolicy` prefers a sheet for compact/unknown size classes,
+landscape and Dynamic Type XX Large or above. Regular layouts with smaller text
+keep an anchored popover. The size/font cutoff is an implementation choice, not
+an Apple-mandated threshold. A regular popover that becomes compact lets SwiftUI
+adapt the same presentation to a sheet; its bounded content can scroll instead
+of clipping. Large text/landscape sheets use the large detent, including existing
+`ProfileHelpSheet` help. Each presentation has a close control.
+
+Reputation/contact controls share one profile-owned presentation. Source/kind/ID
+bindings prevent an older dismissal from closing a later or reopened window.
+Viewer changes retire information; avatar gallery/editor commands close it first.
+The native avatar Menu and the editor's separate destructive confirmation remain.
+Foreign reputation stays a named fact, owner help stays separate, and public
+contacts are not represented as an Anixart private-message endpoint.
+
+`AppMotionPolicy.resolvedAnimation` can gate an existing caller-supplied animation
+without changing its normal-mode timing. Description expansion, spoiler reveal and
+both episode hints retain SwiftUI's prior default animation; Reduce Motion,
+resource saving or keyboard activation apply their state immediately instead.
+The already-integrated voice-over/source selection uses the same gates. No new
+reveal choreography or whole-page/list entrance is introduced in this pass.
+
+`ProfileInfoPresentationTests` adds ten policy/dismissal/owner-reset methods;
+`SelectionMotionTests` adds four existing-animation override/state-commit checks.
+Local patch whitespace checks pass. Swift typechecking, XCTest and the release
+pipeline still require the exact new revision to pass macOS CI. Neither these
+offline checks nor alpha publication establish physical-iOS layout, touch or FPS.
+
 ## Typography
 
 The Android app styles nearly every text appearance as `sans-serif-medium`, which stock
-Android renders in Roboto. The port therefore ships Roboto (Apache-2.0) in
-`Anixart/Resources/Fonts/` and routes every `.font(...)` through `Font.ax(_:_:)` in
-`Anixart/Support/Typography.swift`, which keeps Apple's text-style sizes and `relativeTo:`
-so Dynamic Type still works. The navigation and tab bars are UIKit-drawn and do not see
-SwiftUI's font modifiers, so they are set through the appearance proxies in `AppFont`.
+Android renders in Roboto. The port ships Roboto (Apache-2.0) in
+`Anixart/Resources/Fonts/` and defaults to it. Device settings can choose native SF Pro
+through `.system`/`UIFont`, without font-file redistribution. `Font.ax(_:_:)` in
+`Anixart/Support/Typography.swift` observes the local typeface store, preserves text-style
+sizes/Dynamic Type and refreshes existing callers without `.id` replacement. UIKit
+navigation/tab font copies preserve theme backgrounds, colours, layouts and selection.
 
 The APK also bundles `product_sans_medium.ttf` for a single style. Product Sans is Google
 proprietary and is deliberately **not** shipped here.

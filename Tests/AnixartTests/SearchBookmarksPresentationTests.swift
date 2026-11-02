@@ -134,17 +134,18 @@ final class SearchBookmarksPresentationTests: XCTestCase {
         XCTAssertEqual(draft.genreMode, .any)
     }
 
-    func testRecentHistoryShowsEpisodeAndAbsoluteLocalDateAndTime() throws {
+    func testOlderHistoryShowsEpisodeAndAbsoluteLocalDateAndTime() throws {
         var calendar = Calendar(identifier: .gregorian)
         let utc = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
         calendar.timeZone = utc
         let date = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 14, minute: 5)))
         let timestamp = Int(date.timeIntervalSince1970)
         let release = try profileTestDecode(Release.self, "{\"id\":71,\"last_view_episode\":{\"position\":7},\"last_view_timestamp\":\(timestamp)}")
-        let subtitle = try XCTUnwrap(ReleaseHistoryMetadata.subtitle(release, timeZone: utc))
+        let now = date.addingTimeInterval(2 * ReleaseHistoryMetadata.recentInterval)
+        let subtitle = try XCTUnwrap(ReleaseHistoryMetadata.subtitle(release, now: now, timeZone: utc))
         XCTAssertEqual(subtitle, "7 серия • 1 окт. 2026 в 14:05")
         let moscow = try XCTUnwrap(TimeZone(secondsFromGMT: 3 * 3600))
-        XCTAssertEqual(ReleaseHistoryMetadata.subtitle(release, timeZone: moscow), "7 серия • 1 окт. 2026 в 17:05")
+        XCTAssertEqual(ReleaseHistoryMetadata.subtitle(release, now: now, timeZone: moscow), "7 серия • 1 окт. 2026 в 17:05")
         XCTAssertFalse(subtitle.contains("назад"))
         XCTAssertFalse(subtitle.contains("сегодня"))
     }
@@ -153,7 +154,8 @@ final class SearchBookmarksPresentationTests: XCTestCase {
         let episodeOnly = try profileTestDecode(Release.self, #"{"id":71,"last_view_episode":{"name":"OVA"}}"#)
         XCTAssertEqual(ReleaseHistoryMetadata.subtitle(episodeOnly), "OVA")
         let dateOnly = try profileTestDecode(Release.self, #"{"id":71,"last_view_timestamp":1790863500}"#)
-        let subtitle = try XCTUnwrap(ReleaseHistoryMetadata.subtitle(dateOnly, timeZone: try XCTUnwrap(TimeZone(secondsFromGMT: 0))))
+        let now = Date(timeIntervalSince1970: 1790863500 + 2 * ReleaseHistoryMetadata.recentInterval)
+        let subtitle = try XCTUnwrap(ReleaseHistoryMetadata.subtitle(dateOnly, now: now, timeZone: try XCTUnwrap(TimeZone(secondsFromGMT: 0))))
         XCTAssertTrue(subtitle.contains("2026"))
         XCTAssertFalse(subtitle.contains("•"))
         XCTAssertFalse(subtitle.contains("серия"))

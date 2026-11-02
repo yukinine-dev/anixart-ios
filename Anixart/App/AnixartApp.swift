@@ -17,14 +17,9 @@ struct AnixartApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            AppLaunchView()
                 .environment(environment)
                 .anixartTypography()
-                .task {
-                    // Config first: it can move the API host before anything is fetched.
-                    await environment.session.loadRemoteConfiguration()
-                    await environment.session.restore()
-                }
         }
     }
 }

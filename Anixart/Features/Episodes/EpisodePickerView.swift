@@ -7,11 +7,17 @@ import AnixartKit
 @MainActor
 struct EpisodePickerView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
 
     let release: Release
     @State private var viewer: ProfileViewerKey?
     @State private var model: EpisodePickerViewModel?
     @State private var isHintVisible = true
+    @Namespace private var kindHighlight
+    @State private var kindMotion = SelectionMotionIntent<EpisodePickerViewModel.Kind>()
+
+    private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
     init(release: Release, viewer: ProfileViewerKey? = nil) {
         self.release = release
@@ -49,7 +55,7 @@ struct EpisodePickerView: View {
             await model?.loadTypes()
         }
         .onChange(of: env.session.viewerKey) { _, current in
-            if viewer != current { model?.invalidate() }
+            if viewer != current { model?.invalidate(); kindMotion.reset() }
         }
     }
 
@@ -67,23 +73,30 @@ struct EpisodePickerView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     kindChips(model)
-                    if isHintVisible { hint }
-                    if model.isCheckingPlayability {
-                        Label("Проверяем, какие варианты откроются во встроенном плеере…", systemImage: "clock")
-                            .font(.ax(.caption))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
-                            .padding(.bottom, 8)
-                    }
-
-                    ForEach(model.visibleTypes) { type in
-                        NavigationLink {
-                            EpisodeListView(release: release, type: type, viewer: viewer)
-                        } label: {
-                            typeRow(type, model: model)
+                    Group {
+                        if isHintVisible { hint }
+                        if model.isCheckingPlayability {
+                            Label("Проверяем, какие варианты откроются во встроенном плеере…", systemImage: "clock")
+                                .font(.ax(.caption))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal)
+                                .padding(.bottom, 8)
                         }
-                        .buttonStyle(.plain)
-                        Divider().padding(.leading, 96)
+
+                        ForEach(model.visibleTypes) { type in
+                            NavigationLink {
+                                EpisodeListView(release: release, type: type, viewer: viewer)
+                            } label: {
+                                typeRow(type, model: model)
+                            }
+                            .buttonStyle(.plain)
+                            Divider().padding(.leading, 96)
+                        }
+                    }
+                    .transaction {
+                        if kindMotion.shouldAnimate(model.kind) {
+                            $0.animation = nil; $0.disablesAnimations = true
+                        }
                     }
                 }
             }
@@ -91,35 +104,50 @@ struct EpisodePickerView: View {
     }
 
     private func kindChips(_ model: EpisodePickerViewModel) -> some View {
-        HStack(spacing: 12) {
-            ForEach(EpisodePickerViewModel.Kind.allCases) { kind in
-                let isSelected = model.kind == kind
-                Button {
-                    withAnimation(.easeOut(duration: 0.15)) { model.select(kind: kind) }
-                } label: {
-                    HStack(spacing: 8) {
-                        if isSelected {
-                            Image(systemName: "checkmark").font(.ax(.subheadline, .medium))
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(EpisodePickerViewModel.Kind.allCases) { kind in
+                        let isSelected = model.kind == kind
+                        Button { selectKind(kind, model: model) } label: {
+                            SelectionLabel(title: kind.title, isSelected: isSelected, showsCheckmark: true)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 12)
+                                .background {
+                                    SelectionChipBackground(isSelected: isSelected, shape: Capsule(),
+                                                            color: Theme.accent.opacity(0.3), namespace: kindHighlight)
+                                }
+                                .foregroundStyle(.primary)
+                                .contentShape(Capsule())
                         }
-                        Text(kind.title).font(.ax(.title3))
+                        .buttonStyle(.plain)
+                        .onKeyPress(.return) { selectKind(kind, model: model, fromKeyboard: true); return .handled }
+                        .onKeyPress(.space) { selectKind(kind, model: model, fromKeyboard: true); return .handled }
+                        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                        .id(kind.id)
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background {
-                        if isSelected {
-                            Capsule().fill(Theme.accent.opacity(0.3))
-                        } else {
-                            Capsule().stroke(.quaternary, lineWidth: 1)
-                        }
-                    }
-                    .foregroundStyle(.primary)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal)
+                .padding(.vertical, Theme.Spacing.row)
             }
-            Spacer(minLength: 0)
+            .onAppear { proxy.scrollTo(model.kind.id, anchor: .center) }
+            .onChange(of: model.kind) { _, kind in
+                guard kind == model.kind else { return }
+                motion.perform(animated: kindMotion.shouldAnimate(kind)) { proxy.scrollTo(kind.id, anchor: .center) }
+                kindMotion.complete(kind)
+            }
         }
-        .padding(.horizontal)
-        .padding(.vertical, Theme.Spacing.row)
+    }
+
+    private func selectKind(_ kind: EpisodePickerViewModel.Kind, model: EpisodePickerViewModel, fromKeyboard: Bool = false) {
+        guard model.hasCurrentViewer, model.kind != kind else { return }
+        kindMotion.register(kind, fromKeyboard: fromKeyboard)
+        motion.perform(animated: !fromKeyboard) { model.select(kind: kind) }
+    }
+
+    private func hideHint(fromKeyboard: Bool = false) {
+        guard isHintVisible else { return }
+        motion.perform(animated: !fromKeyboard, using: .default) { isHintVisible = false }
     }
 
     private var hint: some View {
@@ -128,14 +156,14 @@ struct EpisodePickerView: View {
                 .font(.ax(.subheadline))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button {
-                withAnimation { isHintVisible = false }
-            } label: {
+            Button { hideHint() } label: {
                 Image(systemName: "xmark.circle")
                     .font(.ax(.title3))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .onKeyPress(.return) { hideHint(fromKeyboard: true); return .handled }
+            .onKeyPress(.space) { hideHint(fromKeyboard: true); return .handled }
         }
         .padding(16)
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.quaternary, lineWidth: 1))
@@ -214,6 +242,8 @@ struct EpisodePickerView: View {
 @MainActor
 struct EpisodeListView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
 
     let release: Release
     let type: EpisodeType
@@ -222,6 +252,11 @@ struct EpisodeListView: View {
     @State private var model: EpisodePickerViewModel?
     @State private var launcher: EpisodeLauncher?
     @State private var isHintVisible = true
+    @Namespace private var sourceHighlight
+    @State private var sourceMotion = SelectionMotionIntent<Int>()
+    @State private var sourceSelectionTask: Task<Void, Never>?
+
+    private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
     init(release: Release, type: EpisodeType, viewer: ProfileViewerKey? = nil) {
         self.release = release
@@ -308,46 +343,65 @@ struct EpisodeListView: View {
         }
         .onChange(of: env.session.viewerKey) { _, current in
             guard viewer != current else { return }
+            sourceSelectionTask?.cancel()
+            sourceSelectionTask = nil
+            sourceMotion.reset()
             launcher?.cancel()
             model?.invalidate()
         }
+        .onDisappear { sourceMotion.reset() }
     }
 
     @ViewBuilder
     private func content(_ model: EpisodePickerViewModel) -> some View {
         VStack(spacing: 0) {
             if model.sources.count > 1 {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(model.sources) { source in
-                            let isSelected = model.selectedSource?.id == source.id
-                            Button {
-                                Task { await model.select(source: source) }
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Text(source.displayName)
-                                    // Only these can go to the built-in player.
-                                    if model.hasDirectStream(source) {
-                                        Image(systemName: "play.circle.fill").font(.ax(.caption))
-                                    }
-                                }
-                                    .font(.ax(.subheadline, isSelected ? .medium : .regular))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 9)
-                                    .background {
-                                        if isSelected {
-                                            Capsule().fill(Theme.accent.opacity(0.22))
-                                        } else {
-                                            Capsule().stroke(.quaternary, lineWidth: 1)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(model.sources) { source in
+                                let isSelected = model.selectedSource?.id == source.id
+                                Button { selectSource(source, model: model) } label: {
+                                    HStack(spacing: 5) {
+                                        SelectionLabel(title: source.displayName, isSelected: isSelected, style: .subheadline)
+                                        // Only these can go to the built-in player.
+                                        if model.hasDirectStream(source) {
+                                            Image(systemName: "play.circle.fill").font(.ax(.caption))
                                         }
                                     }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 9)
+                                    .frame(minHeight: 44)
+                                    .background {
+                                        SelectionChipBackground(isSelected: isSelected, shape: Capsule(),
+                                                                color: Theme.accent.opacity(0.22), namespace: sourceHighlight)
+                                    }
                                     .foregroundStyle(isSelected ? Theme.accent : .primary)
+                                    .contentShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                .onKeyPress(.return) { selectSource(source, model: model, fromKeyboard: true); return .handled }
+                                .onKeyPress(.space) { selectSource(source, model: model, fromKeyboard: true); return .handled }
+                                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                                .id(source.id)
                             }
-                            .buttonStyle(.plain)
                         }
+                        // The async model owns selection/data. Animate only the
+                        // strip, and only when it publishes the explicit target.
+                        .animation(sourceMotion.animation(for: model.selectedSource?.id, policy: motion), value: model.selectedSource?.id)
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 10)
+                    .onAppear {
+                        if let id = model.selectedSource?.id { proxy.scrollTo(id, anchor: .center) }
+                    }
+                    .onChange(of: model.selectedSource?.id) { _, id in
+                        guard id == model.selectedSource?.id else { return }
+                        if let id {
+                            motion.perform(animated: sourceMotion.shouldAnimate(id)) { proxy.scrollTo(id, anchor: .center) }
+                        }
+                        sourceMotion.complete(id)
+                    }
                 }
                 Divider()
             }
@@ -381,6 +435,19 @@ struct EpisodeListView: View {
         }
     }
 
+    private func selectSource(_ source: EpisodeSource, model: EpisodePickerViewModel, fromKeyboard: Bool = false) {
+        guard model.hasCurrentViewer, model.sources.contains(where: { $0.id == source.id }), !sourceMotion.isPending(source.id),
+               model.selectedSource?.id != source.id || sourceMotion.hasPendingSelection else { return }
+        sourceMotion.register(source.id, fromKeyboard: fromKeyboard)
+        sourceSelectionTask?.cancel()
+        sourceSelectionTask = Task { await model.select(source: source) }
+    }
+
+    private func hideHint(fromKeyboard: Bool = false) {
+        guard isHintVisible else { return }
+        motion.perform(animated: !fromKeyboard, using: .default) { isHintVisible = false }
+    }
+
     private var hint: some View {
         HStack(alignment: .top, spacing: 12) {
             Text("Если серия не запускается ни через какой видеоплеер, попробуйте сменить источник, "
@@ -388,14 +455,14 @@ struct EpisodeListView: View {
                 .font(.ax(.subheadline))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button {
-                withAnimation { isHintVisible = false }
-            } label: {
+            Button { hideHint() } label: {
                 Image(systemName: "xmark.circle")
                     .font(.ax(.title3))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .onKeyPress(.return) { hideHint(fromKeyboard: true); return .handled }
+            .onKeyPress(.space) { hideHint(fromKeyboard: true); return .handled }
         }
         .padding(16)
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.quaternary, lineWidth: 1))

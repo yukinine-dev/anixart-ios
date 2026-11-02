@@ -46,13 +46,19 @@ struct ProfileView: View {
     @State private var blockAccount: ProfileAccountKey?
     @State private var report: ProfileReportPresentation?
     @State private var gallery: ProfileGalleryPresentation?
-    @State private var showsAvatarActions = false
     @State private var showsAvatarEditor = false
     @State private var avatarEditorAction: ProfilePhotoEditorView.InitialAction?
     @State private var showsStatusEditor = false
     @State private var showsReputation = false
+    @State private var identityInfo: ProfileInfoPresentation?
     @State private var showsRegistration = false
     @State private var isOrderingBadges = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
+    @Namespace private var sectionHighlight
+    @State private var sectionMotion = SelectionMotionIntent<ProfileSection>()
+
+    private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
     init(profileID: Int, isOwnProfile: Bool = false, viewer: ProfileViewerKey? = nil) {
         self.profileID = profileID
@@ -100,12 +106,19 @@ struct ProfileView: View {
                     ProfileThemedSection(profile: profile) {
                         VStack(spacing: 0) {
                             sectionChips
-                            if isOrderingBadges, let account = model.viewerAccount {
-                                ProfileInlineBadgeOrderView(profileID: profileID, account: account) {
-                                    isOrderingBadges = false
-                                    Task { await load(force: true) }
+                            Group {
+                                if isOrderingBadges, let account = model.viewerAccount {
+                                    ProfileInlineBadgeOrderView(profileID: profileID, account: account) {
+                                        isOrderingBadges = false
+                                        Task { await load(force: true) }
+                                    }
+                                } else { sectionContent(profile) }
+                            }
+                            .transaction {
+                                if sectionMotion.shouldAnimate(section) {
+                                    $0.animation = nil; $0.disablesAnimations = true
                                 }
-                            } else { sectionContent(profile) }
+                            }
                         }
                         .padding(.bottom, 16)
                     }
@@ -145,10 +158,12 @@ struct ProfileView: View {
             blockAccount = nil
             report = nil
             gallery = nil
-            showsAvatarActions = false
             showsAvatarEditor = false
             showsStatusEditor = false
+            showsReputation = false
+            identityInfo = nil
             isOrderingBadges = false
+            sectionMotion.reset()
         }
         .navigationDestination(isPresented: $isShowingSearch) { UserSearchView(viewer: searchViewer) }
         .navigationDestination(isPresented: $isShowingLoginHistory) {
@@ -176,15 +191,6 @@ struct ProfileView: View {
                 ProfilePhotoEditorView(kind: .avatar, profileID: profileID, account: model.viewerAccount,
                                        initialAction: avatarEditorAction)
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Закрыть") { showsAvatarEditor = false } } }
-            }
-        }
-        .confirmationDialog("Фото профиля", isPresented: $showsAvatarActions, titleVisibility: .visible) {
-            if let url = profile?.avatarURL {
-                Button("Открыть") { gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0) }
-            }
-            Button("Изменить") { avatarEditorAction = .choose; showsAvatarEditor = true }
-            if profile?.avatarURL != nil {
-                Button("Удалить", role: .destructive) { avatarEditorAction = .delete; showsAvatarEditor = true }
             }
         }
         .confirmationDialog(pendingBlock?.isBlocked == true ? "Разблокировать пользователя?" : "Заблокировать пользователя?", isPresented: Binding(
@@ -275,12 +281,28 @@ struct ProfileView: View {
                 .clipped()
                 .padding(.bottom, -44)
             }
-            Button {
-                if ownsProfile { showsAvatarActions = true }
-                else if let url = profile.avatarURL { gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0) }
-            } label: { Avatar(url: profile.avatarURL, size: 112, isOnline: profile.isOnline ?? false) }
-                .buttonStyle(.plain)
+            Group {
+                if ownsProfile {
+                    Menu {
+                        if let url = profile.avatarURL {
+                            Button { identityInfo = nil; gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0) } label: { Label("Открыть", systemImage: "photo") }
+                        }
+                        Button { identityInfo = nil; avatarEditorAction = .choose; showsAvatarEditor = true } label: { Label("Изменить", systemImage: "pencil") }
+                        if profile.avatarURL != nil {
+                            Button(role: .destructive) { identityInfo = nil; avatarEditorAction = .delete; showsAvatarEditor = true } label: { Label("Удалить", systemImage: "trash") }
+                        }
+                    } label: { Avatar(url: profile.avatarURL, size: 112, isOnline: profile.isOnline ?? false) }
+                    .buttonStyle(.plain)
+                    .menuIndicator(.hidden)
+                } else {
+                    Button { if let url = profile.avatarURL { identityInfo = nil; gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0) } } label: {
+                        Avatar(url: profile.avatarURL, size: 112, isOnline: profile.isOnline ?? false)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
                 .accessibilityLabel("Фото профиля")
+                .disabled(!hasCurrentViewer)
                 .padding(.top, coverURL == nil ? 28 : 0)
                 .padding(.bottom, 8)
 
@@ -322,35 +344,31 @@ struct ProfileView: View {
                     .padding(.horizontal, 32)
             }
 
-            HStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if let score = profile.ratingScore {
-                    Button { showsReputation = true } label: { Text("\(score)") }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Уровень репутации \(score)")
-                        .font(.ax(.subheadline, .medium))
-                        .monospacedDigit()
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(Theme.listColor(.watching), lineWidth: 1)
-                        )
-                        .foregroundStyle(Theme.listColor(.watching))
+                    ProfileReputationBadge(login: profile.displayLogin, score: score, isOwn: ownsProfile,
+                                           viewer: model.viewerKey, infoPresentation: $identityInfo,
+                                           onOwnInfo: { identityInfo = nil; showsReputation = true })
                 }
-                if ownsProfile || showsRegistration, let joined = registered(profile) {
-                    Text("• на проекте с \(joined)")
+                if ownsProfile, let joined = registered(profile) {
+                    if profile.ratingScore != nil { Text("•").foregroundStyle(.secondary) }
+                    Text("на проекте с \(joined)")
                         .font(.ax(.subheadline))
                         .foregroundStyle(.secondary)
+                } else if !ownsProfile {
+                    if profile.ratingScore != nil { Text("•").foregroundStyle(.secondary) }
+                    Button { showsRegistration.toggle() } label: {
+                        HStack(spacing: 4) {
+                            Text(showsRegistration ? "на проекте с \(registered(profile) ?? "—")"
+                                 : (profile.isOnline == true ? "В сети" : "Последняя активность: \(Format.relativeDate(profile.lastActivityDate) ?? "—")"))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Image(systemName: "chevron.right").font(.ax(.caption2))
+                        }.font(.ax(.caption)).foregroundStyle(.secondary)
+                    }.buttonStyle(.plain)
                 }
             }
             .padding(.top, 2)
-            if !ownsProfile {
-                Button { showsRegistration.toggle() } label: {
-                    Text(profile.isOnline == true ? "В сети" : "Последняя активность: \(Format.relativeDate(profile.lastActivityDate) ?? "—")")
-                        .font(.ax(.caption)).foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
+            .padding(.horizontal, 20)
         }
         .frame(maxWidth: .infinity)
     }
@@ -366,9 +384,8 @@ struct ProfileView: View {
                         ProfileEditorView(profileID: profileID, account: model.viewerAccount)
                     } label: {
                         Text("Редактировать")
-                            .font(.ax(.headline))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 13)
+                             .font(.ax(.headline))
+                            .frame(maxWidth: .infinity, minHeight: 46)
                             .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
@@ -379,14 +396,17 @@ struct ProfileView: View {
                         Task { await toggleFriend(profile, for: account) }
                     } label: {
                         Text(friendButtonTitle(profile))
-                            .font(.ax(.headline))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 13)
+                             .font(.ax(.headline))
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .padding(.horizontal, 8)
                             .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                     .disabled(isChangingRelationship || isLoading || !hasCurrentViewer)
                 }
+
+                if !ownsProfile { ProfileContactButton(profile: profile, viewer: model.viewerKey, infoPresentation: $identityInfo) }
 
                 Menu {
                     Button {
@@ -425,7 +445,7 @@ struct ProfileView: View {
                     Image(systemName: "ellipsis")
                         .font(.ax(.headline))
                         .frame(width: 46, height: 46)
-                        .background(Color.primary.opacity(0.06), in: Circle())
+                        .background(Theme.raisedSurface, in: Circle())
                 }
                 .foregroundStyle(.primary)
                 .accessibilityLabel("Меню профиля")
@@ -505,16 +525,23 @@ struct ProfileView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(profile?.visibleSections ?? []) { candidate in
-                            Button { section = candidate } label: {
-                                Label(candidate.title, systemImage: candidate.systemImage)
-                                    .font(.ax(.subheadline, section == candidate ? .medium : .regular))
+                            Button { selectSection(candidate) } label: {
+                                SelectionLabel(title: candidate.title, isSelected: section == candidate,
+                                               style: .subheadline, systemImage: candidate.systemImage)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
-                                    .background(Color.primary.opacity(section == candidate ? 0.06 : 0), in: RoundedRectangle(cornerRadius: 10))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 1))
+                                    .frame(minHeight: 44)
+                                    .background {
+                                        SelectionChipBackground(isSelected: section == candidate,
+                                                                shape: RoundedRectangle(cornerRadius: 10),
+                                                                color: Color.primary.opacity(0.06), namespace: sectionHighlight)
+                                    }
                                     .foregroundStyle(section == candidate ? .primary : .secondary)
+                                    .contentShape(RoundedRectangle(cornerRadius: 10))
                                 }
                             .buttonStyle(.plain)
+                            .onKeyPress(.return) { selectSection(candidate, fromKeyboard: true); return .handled }
+                            .onKeyPress(.space) { selectSection(candidate, fromKeyboard: true); return .handled }
                             .accessibilityAddTraits(section == candidate ? .isSelected : [])
                             .id(candidate.id)
                         }
@@ -522,7 +549,12 @@ struct ProfileView: View {
                     .padding(.leading)
                     .padding(.trailing, 8)
                 }
-                .onChange(of: section) { _, value in reader.scrollTo(value.id, anchor: .center) }
+                .onAppear { reader.scrollTo(section.id, anchor: .center) }
+                .onChange(of: section) { _, value in
+                    guard value == section else { return }
+                    motion.perform(animated: sectionMotion.shouldAnimate(value)) { reader.scrollTo(value.id, anchor: .center) }
+                    sectionMotion.complete(value)
+                }
             }
             if ownsProfile {
                 Menu {
@@ -553,6 +585,12 @@ struct ProfileView: View {
             }
         }
         .padding(.vertical, 12)
+    }
+
+    private func selectSection(_ candidate: ProfileSection, fromKeyboard: Bool = false) {
+        guard hasCurrentViewer, section != candidate, profile?.visibleSections.contains(candidate) == true else { return }
+        sectionMotion.register(candidate, fromKeyboard: fromKeyboard)
+        motion.perform(animated: !fromKeyboard) { section = candidate }
     }
 
     @ViewBuilder
@@ -721,8 +759,6 @@ struct ProfileStatisticsSection: View {
                 .font(.ax(.subheadline, .medium))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-            NavigationLink("Показать списки") { ProfileListView(profileID: profileID, status: .watching, viewer: viewer) }
-                .font(.ax(.subheadline, .medium)).frame(maxWidth: .infinity).padding(.vertical, 8)
         }
         .sheet(isPresented: $isShowingHelp) { ProfileStatisticsHelpView() }
     }
@@ -752,24 +788,27 @@ struct ProfileStatisticsSection: View {
 /// Donut of the five list counts, drawn in the Android chart's colours.
 struct DonutChart: View {
     let slices: [(color: Color, value: Int)]
-
-    private var total: Double { Double(slices.reduce(0) { $0 + $1.value }) }
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         GeometryReader { geometry in
             let side = min(geometry.size.width, geometry.size.height)
             let thickness = side * 0.28
+            let circumference = max(1, .pi * (side - thickness) * max(1, displayScale))
+            let spans = ProfileDonutLayout.spans(values: slices.map(\.value), minimumFraction: min(0.02, 3 / circumference))
             ZStack {
-                if total <= 0 {
+                if spans.isEmpty {
                     Circle()
                         .strokeBorder(.quaternary, lineWidth: thickness)
                 } else {
-                    ForEach(Array(angles.enumerated()), id: \.offset) { index, span in
-                        Circle()
-                            .trim(from: span.start, to: span.end)
-                            .stroke(slices[index].color, lineWidth: thickness)
-                            .rotationEffect(.degrees(-90))
-                            .padding(thickness / 2)
+                    ForEach(Array(spans.enumerated()), id: \.offset) { index, span in
+                        if span.length > 0 {
+                            Circle()
+                                .trim(from: span.start, to: span.end)
+                                .stroke(slices[index].color, style: StrokeStyle(lineWidth: thickness, lineCap: .butt))
+                                .rotationEffect(.degrees(-90))
+                                .padding(thickness / 2)
+                        }
                     }
                 }
             }
@@ -777,17 +816,6 @@ struct DonutChart: View {
         }
     }
 
-    /// Fractions of the circle, with a hairline gap so neighbouring slices read apart.
-    private var angles: [(start: CGFloat, end: CGFloat)] {
-        guard total > 0 else { return [] }
-        var cursor: CGFloat = 0
-        return slices.map { slice in
-            let fraction = CGFloat(Double(slice.value) / total)
-            let span = (start: cursor, end: min(1, cursor + max(0, fraction - 0.004)))
-            cursor += fraction
-            return span
-        }
-    }
 }
 
 // MARK: - Shared pieces
@@ -809,7 +837,7 @@ struct Avatar: View {
             if let url, size >= 88 {
                 ProfileThemeTexture(url: url, pixelSize: size * displayScale,
                                     isAnimating: isVisible && scenePhase == .active && !reduceMotion && !resourceSaving) { image, _ in
-                    Image(uiImage: image).resizable().scaledToFill()
+                    Image(uiImage: image).renderingMode(.original).resizable().scaledToFill()
                 } placeholder: { Circle().fill(.quaternary) }
             } else {
                 CachedAsyncImage(url: url, maxPixelSize: size) { $0.resizable().scaledToFill() } placeholder: { Circle().fill(.quaternary) }

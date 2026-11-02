@@ -38,7 +38,7 @@ struct FilterSheet: View {
                 .frame(maxWidth: 600)
                 .frame(maxWidth: .infinity)
             }
-            .background(Color(.systemBackground))
+            .background(Theme.background)
             .safeAreaInset(edge: .bottom) { actions }
             .navigationTitle("Фильтр")
             .navigationBarTitleDisplayMode(.inline)

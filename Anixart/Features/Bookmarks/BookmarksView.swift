@@ -9,6 +9,11 @@ struct BookmarksView: View {
     @State private var tab = BookmarkTab.defaultSelection(storageKey: UserDefaults.standard.string(forKey: DeviceAppearancePreferenceKey.defaultBookmarks))
     @AppStorage(DeviceAppearancePreferenceKey.defaultBookmarks) private var defaultTab = BookmarkTab.favorites.storageKey
     @State private var sort: BookmarkSort = .addedDescending
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
+    @Namespace private var tabIndicator
+    @State private var selectionMotion = SelectionMotionIntent<BookmarkTab>()
+    private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
     enum BookmarkTab: Hashable, CaseIterable {
         case collections, history, favorites
@@ -94,20 +99,19 @@ struct BookmarksView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Theme.Spacing.tabGap) {
                         ForEach(BookmarkTab.allCases, id: \.self) { candidate in
-                            Button {
-                                tab = candidate
-                            } label: {
+                            Button { select(candidate) } label: {
                                 VStack(spacing: 8) {
-                                    Text(candidate.title)
-                                        .font(.ax(.title3, tab == candidate ? .medium : .regular))
-                                        .foregroundStyle(tab == candidate ? .primary : .secondary)
-                                    Capsule().fill(tab == candidate ? Color.primary : .clear).frame(height: 3)
+                                    SelectionLabel(title: candidate.title, isSelected: tab == candidate)
+                                        .foregroundStyle(tab == candidate ? Theme.selection : Color.secondary)
+                                    SelectionUnderline(isSelected: tab == candidate, namespace: tabIndicator)
                                 }
                                 .fixedSize()
                                 .padding(.vertical, 10)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .onKeyPress(.return) { select(candidate, fromKeyboard: true); return .handled }
+                            .onKeyPress(.space) { select(candidate, fromKeyboard: true); return .handled }
                             .id(candidate)
                             .accessibilityAddTraits(tab == candidate ? [.isSelected] : [])
                         }
@@ -115,22 +119,39 @@ struct BookmarksView: View {
                     .padding(.horizontal, 16)
                 }
                 .onAppear { proxy.scrollTo(tab, anchor: .center) }
-                .onChange(of: tab) { _, selected in proxy.scrollTo(selected, anchor: .center) }
+                .onChange(of: tab) { _, selected in
+                    guard selected == tab else { return }
+                    motion.perform(animated: selectionMotion.shouldAnimate(selected)) { proxy.scrollTo(selected, anchor: .center) }
+                    selectionMotion.complete(selected)
+                }
             }
 
             Divider()
 
-            switch tab {
-            case .collections:
-                FavoriteCollectionsList()
-            case .history:
-                BookmarkReleaseList(kind: .history, sort: sort)
-            case .favorites:
-                BookmarkReleaseList(kind: .favorites, sort: sort)
-            case .list(let status):
-                BookmarkReleaseList(kind: .list(status), sort: sort)
+            Group {
+                switch tab {
+                case .collections:
+                    FavoriteCollectionsList()
+                case .history:
+                    BookmarkReleaseList(kind: .history, sort: sort)
+                case .favorites:
+                    BookmarkReleaseList(kind: .favorites, sort: sort)
+                case .list(let status):
+                    BookmarkReleaseList(kind: .list(status), sort: sort)
+                }
+            }
+            .transaction {
+                if selectionMotion.shouldAnimate(tab) {
+                    $0.animation = nil; $0.disablesAnimations = true
+                }
             }
         }
+    }
+
+    private func select(_ candidate: BookmarkTab, fromKeyboard: Bool = false) {
+        guard tab != candidate else { return }
+        selectionMotion.register(candidate, fromKeyboard: fromKeyboard)
+        motion.perform(animated: !fromKeyboard) { tab = candidate }
     }
 }
 

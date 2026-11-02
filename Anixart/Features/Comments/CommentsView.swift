@@ -222,6 +222,8 @@ struct CommentsView: View {
 /// action and the vote arrows. Spoilers stay hidden until tapped.
 @MainActor
 struct CommentRow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
     let comment: ReleaseComment
     var showsRelease = false
     var onReply: (() -> Void)?
@@ -231,6 +233,8 @@ struct CommentRow: View {
     var actionsEnabled = true
 
     @State private var isSpoilerRevealed = false
+
+    private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -254,9 +258,7 @@ struct CommentRow: View {
                 if comment.isDeleted == true {
                     Text("Комментарий удалён").font(.ax(.subheadline)).foregroundStyle(.secondary)
                 } else if comment.containsSpoiler && !isSpoilerRevealed {
-                    Button {
-                        withAnimation { isSpoilerRevealed = true }
-                    } label: {
+                    Button { revealSpoiler() } label: {
                         Label("Содержит спойлер — нажмите, чтобы прочитать", systemImage: "eye.slash")
                             .font(.ax(.caption))
                             .foregroundStyle(.secondary)
@@ -265,6 +267,8 @@ struct CommentRow: View {
                             .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
+                    .onKeyPress(.return) { revealSpoiler(fromKeyboard: true); return .handled }
+                    .onKeyPress(.space) { revealSpoiler(fromKeyboard: true); return .handled }
                 } else {
                     Text(comment.message ?? "")
                         .font(.ax(.subheadline))
@@ -306,6 +310,11 @@ struct CommentRow: View {
             }
         }
         .padding(.vertical, 8)
+    }
+
+    private func revealSpoiler(fromKeyboard: Bool = false) {
+        guard !isSpoilerRevealed, comment.isDeleted != true, comment.containsSpoiler else { return }
+        motion.perform(animated: !fromKeyboard, using: .default) { isSpoilerRevealed = true }
     }
 
     /// The down / score / up triple. The score takes the colour of the viewer's

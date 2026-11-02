@@ -62,6 +62,9 @@ public actor AnixartClient {
 
     /// Adopts the hosts the server advertises through `config/urls`.
     public func apply(_ urls: ConfigUrlsResponse) {
+        // An expired launch operation can reach this actor after its caller's
+        // pre-hop check. Do not let it replace the host of requests already begun.
+        guard !Task.isCancelled else { return }
         if let first = urls.apiUrls?.first {
             let normalized = first.hasSuffix("/") ? first : first + "/"
             if let url = URL(string: normalized) {

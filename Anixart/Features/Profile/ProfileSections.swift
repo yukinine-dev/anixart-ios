@@ -88,6 +88,8 @@ struct ProfileActivitySection: View {
     let profile: Profile
     let viewer: ProfileViewerKey?
     @State private var showsHelp = false
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isVisible = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.section) {
@@ -104,37 +106,41 @@ struct ProfileActivitySection: View {
             Divider().padding(.horizontal)
             SectionHeader(title: "Просмотрено недавно")
             if let history = profile.history, !history.isEmpty {
-                ForEach(history) { release in
-                    NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
-                    } label: {
-                        HStack(spacing: 16) {
-                            ReleasePoster(url: release.posterURL, width: 48, aspectRatio: 2.0 / 3.0)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(release.displayTitle).font(.ax(.subheadline)).foregroundStyle(.primary).lineLimit(2)
-                                if let subtitle = ReleaseHistoryMetadata.subtitle(release) {
-                                    Text(subtitle)
-                                        .font(.ax(.subheadline))
-                                        .foregroundStyle(.secondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .contentShape(Rectangle())
-                        .padding(.horizontal)
-                    }
-                    .buttonStyle(.plain)
+                // Keep the rows/links in one hierarchy when the schedule pauses.
+                TimelineView(RecentViewingTimelineSchedule(isActive: scenePhase == .active && isVisible)) { time in
+                    recentRows(history, now: time.date)
                 }
             } else {
                 ProfileEmptySection(message: "История просмотра пуста")
             }
         }
         .padding(.top, Theme.Spacing.section)
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
         .sheet(isPresented: $showsHelp) {
             ProfileHelpSheet(title: "Динамика просмотра", paragraphs: [
                 "Динамика просмотра серий за текущий день станет доступна только на следующий день."
             ])
+        }
+    }
+
+    private func recentRows(_ history: [Release], now: Date) -> some View {
+        ForEach(history) { release in
+            NavigationLink {
+                ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
+            } label: {
+                HStack(spacing: 16) {
+                    ReleasePoster(url: release.posterURL, width: 48, aspectRatio: 2.0 / 3.0)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(release.displayTitle).font(.ax(.subheadline)).foregroundStyle(.primary).lineLimit(2)
+                        RecentViewingMetadata(release: release, now: now)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+                .padding(.horizontal)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -198,6 +204,8 @@ struct ProfileStatisticsHelpView: View {
 @MainActor
 struct ProfileHelpSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let paragraphs: [String]
 
@@ -215,7 +223,7 @@ struct ProfileHelpSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Понятно") { dismiss() } } }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(ProfileInfoPresentationPolicy.sheetDetents(vertical: verticalSizeClass, dynamicType: dynamicTypeSize))
     }
 }
 
