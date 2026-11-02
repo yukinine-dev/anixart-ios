@@ -197,7 +197,7 @@ struct ProfileArticleView: View {
         } catch { if !ProfileRequestFailure.isCancellation(error) { actionError = Paginator<Release>.message(for: error) } }
     }
 
-    private func voteComment(_ comment: ProfileComment, _ value: Int) async {
+    private func voteComment(_ comment: ProfileComment, _ value: CommentVote) async {
         guard actionsEnabled, !votingComments.contains(comment.id), comment.isDeleted != true, comment.canLike != false else { return }
         guard let account = viewer?.account else { env.session.promptSignIn(); return }
         votingComments.insert(comment.id)
@@ -205,7 +205,7 @@ struct ProfileArticleView: View {
         defer { votingComments.remove(comment.id) }
         do {
             try await env.session.sendConfirmedAccountRequest(ProfileCommentEndpoints.vote(commentID: comment.id, category: .articles,
-                                                                                         vote: comment.vote == value ? 0 : value), for: account)
+                                                                                      vote: value), for: account)
             await load()
         } catch { if !ProfileRequestFailure.isCancellation(error) { actionError = Paginator<Release>.message(for: error) } }
     }

@@ -284,27 +284,31 @@ public enum ReleaseSeason: Int, Codable, CaseIterable, Sendable, Identifiable {
     }
 }
 
-/// `searchBy` in a `SearchRequest` body. `0` searches every title field, which is
-/// the default the Android client sends.
+/// `searchBy` in release search. ReleaseSearchFragment uses 1 studio, 2 director,
+/// 3 author; these are not individual title-language fields.
 public enum SearchScope: Int, Codable, CaseIterable, Sendable {
     case all = 0
-    case titleRu = 1
-    case titleOriginal = 2
-    case titleAlt = 3
+    case studio = 1
+    case director = 2
+    case author = 3
     /// ReleaseFragment's source# link -> MainActivity -> ReleaseSearchFragment:
     /// the source label is SEARCH_QUERY and SEARCH_BY is 5 (original APK).
     case sourceMaterial = 5
 
-    /// Keep the title-search menu unchanged. Source search is a distinct deep
-    /// link from a release's fact line, not an inferred additional title field.
+    // Compatibility with previously misnamed scopes and persisted numeric values.
+    public static let titleRu: Self = .studio
+    public static let titleOriginal: Self = .director
+    public static let titleAlt: Self = .author
+
+    /// Source search remains a distinct deep link from a release's fact line.
     public static let titleSearchScopes: [SearchScope] = [.all, .titleRu, .titleOriginal, .titleAlt]
 
     public var title: String {
         switch self {
         case .all: return "По всем названиям"
-        case .titleRu: return "По русскому названию"
-        case .titleOriginal: return "По оригинальному названию"
-        case .titleAlt: return "По альтернативным названиям"
+        case .studio: return "По студии"
+        case .director: return "По режиссёру"
+        case .author: return "По автору"
         case .sourceMaterial: return "По первоисточнику"
         }
     }

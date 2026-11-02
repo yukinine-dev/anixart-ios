@@ -62,7 +62,8 @@ nil that collides with every other nil.
 | Catalogue sort | 0 updated, 1 grade, 2 year, 3 popularity (desc); +4 for ascending | `FilterRequest` |
 | Genres mode | 0 all, 1 any, 2 exclude | `FilterRequest` |
 | Episode count preset | 1 <13, 2 13+, 3 26+, 4 100+ | `FilterRequest` |
-| Age rating | index into `0+`, `6+`, `12+`, `16+`, `18+` | `arrays.xml` |
+| Release age rating | 1 `0+`, 2 `6+`, 3 `12+`, 4 `16+`, 5 `18+`; distinct from filter picker indexes | `ReleaseFragment.onReleaseLoaded` / `arrays.xml` |
+| Release `searchBy` | 0 titles, 1 studio, 2 director, 3 author, 5 source material | `MainActivity` fact-link handlers → `ReleaseSearchFragment` |
 | Notification kind | `episode`, `friend`, `releaseComment`, `collectionComment`, `myCollection`, `article`, `articleComment`, `myArticle`, `relatedRelease` | `ProfileNotification` `@JsonSubTypes` |
 
 Season (`1` winter ... `4` autumn) and comment sort (`0` newest, `1` oldest, `2` most liked)
@@ -477,6 +478,19 @@ in the Swift source.
 | GET | `release/{r_id}/badges/{page}` | `PageableResponse<Badge>` | `path:r_id (long)`, `path:page (int)`, `query:token (String)` |
 
 ### ReleaseCommentApi
+
+Comment vote arrows send **`1` (negative) / `2` (positive)**. Repeating the same
+arrow toggles the vote off; do not send `0` or `-1`. The returned comment uses
+`vote: 0` for no vote. Vote response codes `2` / `3` mean the daily negative-vote
+limit / insufficient account age, not invalid login / password. `402` / `403`
+remain bans. Verified offline against the supplied 10.5 APK (`ecca1727…82d00`),
+including both comments and replies callbacks; this is not iOS runtime evidence.
+
+Text replies use the same **POST `release/comment/add/{releaseId}`** as root
+comments, with camelCase `parentCommentId` (thread root) and `replyToProfileId`
+(recipient) in the JSON body. Add codes: `2` missing release, `3` missing comment,
+`4` missing profile, `5` too short, `6` too long, `7` daily comment limit,
+`8` recipient's blocklist (not an account ban). Real `402` / `403` remain bans.
 
 | Method | Path | Returns | Parameters |
 |---|---|---|---|

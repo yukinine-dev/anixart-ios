@@ -281,27 +281,9 @@ struct ProfileView: View {
                 .clipped()
                 .padding(.bottom, -44)
             }
-            Group {
-                if ownsProfile {
-                    Menu {
-                        if let url = profile.avatarURL {
-                            Button { identityInfo = nil; gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0) } label: { Label("Открыть", systemImage: "photo") }
-                        }
-                        Button { identityInfo = nil; avatarEditorAction = .choose; showsAvatarEditor = true } label: { Label("Изменить", systemImage: "pencil") }
-                        if profile.avatarURL != nil {
-                            Button(role: .destructive) { identityInfo = nil; avatarEditorAction = .delete; showsAvatarEditor = true } label: { Label("Удалить", systemImage: "trash") }
-                        }
-                    } label: { Avatar(url: profile.avatarURL, size: 112, isOnline: profile.isOnline ?? false) }
-                    .buttonStyle(.plain)
-                    .menuIndicator(.hidden)
-                } else {
-                    Button { if let url = profile.avatarURL { identityInfo = nil; gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0) } } label: {
-                        Avatar(url: profile.avatarURL, size: 112, isOnline: profile.isOnline ?? false)
-                    }
-                    .buttonStyle(.plain)
-                }
+            ProfileAvatarControl(profile: profile, isOwnProfile: ownsProfile) { command in
+                performAvatarCommand(command, profile: profile)
             }
-                .accessibilityLabel("Фото профиля")
                 .disabled(!hasCurrentViewer)
                 .padding(.top, coverURL == nil ? 28 : 0)
                 .padding(.bottom, 8)
@@ -371,6 +353,21 @@ struct ProfileView: View {
             .padding(.horizontal, 20)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func performAvatarCommand(_ command: ProfileAvatarCommand, profile: Profile) {
+        guard hasCurrentViewer else { return }
+        switch command {
+        case .open:
+            guard let url = profile.avatarURL else { return }
+            identityInfo = nil
+            gallery = ProfileGalleryPresentation(urls: [url], initialIndex: 0)
+        case .edit, .delete:
+            guard ownsProfile else { return }
+            identityInfo = nil
+            avatarEditorAction = command == .delete ? .delete : .choose
+            showsAvatarEditor = true
+        }
     }
 
     // MARK: - Actions
@@ -747,11 +744,11 @@ struct ProfileStatisticsSection: View {
             .padding(.horizontal)
 
             VStack(alignment: .leading, spacing: 8) {
+                ForEach(ProfileStatisticsPreferences(profile: profile).rows) { row in
+                    statLine(row.title, row.value)
+                }
                 statLine("Просмотрено серий:", Format.count(profile.watchedEpisodeCount))
                 statLine("Время просмотра:", watchedTimeText)
-                statLine("Жанры:", preferenceLine(profile.preferredGenres))
-                statLine("Аудитория:", preferenceLine(profile.preferredAudiences))
-                statLine("Тематика:", preferenceLine(profile.preferredThemes))
             }
             .padding(.horizontal)
 
@@ -767,16 +764,9 @@ struct ProfileStatisticsSection: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(label).font(.ax(.subheadline, .medium))
             Text(value).font(.ax(.subheadline)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-    }
-
-    private func preferenceLine(_ values: [ProfileGenre]?) -> String {
-        let names = (values ?? []).compactMap { genre -> String? in
-            guard let name = genre.name, !name.isEmpty else { return nil }
-            return genre.percentage.map { "\(name) (\($0)%)" } ?? name
-        }
-        return names.isEmpty ? "Недостаточно данных" : names.joined(separator: ", ")
     }
 
     /// `watchedTime` is reported in seconds.

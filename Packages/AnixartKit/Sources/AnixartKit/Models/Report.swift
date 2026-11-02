@@ -3,7 +3,7 @@ import Foundation
 /// Reasons are fetched separately for each target. IDs are server-owned and
 /// must not be guessed from the order/names seen in the audit screenshots.
 public enum ReportTargetKind: Hashable, Sendable {
-    case profile, collection, article
+    case profile, collection, article, release
     case comment(ProfileCommentCategory)
 
     public var path: String {
@@ -11,6 +11,7 @@ public enum ReportTargetKind: Hashable, Sendable {
         case .profile: return "profile"
         case .collection: return "collection"
         case .article: return "article"
+        case .release: return "release"
         case .comment(let category): return "comment/\(category.rawValue)"
         }
     }

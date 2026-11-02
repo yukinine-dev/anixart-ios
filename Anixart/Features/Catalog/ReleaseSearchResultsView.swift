@@ -158,17 +158,9 @@ struct RelatedFranchiseHeader: View {
                 .font(.ax(.title2, .medium))
                 .multilineTextAlignment(.center)
             if let description = related.description, !description.isEmpty {
-                Text(description)
-                    .font(.ax(.subheadline))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(isExpanded ? nil : 10)
-                    .textSelection(.enabled)
-                if !isExpanded {
-                    Button("Подробнее…") { isExpanded = true }
-                        .font(.ax(.subheadline, .medium))
-                        .buttonStyle(.plain)
-                }
+                ReleaseExpandableText(text: description, alignment: .center, isExpanded: $isExpanded)
             }
+            Rectangle().fill(Theme.accent).frame(height: 1)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
@@ -189,6 +181,6 @@ struct ReleaseSearchScopeMenu: View {
         } label: {
             Image(systemName: "text.magnifyingglass")
         }
-        .accessibilityLabel("Поиск по названиям")
+        .accessibilityLabel("Область поиска релизов")
     }
 }

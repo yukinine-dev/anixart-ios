@@ -307,7 +307,7 @@ struct ProfileCommentDetailView: View {
         composer.replyingTo = comment
     }
 
-    private func vote(_ comment: ProfileComment, _ value: Int) async {
+    private func vote(_ comment: ProfileComment, _ value: CommentVote) async {
         guard actionsEnabled, let viewer = composer.viewer, viewer == env.session.viewerKey,
               !votingIDs.contains(comment.id), comment.isDeleted != true, comment.canLike != false else { return }
         guard let account = viewer.account else { env.session.promptSignIn(); return }
@@ -316,8 +316,7 @@ struct ProfileCommentDetailView: View {
         let list = replies
         defer { votingIDs.remove(comment.id) }
         do {
-            let vote = comment.vote == value ? 0 : value
-            try await env.session.sendConfirmedAccountRequest(ProfileCommentEndpoints.vote(commentID: comment.id, category: category, vote: vote), for: account)
+            try await env.session.sendConfirmedAccountRequest(ProfileCommentEndpoints.vote(commentID: comment.id, category: category, vote: value), for: account)
             if comment.id == commentID || comment.id == rootID { await refresh() }
             else { await list?.reload() }
         } catch {
@@ -414,7 +413,7 @@ struct ProfileCommentsAtLocationView: View {
         }
     }
 
-    private func vote(_ comment: ProfileComment, value: Int) async {
+    private func vote(_ comment: ProfileComment, value: CommentVote) async {
         guard composer.viewer == env.session.viewerKey, !composer.isSending,
               !votingIDs.contains(comment.id), comment.isDeleted != true, comment.canLike != false else { return }
         guard let account = composer.viewer?.account else { env.session.promptSignIn(); return }
@@ -424,7 +423,7 @@ struct ProfileCommentsAtLocationView: View {
         do {
             try await env.session.sendConfirmedAccountRequest(ProfileCommentEndpoints.vote(commentID: comment.id,
                                                                                          category: location.category,
-                                                                                         vote: comment.vote == value ? 0 : value), for: account)
+                                                                                          vote: value), for: account)
             await paginator?.reload()
         } catch { if !ProfileRequestFailure.isCancellation(error) { actionError = Paginator<Release>.message(for: error) } }
     }
@@ -435,7 +434,7 @@ struct ProfileCommentRow: View {
     let comment: ProfileComment
     var viewer: ProfileViewerKey?
     var onReply: (() -> Void)?
-    var onVote: ((Int) -> Void)?
+    var onVote: ((CommentVote) -> Void)?
     var isVoting = false
     var actionsEnabled = true
     var contextCategory: ProfileCommentCategory?
@@ -485,9 +484,9 @@ struct ProfileCommentRow: View {
                                 .disabled(!actionsEnabled)
                         }
                         Spacer(minLength: 0)
-                        voteButton(-1, icon: "chevron.down")
+                        voteButton(.negative, icon: "chevron.down")
                         Text(Format.count(comment.voteCount)).monospacedDigit()
-                        voteButton(1, icon: "chevron.up")
+                        voteButton(.positive, icon: "chevron.up")
                     }
                     .font(.ax(.subheadline))
                 }
@@ -497,14 +496,14 @@ struct ProfileCommentRow: View {
         .profileCommentContext(comment, category: contextCategory ?? comment.category, viewer: viewer)
     }
 
-    private func voteButton(_ value: Int, icon: String) -> some View {
+    private func voteButton(_ value: CommentVote, icon: String) -> some View {
         Button { onVote?(value) } label: {
-            Image(systemName: icon).foregroundStyle(comment.vote == value ? Theme.accent : Color.secondary)
+            Image(systemName: icon).foregroundStyle(value.isSelected(currentVote: comment.vote) ? Theme.accent : Color.secondary)
                 .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
         .disabled(!actionsEnabled || onVote == nil || isVoting || comment.canLike == false)
-        .accessibilityLabel(value > 0 ? "Нравится" : "Не нравится")
+        .accessibilityLabel(value == .positive ? "Нравится" : "Не нравится")
     }
 }
 

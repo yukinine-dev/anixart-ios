@@ -5,6 +5,7 @@ import AnixartKit
 struct RootView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var selection: Tab = LaunchScreen.current.tab
+    @State private var homeNavigationRevision = 0
     @AppStorage(DeviceAppearancePreferenceKey.colorScheme) private var colorScheme = AppColorSchemePreference.system.rawValue
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     @AppStorage(DeviceAppearancePreferenceKey.visualTheme) private var visualTheme = AppVisualTheme.original.rawValue
@@ -52,6 +53,7 @@ struct RootView: View {
                 tabs
             }
         }
+        .environment(\.returnToHome, homeAction)
         .anixartAppearance()
         .preferredColorScheme(AppVisualTheme.stored(visualTheme).colorScheme(
             normal: (AppColorSchemePreference(rawValue: colorScheme) ?? .system).colorScheme(lowPower: lowPower)))
@@ -78,10 +80,22 @@ struct RootView: View {
         }
     }
 
+    private var homeAction: RootHomeAction? {
+        switch LaunchScreen.current {
+        case .release, .randomRelease, .player, .kodik: return nil
+        case .profile where env.session.currentProfileID == nil: return nil
+        default:
+            return RootHomeAction {
+                homeNavigationRevision += 1
+                selection = .home
+            }
+        }
+    }
+
     @ViewBuilder
     private func tabContent(_ tab: Tab) -> some View {
         switch tab {
-        case .home: HomeView()
+        case .home: HomeView().id(homeNavigationRevision)
         case .discover: DiscoverView()
         case .bookmarks: BookmarksView()
         case .feed: FeedView()

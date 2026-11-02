@@ -511,6 +511,30 @@ Local patch whitespace checks pass. Swift typechecking, XCTest and the release
 pipeline still require the exact new revision to pass macOS CI. Neither these
 offline checks nor alpha publication establish physical-iOS layout, touch or FPS.
 
+### Avatar, sparse statistics and upgrade explanation (2 Nov 2026)
+
+This profile-only follow-up inspected 49 saved original Android PNGs: 25 from
+`anixart-profile-reference-20261031` and 24 from `anixart-profile-audit-20261031`.
+These are existing dark-theme captures, not new iOS screenshots or 49 distinct
+states; a capture's filename alone does not establish what loaded on screen.
+No live Android/API writes, new screenshots, CI run or publication were performed.
+
+`ProfileAvatarControl` bounds the native menu source to the 112-point photo;
+gallery/edit commands retire identity information, and deletion still requires the
+editor's separate confirmation. Preference rows appear independently only when the
+server supplies nonblank names, before the watch totals as in filled originals.
+Current list counts do not invent or suppress daily server-calculated preferences;
+ordinary empty sections, totals and privacy rules remain unchanged. The upgrade
+dialog uses more safe-area height and less artwork, keeps all three original feature
+descriptions (including the cover), and leaves Close outside the scrollable text.
+An explicit iOS publishing limitation avoids implying that reputation unlocks an
+unimplemented editor. Large text/short windows can scroll instead of clipping rows.
+
+Eight kit tests and ten app tests cover preference availability/privacy, native
+avatar source sizing and adaptive explanation layout. They were added, not executed
+on Windows: Swift/Xcode/XCTest and native iOS interaction checks remain unavailable.
+The exact revision still needs macOS typechecking/XCTest and iOS visual verification.
+
 ## Typography
 
 The Android app styles nearly every text appearance as `sans-serif-medium`, which stock

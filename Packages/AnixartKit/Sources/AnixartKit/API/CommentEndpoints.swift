@@ -30,9 +30,9 @@ public enum CommentEndpoints {
         Endpoint(path: "release/comment/delete/\(commentID)", auth: .required)
     }
 
-    /// `vote` is `1` to like, `-1` to dislike and `0` to clear.
-    public static func vote(commentID: Int, vote: Int) -> Endpoint<StatusResponse> {
-        Endpoint(path: "release/comment/vote/\(commentID)/\(vote)", auth: .required)
+    /// GET with `1` / `2`; repeat the same arrow to remove the vote.
+    public static func vote(commentID: Int, vote: CommentVote) -> Endpoint<StatusResponse> {
+        Endpoint(path: "release/comment/vote/\(commentID)/\(vote.rawValue)", auth: .required)
     }
 
     public static func voters(commentID: Int, page: Int, sort: Int? = nil) -> Endpoint<PageableResponse<Profile>> {

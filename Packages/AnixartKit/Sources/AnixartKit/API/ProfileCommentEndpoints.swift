@@ -19,8 +19,8 @@ public enum ProfileCommentEndpoints {
                  body: .json(request), auth: .required)
     }
 
-    public static func vote(commentID: Int, category: ProfileCommentCategory, vote: Int) -> Endpoint<StatusResponse> {
-        Endpoint(path: "\(category.rawValue)/comment/vote/\(commentID)/\(vote)", auth: .required)
+    public static func vote(commentID: Int, category: ProfileCommentCategory, vote: CommentVote) -> Endpoint<StatusResponse> {
+        Endpoint(path: "\(category.rawValue)/comment/vote/\(commentID)/\(vote.rawValue)", auth: .required)
     }
 
     public static func voters(commentID: Int, category: ProfileCommentCategory, page: Int,

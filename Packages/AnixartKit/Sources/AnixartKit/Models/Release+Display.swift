@@ -102,11 +102,11 @@ extension Release {
         }
     }
 
-    /// Russian age label, from the `ageRatings` array in the APK (index 0...4).
+    /// Release wire values are 1...5; the catalogue filter's 0...4 is separate.
     public var ageRatingText: String? {
         let labels = ["0+", "6+", "12+", "16+", "18+"]
-        guard let ageRating, labels.indices.contains(ageRating) else { return nil }
-        return labels[ageRating]
+        guard let ageRating, (1...5).contains(ageRating) else { return nil }
+        return labels[ageRating - 1]
     }
 
     public var listStatus: ProfileListStatus? {

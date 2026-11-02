@@ -7,6 +7,65 @@ final class ProfileCommentDraftTests: XCTestCase {
     private let location = ProfileCommentLocation(category: .articles, parentID: 73)
 
     @MainActor
+    func testReleaseTextReplyBlocklistAndRealBansKeepTheDraftAndAccount() async throws {
+        let rig = ProfileTestRig()
+        try await rig.signIn(token: "owning-token")
+        let account = rig.session.accountKey
+        let draft = ProfileCommentDraft(viewer: rig.session.viewerKey)
+        let release = ProfileCommentLocation(category: .releases, parentID: 71)
+        let target = try profileTestDecode(ProfileComment.self, #"{"id":10,"parent_comment_id":9,"release":71,"profile":{"id":44}}"#)
+        let failures = [
+            3: "Комментарий, на который вы отвечаете, не найден.",
+            7: "Вы превысили допустимый лимит по комментариям за сутки. Попробуйте оставить комментарий позже.",
+            8: "Пользователь внёс Вас в свой блоклист. Вы не можете отвечать на его комментарии.",
+            402: "Действие недоступно: аккаунт заблокирован",
+            403: "Действие недоступно: аккаунт заблокирован навсегда"
+        ]
+        for (code, message) in failures {
+            draft.message = "  Keep this text reply\n"
+            draft.isSpoiler = true
+            draft.replyingTo = target
+            rig.api.enqueue("/release/comment/add/71", json: "{\"code\":\(code)}")
+            let sent = await draft.send(at: release, parentCommentID: target.threadRootID, session: rig.session)
+            XCTAssertFalse(sent)
+            XCTAssertEqual(draft.errorMessage, message)
+            XCTAssertEqual(draft.message, "  Keep this text reply\n")
+            XCTAssertTrue(draft.isSpoiler)
+            XCTAssertEqual(draft.replyingTo, target)
+            XCTAssertFalse(draft.isSending)
+            XCTAssertEqual(rig.session.accountKey, account)
+            let request = try XCTUnwrap(rig.api.requests(to: "/release/comment/add/71").last)
+            XCTAssertEqual(request.httpMethod, "POST")
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any])
+            XCTAssertEqual(json["message"] as? String, "Keep this text reply")
+            XCTAssertEqual(json["parentCommentId"] as? Int, 9)
+            XCTAssertEqual(json["replyToProfileId"] as? Int, 44)
+            XCTAssertEqual(json["spoiler"] as? Bool, true)
+            XCTAssertTrue(request.url?.query?.contains("token=owning-token") == true)
+        }
+    }
+
+    @MainActor
+    func testReleaseTextReplySuccessUsesThreadRootAndClearsAcknowledgedDraft() async throws {
+        let rig = ProfileTestRig()
+        try await rig.signIn()
+        let draft = ProfileCommentDraft(viewer: rig.session.viewerKey)
+        let release = ProfileCommentLocation(category: .releases, parentID: 71)
+        draft.message = "Text reply"
+        draft.replyingTo = try profileTestDecode(ProfileComment.self, #"{"id":10,"parent_comment_id":9,"release":71,"profile":{"id":44}}"#)
+        rig.api.enqueue("/release/comment/add/71", json: #"{"code":0,"comment":{"id":11,"parent_comment_id":9,"release":71}}"#)
+        let sent = await draft.send(at: release, parentCommentID: draft.replyingTo?.threadRootID, session: rig.session)
+        XCTAssertTrue(sent)
+        XCTAssertEqual(draft.message, "")
+        XCTAssertNil(draft.replyingTo)
+        XCTAssertNil(draft.errorMessage)
+        let request = try XCTUnwrap(rig.api.requests(to: "/release/comment/add/71").first)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any])
+        XCTAssertEqual(json["parentCommentId"] as? Int, 9)
+        XCTAssertEqual(json["replyToProfileId"] as? Int, 44)
+    }
+
+    @MainActor
     func testSendingFreezesTextSpoilerRootAndReplyTargetBeforeSuspension() async throws {
         let rig = ProfileTestRig()
         try await rig.signIn()

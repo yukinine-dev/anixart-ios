@@ -52,6 +52,8 @@ extension AnixartError: LocalizedError {
         case .http(let status, let path):
             return "Сервер вернул HTTP \(status) для \(path)"
         case .api(let code, let path):
+            if let message = CommentVoteStatus.message(code: code, path: path) { return message }
+            if let message = CommentAddStatus.message(code: code, path: path) { return message }
             switch code {
             case AnixartStatus.banned: return "Действие недоступно: аккаунт заблокирован"
             case AnixartStatus.permBanned: return "Действие недоступно: аккаунт заблокирован навсегда"

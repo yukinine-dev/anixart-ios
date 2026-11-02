@@ -245,6 +245,7 @@ final class SessionController {
     }
 
     func signOut() async {
+        UserDefaults.standard.removeObject(forKey: ReleaseAccessPolicy.adultAcknowledgementKey)
         sessionRevision += 1
         profileGeneration += 1
         notificationGeneration += 1

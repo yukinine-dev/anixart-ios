@@ -113,10 +113,12 @@ final class ConfirmedAccountRequestTests: XCTestCase {
         let rig = ProfileTestRig()
         try await rig.signIn()
         let account = try XCTUnwrap(rig.session.accountKey)
-        let endpoints = [CommentEndpoints.vote(commentID: 9, vote: 1)]
-            + ProfileCommentCategory.allCases.map {
-                ProfileCommentEndpoints.vote(commentID: 9, category: $0, vote: 1)
-            }
+        let endpoints = CommentVote.allCases.flatMap { vote in
+            [CommentEndpoints.vote(commentID: 9, vote: vote)]
+                + ProfileCommentCategory.allCases.map {
+                    ProfileCommentEndpoints.vote(commentID: 9, category: $0, vote: vote)
+                }
+        }
         for endpoint in endpoints {
             for json in ["{}", #"{"code":null}"#] {
                 rig.api.enqueue("/\(endpoint.path)", json: json)
@@ -127,12 +129,15 @@ final class ConfirmedAccountRequestTests: XCTestCase {
                     XCTAssertEqual(error as? AnixartError, .decoding(message: "Сервер не подтвердил изменение", path: endpoint.path))
                 }
             }
-            rig.api.enqueue("/\(endpoint.path)", json: #"{"code":2}"#)
-            do {
-                _ = try await rig.session.sendConfirmedAccountRequest(endpoint, for: account)
-                XCTFail("A rejected vote must not be confirmed")
-            } catch {
-                XCTAssertEqual(error as? AnixartError, .api(code: 2, path: endpoint.path))
+            for code in [1, 2, 3, 402, 403] {
+                rig.api.enqueue("/\(endpoint.path)", json: "{\"code\":\(code)}")
+                do {
+                    _ = try await rig.session.sendConfirmedAccountRequest(endpoint, for: account)
+                    XCTFail("A rejected vote must not be confirmed")
+                } catch {
+                    XCTAssertEqual(error as? AnixartError, .api(code: code, path: endpoint.path))
+                }
+                XCTAssertEqual(rig.session.accountKey, account)
             }
             rig.api.enqueue("/\(endpoint.path)", json: #"{"code":0}"#)
             let response = try await rig.session.sendConfirmedAccountRequest(endpoint, for: account)

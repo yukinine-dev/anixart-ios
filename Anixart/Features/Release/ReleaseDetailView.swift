@@ -1,12 +1,12 @@
 import SwiftUI
+import UIKit
 import AnixartKit
 
-/// The release page, laid out as the Android `ReleaseFragment` lays it out: a poster
-/// over its own blurred backdrop, the list/bookmark/comment row, the play button with
-/// the last added episode under it, the icon fact lines, then the sections.
+/// Release metadata, viewer actions and the Android-compatible detail routes.
 @MainActor
 struct ReleaseDetailView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.returnToHome) private var returnToHome
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
 
@@ -21,6 +21,7 @@ struct ReleaseDetailView: View {
     @State private var isShowingTitles = false
     @State private var isDescriptionExpanded = false
     @State private var screenshotGallery: ReleaseScreenshotPresentation?
+    @State private var report: ProfileReportPresentation?
 
     private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
@@ -40,6 +41,7 @@ struct ReleaseDetailView: View {
                                           systemImage: "wifi.exclamationmark", retry: { await model.load() })
                     }
                     content(for: release, model: model)
+                        .releaseAccessGate(release: release)
                 } else if let error = model.errorMessage {
                     StatusMessageView(
                         title: "Не удалось загрузить релиз",
@@ -63,10 +65,11 @@ struct ReleaseDetailView: View {
             ReleaseScreenshotGalleryView(presentation: presentation)
         }
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
-            if let account = viewer?.account, viewer == env.session.viewerKey {
-                NavigationLink { ProfileNotificationVoicesSelector(account: account, releaseID: releaseID) } label: {
-                    Image(systemName: "bell.badge")
-                }.accessibilityLabel("Уведомления об этом релизе")
+            if model?.release != nil, viewer == env.session.viewerKey {
+                Button { isShowingCollectionPicker = true } label: {
+                    Label("Выбрать коллекцию", systemImage: "rectangle.stack.badge.plus")
+                }
+                .accessibilityLabel("Выбрать коллекцию")
             }
         } }
         .task {
@@ -90,6 +93,7 @@ struct ReleaseDetailView: View {
             isShowingCollectionPicker = false
             isShowingTitles = false
             screenshotGallery = nil
+            report = nil
         }
         .alert(
             "Не получилось",
@@ -107,16 +111,12 @@ struct ReleaseDetailView: View {
     @ViewBuilder
     private func content(for release: Release, model: ReleaseDetailViewModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            poster(release)
-            titleBlock(release)
+            ReleaseDetailHeader(release: release, isDescriptionExpanded: $isDescriptionExpanded,
+                                onTitles: { isShowingTitles = true }, onExpand: { expandDescription(fromKeyboard: $0) })
             statusRow(release, model: model)
             playBlock(release)
             factLines(release)
             genres(release)
-
-            if let description = release.description, !description.isEmpty {
-                descriptionBlock(description)
-            }
 
             if let banners = release.videoBanners, !banners.isEmpty {
                 sectionRule
@@ -136,9 +136,9 @@ struct ReleaseDetailView: View {
                 screenshots(release)
             }
 
-            if release.related != nil || !(release.relatedReleases?.isEmpty ?? true) {
+            if !release.relatedPreviewReleases.isEmpty || release.hasMoreRelatedReleases {
                 sectionRule
-                relatedSection(release, releases: release.relatedReleases ?? [])
+                relatedSection(release, releases: release.relatedPreviewReleases)
             }
 
             sectionRule
@@ -168,85 +168,16 @@ struct ReleaseDetailView: View {
             )
             .disabled(!model.hasCurrentViewer || model.isPerformingAction)
         }
+        .sheet(isPresented: $isShowingCollectionPicker) {
+            AddToCollectionSheet(releaseID: release.id, viewer: viewer)
+        }
+        .sheet(item: $report) { ProfileReportView(target: $0) }
     }
 
     private var sectionRule: some View {
         Divider()
             .padding(.horizontal)
             .padding(.vertical, Theme.Spacing.section * 0.75)
-    }
-
-    // MARK: - Poster
-
-    private func poster(_ release: Release) -> some View {
-        ZStack {
-            // The Android page fills the area behind the poster with the poster
-            // itself, blurred and dimmed.
-            CachedAsyncImage(url: release.posterURL, maxPixelSize: 520) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Color.clear
-            }
-            .frame(height: 380)
-            .clipped()
-            .blur(radius: 28)
-            .overlay(.black.opacity(0.45))
-            .allowsHitTesting(false)
-
-            CachedAsyncImage(url: release.posterURL, maxPixelSize: 520) { image in
-                image.resizable().scaledToFit()
-            } placeholder: {
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.quaternary)
-            }
-            .frame(height: 340)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 380)
-        .clipped()
-    }
-
-    // MARK: - Title
-
-    private func titleBlock(_ release: Release) -> some View {
-        Button { isShowingTitles = true } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Image(systemName: "info.circle")
-                        .font(.ax(.title3))
-                        .foregroundStyle(.secondary)
-                    Text(release.displayTitle)
-                        .font(.ax(.title2, .bold))
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                HStack(spacing: 8) {
-                    if let subtitle = release.displaySubtitle {
-                        Text(subtitle)
-                            .font(.ax(.subheadline))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    if let age = release.ageRatingText {
-                        Text(age)
-                            .font(.ax(.caption2, .medium))
-                            .foregroundStyle(.primary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                    }
-                }
-                .padding(.leading, 32)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Названия релиза: \(release.displayTitle)")
-        .padding(.horizontal)
-        .padding(.top, Theme.Spacing.row)
     }
 
     // MARK: - Status / bookmark / comments
@@ -312,54 +243,21 @@ struct ReleaseDetailView: View {
     @ViewBuilder
     private func playBlock(_ release: Release) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let reason = release.playbackBlockedReason {
-                Label(reason, systemImage: "exclamationmark.triangle")
-                    .font(.ax(.headline))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.primary.opacity(0.07), in: Capsule())
-            } else {
-                HStack(spacing: 12) {
-                    NavigationLink {
-                        EpisodePickerView(release: release, viewer: viewer)
-                    } label: {
-                        Label(
-                            release.continueWatchingText == nil ? "Воспроизвести" : "Продолжить",
-                            systemImage: "play.fill"
-                        )
-                        .font(.ax(.title3, .medium))
+            HStack(spacing: 12) {
+                if release.isDeleted == true {
+                    Label("Релиз удалён", systemImage: "exclamationmark.triangle")
+                        .font(.ax(.headline))
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.primary.opacity(0.92), in: Capsule())
-                        .foregroundStyle(Color(.systemBackground))
-                    }
-                    .buttonStyle(.plain)
-
-                    Menu {
-                        NavigationLink {
-                            EpisodePickerView(release: release, viewer: viewer)
-                        } label: {
-                            Label("Выбрать озвучку", systemImage: "waveform")
-                        }
-                        NavigationLink {
-                            StreamingPlatformsView(release: release, viewer: viewer)
-                        } label: {
-                            Label("Онлайн просмотр", systemImage: "play.rectangle.on.rectangle")
-                        }
-                        Button {
-                            isShowingRating = true
-                        } label: {
-                            Label("Оценить", systemImage: "star")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.ax(.title3))
-                            .frame(width: 24, height: 48)
-                    }
-                    .foregroundStyle(.primary)
+                        .background(Color.primary.opacity(0.07), in: Capsule())
+                } else {
+                    ReleasePlaybackButton(release: release, viewer: viewer)
                 }
+                releaseMenu(release)
+            }
 
+            if release.isDeleted != true {
                 if let added = release.lastEpisodeAddedLine {
                     Text(added)
                         .font(.ax(.caption))
@@ -379,13 +277,34 @@ struct ReleaseDetailView: View {
         .padding(.top, Theme.Spacing.row + 4)
     }
 
+    private func releaseMenu(_ release: Release) -> some View {
+        Menu {
+            ShareLink(item: release.shareURL) { Label("Поделиться", systemImage: "square.and.arrow.up") }
+            Button { UIPasteboard.general.url = release.shareURL } label: { Label("Скопировать ссылку", systemImage: "link") }
+            Button { returnToHome?.callAsFunction() } label: { Label("На главный экран", systemImage: "house") }
+                .disabled(returnToHome == nil)
+            Button {
+                guard viewer == env.session.viewerKey else { return }
+                guard let account = viewer?.account else { env.session.isPresentingAuth = true; return }
+                report = ProfileReportPresentation(kind: .release, entityID: release.id, title: release.displayTitle, account: account)
+            } label: { Label("Пожаловаться", systemImage: "flag") }
+        } label: {
+            Image(systemName: "ellipsis").rotationEffect(.degrees(90))
+                .font(.ax(.title3)).frame(width: 44, height: 48)
+                .contentShape(Rectangle())
+        }
+        .foregroundStyle(.primary)
+        .accessibilityLabel("Действия с релизом")
+        .disabled(viewer != env.session.viewerKey)
+    }
+
     // MARK: - Fact lines
 
     @ViewBuilder
     private func factLines(_ release: Release) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if let line = release.countryAndSeasonLine {
-                factLine("globe", line)
+                factLine("globe", line, flag: release.countryFlag)
             }
             if let line = release.episodesAndDurationLine {
                 factLine("play.rectangle", line)
@@ -405,19 +324,39 @@ struct ReleaseDetailView: View {
                         .accessibilityHint("Ссылка недоступна")
                 }
             }
-            if let line = release.studioAndDirectorLine {
-                factLine("person.3", line)
-            }
+            factSearchLink("Студия", value: release.studio, scope: .studio, icon: "building.2")
+            factSearchLink("Автор", value: release.author, scope: .author, icon: "pencil")
+            factSearchLink("Режиссёр", value: release.director, scope: .director, icon: "video")
         }
         .padding(.horizontal)
         .padding(.top, Theme.Spacing.section)
     }
 
-    private func factLine(_ systemImage: String, _ text: String, underlined: String? = nil) -> some View {
+    @ViewBuilder
+    private func factSearchLink(_ title: String, value: String?, scope: SearchScope, icon: String) -> some View {
+        if let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty {
+            if let viewer {
+                NavigationLink {
+                    SourceMaterialSearchView(query: value, scope: scope, title: "\(title): \(value)", viewer: viewer)
+                } label: {
+                    factLine(icon, "\(title): \(value)", underlined: value)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewer != env.session.viewerKey)
+                .accessibilityLabel("Поиск: \(title), \(value)")
+            } else {
+                factLine(icon, "\(title): \(value)")
+            }
+        }
+    }
+
+    private func factLine(_ systemImage: String, _ text: String, underlined: String? = nil, flag: String? = nil) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: systemImage)
+            Group {
+                if let flag { Text(flag).accessibilityHidden(true) }
+                else { Image(systemName: systemImage).foregroundStyle(.secondary).accessibilityHidden(true) }
+            }
                 .font(.ax(.title3))
-                .foregroundStyle(.secondary)
                 .frame(width: 26, alignment: .leading)
             Text(attributed(text, underlining: underlined))
                 .font(.ax(.subheadline))
@@ -456,26 +395,6 @@ struct ReleaseDetailView: View {
             .padding(.horizontal)
             .padding(.top, Theme.Spacing.section)
         }
-    }
-
-    private func descriptionBlock(_ description: String) -> some View {
-        VStack(spacing: Theme.Spacing.row) {
-            Text(description)
-                .font(.ax(.subheadline))
-                .lineSpacing(3)
-                .lineLimit(isDescriptionExpanded ? nil : 5)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            if !isDescriptionExpanded {
-                Button("Подробнее...") { expandDescription() }
-                .font(.ax(.subheadline, .medium))
-                .foregroundStyle(.primary)
-                .onKeyPress(.return) { expandDescription(fromKeyboard: true); return .handled }
-                .onKeyPress(.space) { expandDescription(fromKeyboard: true); return .handled }
-            }
-        }
-        .padding(.horizontal)
-        .padding(.top, Theme.Spacing.row)
     }
 
     private func expandDescription(fromKeyboard: Bool = false) {
@@ -632,7 +551,7 @@ struct ReleaseDetailView: View {
     private func relatedSection(_ release: Release, releases: [Release]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             SectionHeader(title: "Связанные релизы") {
-                if let related = release.related {
+                if release.hasMoreRelatedReleases, let related = release.related {
                     NavigationLink("Показать все") {
                         RelatedReleasesView(related: related, viewer: viewer, context: .release(release.id))
                     }
@@ -640,7 +559,7 @@ struct ReleaseDetailView: View {
                 }
             }
             VStack(spacing: Theme.Spacing.row) {
-                ForEach(releases.prefix(3)) { item in
+                ForEach(releases) { item in
                     NavigationLink {
                         ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
                     } label: {
@@ -694,9 +613,6 @@ struct ReleaseDetailView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
-            .sheet(isPresented: $isShowingCollectionPicker) {
-                AddToCollectionSheet(releaseID: release.id, viewer: viewer)
-            }
         }
     }
 
@@ -843,15 +759,8 @@ struct RelatedReleaseRow: View {
                             Image(systemName: "star.fill").font(.ax(.caption2)).foregroundStyle(.secondary)
                         }
                     }
-                    if let category = release.category?.name {
-                        Text(category)
-                            .font(.ax(.caption))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color.primary.opacity(0.08), in: Capsule())
-                            .foregroundStyle(.secondary)
-                    }
                 }
+                ReleaseMetadataBadges(release: release)
             }
             Spacer(minLength: 0)
         }

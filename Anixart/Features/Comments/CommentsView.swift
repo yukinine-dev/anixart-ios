@@ -183,9 +183,8 @@ struct CommentsView: View {
         .background(.bar)
     }
 
-    /// Up- or down-votes a comment. `vote` is 1 or -1, and repeating the same
-    /// vote clears it, which is what the Android arrows do.
-    private func vote(_ comment: ReleaseComment, _ vote: Int) async {
+    /// The server toggles repeated `1` / `2` requests, as the Android arrows do.
+    private func vote(_ comment: ReleaseComment, _ vote: CommentVote) async {
         guard hasCurrentViewer, !votingIDs.contains(comment.id), comment.isDeleted != true, comment.canLike != false else { return }
         guard let account = composer.viewer?.account else {
             env.session.promptSignIn()
@@ -195,9 +194,8 @@ struct CommentsView: View {
         actionError = nil
         let list = paginator
         defer { votingIDs.remove(comment.id) }
-        let value = (comment.vote ?? 0) == vote ? 0 : vote
         do {
-            try await env.session.sendConfirmedAccountRequest(CommentEndpoints.vote(commentID: comment.id, vote: value), for: account)
+            try await env.session.sendConfirmedAccountRequest(CommentEndpoints.vote(commentID: comment.id, vote: vote), for: account)
             await list?.reload()
         } catch {
             if hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) { actionError = Paginator<Release>.message(for: error) }
@@ -227,7 +225,7 @@ struct CommentRow: View {
     let comment: ReleaseComment
     var showsRelease = false
     var onReply: (() -> Void)?
-    var onVote: ((Int) -> Void)?
+    var onVote: ((CommentVote) -> Void)?
     var onOpenReplies: (() -> Void)?
     var isVoting = false
     var actionsEnabled = true
@@ -322,9 +320,10 @@ struct CommentRow: View {
     private var voteControls: some View {
         HStack(spacing: 14) {
             Button {
-                onVote?(-1)
+                onVote?(.negative)
             } label: {
-                Image(systemName: "chevron.down").foregroundStyle(.secondary)
+                Image(systemName: "chevron.down")
+                    .foregroundStyle(CommentVote.negative.isSelected(currentVote: comment.vote) ? Theme.newBadge : Color.secondary)
             }
             .buttonStyle(.plain)
             .disabled(!actionsEnabled || onVote == nil || isVoting || comment.isDeleted == true || comment.canLike == false)
@@ -335,9 +334,10 @@ struct CommentRow: View {
                 .foregroundStyle(voteColor)
 
             Button {
-                onVote?(1)
+                onVote?(.positive)
             } label: {
-                Image(systemName: "chevron.up").foregroundStyle(.secondary)
+                Image(systemName: "chevron.up")
+                    .foregroundStyle(CommentVote.positive.isSelected(currentVote: comment.vote) ? Theme.listColor(.watching) : Color.secondary)
             }
             .buttonStyle(.plain)
             .disabled(!actionsEnabled || onVote == nil || isVoting || comment.isDeleted == true || comment.canLike == false)
@@ -345,11 +345,9 @@ struct CommentRow: View {
     }
 
     private var voteColor: Color {
-        switch comment.vote ?? 0 {
-        case 1...: return Theme.listColor(.watching)
-        case ..<0: return Theme.newBadge
-        default: return (comment.voteCount ?? 0) > 0 ? Theme.listColor(.watching) : .secondary
-        }
+        if CommentVote.positive.isSelected(currentVote: comment.vote) { return Theme.listColor(.watching) }
+        if CommentVote.negative.isSelected(currentVote: comment.vote) { return Theme.newBadge }
+        return (comment.voteCount ?? 0) > 0 ? Theme.listColor(.watching) : .secondary
     }
 }
 

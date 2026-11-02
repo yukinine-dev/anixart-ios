@@ -140,7 +140,11 @@ struct RelatedReleasesView: View {
                     ReleaseListRow(release: release, style: .plain, showsSeasonAndCategory: true) { actionTarget = release }
                         .onTapGesture { opened = release }
                         .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                        .listRowBackground(FranchiseConnectionLine(
+                            visible: context.showsFranchiseHeader,
+                            first: paginator.items.first?.id == release.id,
+                            last: paginator.items.last?.id == release.id && !paginator.hasMore
+                        ))
                         .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 12))
                 }
             }

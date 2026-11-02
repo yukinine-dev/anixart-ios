@@ -38,7 +38,7 @@ final class ModelDecodingTests: XCTestCase {
         // 64 of 64 is a finished run, so the APK prints the total alone.
         XCTAssertEqual(release.episodeProgressText, "64 эп")
         XCTAssertEqual(release.seasonAndYear, "весна 2009")
-        XCTAssertEqual(release.ageRatingText, "16+")
+        XCTAssertEqual(release.ageRatingText, "12+")
         XCTAssertEqual(release.ratingText, "4.9")
         XCTAssertEqual(release.listStatus, .watching)
         XCTAssertFalse(release.isPlaybackUnavailable)

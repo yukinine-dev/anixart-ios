@@ -77,13 +77,12 @@ struct ReleaseListRow: View {
                 }
 
                 if showsSeasonAndCategory {
-                    HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
                         if let season = release.seasonAndYear {
-                            Text(release.year?.isEmpty == false ? "\(season) г." : season)
+                            ReleaseMetadataBadge(text: release.year?.isEmpty == false ? "\(season) г." : season)
                         }
-                        if let category = release.category?.name, !category.isEmpty { Text(category) }
+                        ReleaseMetadataBadges(release: release)
                     }
-                    .font(.ax(.caption)).foregroundStyle(.secondary)
                 }
 
                 if showsWatchHistory {
