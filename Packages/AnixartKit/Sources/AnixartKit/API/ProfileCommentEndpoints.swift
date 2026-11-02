@@ -36,6 +36,14 @@ public enum ProfileCommentEndpoints {
 }
 
 public enum ArticleEndpoints {
+    public static func hide(id: Int) -> Endpoint<StatusResponse> {
+        Endpoint(path: "article/mute/\(id)", auth: .required)
+    }
+
+    public static func unhide(id: Int) -> Endpoint<StatusResponse> {
+        Endpoint(path: "article/unmute/\(id)", auth: .required)
+    }
+
     public static func article(id: Int) -> Endpoint<ArticleResponse> {
         Endpoint(path: "article/\(id)")
     }

@@ -109,13 +109,19 @@ struct ProfileActivitySection: View {
                         ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
                     } label: {
                         HStack(spacing: 16) {
-                            ReleasePoster(url: release.posterURL, width: 52)
+                            ReleasePoster(url: release.posterURL, width: 48, aspectRatio: 2.0 / 3.0)
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(release.displayTitle).font(.ax(.subheadline)).foregroundStyle(.primary).lineLimit(2)
-                                Text(historySubtitle(release)).font(.ax(.subheadline)).foregroundStyle(.secondary)
+                                if let subtitle = ReleaseHistoryMetadata.subtitle(release) {
+                                    Text(subtitle)
+                                        .font(.ax(.subheadline))
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
                             }
                             Spacer(minLength: 0)
                         }
+                        .contentShape(Rectangle())
                         .padding(.horizontal)
                     }
                     .buttonStyle(.plain)
@@ -132,10 +138,6 @@ struct ProfileActivitySection: View {
         }
     }
 
-    private func historySubtitle(_ release: Release) -> String {
-        [release.lastViewEpisodeName, Format.relativeDate(release.lastViewedDate)]
-            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " • ")
-    }
 }
 
 struct ProfileWatchChart: View {

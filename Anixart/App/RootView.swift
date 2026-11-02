@@ -8,8 +8,30 @@ struct RootView: View {
     @AppStorage(DeviceAppearancePreferenceKey.colorScheme) private var colorScheme = AppColorSchemePreference.system.rawValue
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
 
-    enum Tab: Hashable {
-        case home, discover, catalog, bookmarks, profile
+    enum Tab: Hashable, CaseIterable {
+        // The original app has exactly these five root tabs; catalogue browsing
+        // belongs to Home/search/filter routes, never to an additional root tab.
+        case home, discover, bookmarks, feed, profile
+
+        var title: String {
+            switch self {
+            case .home: return "Главная"
+            case .discover: return "Обзор"
+            case .bookmarks: return "Закладки"
+            case .feed: return "Лента"
+            case .profile: return "Профиль"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .home: return "house"
+            case .discover: return "safari"
+            case .bookmarks: return "bookmark"
+            case .feed: return "rectangle.topthird.inset.filled"
+            case .profile: return "person.crop.circle"
+            }
+        }
     }
 
     var body: some View {
@@ -46,26 +68,22 @@ struct RootView: View {
 
     private var tabs: some View {
         TabView(selection: $selection) {
-            HomeView()
-                .tabItem { Label("Главная", systemImage: "house") }
-                .tag(Tab.home)
+            ForEach(Tab.allCases, id: \.self) { tab in
+                tabContent(tab)
+                    .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                    .tag(tab)
+            }
+        }
+    }
 
-            DiscoverView()
-                .tabItem { Label("Обзор", systemImage: "square.grid.2x2") }
-                .tag(Tab.discover)
-
-            CatalogView()
-                .tabItem { Label("Каталог", systemImage: "magnifyingglass") }
-                .tag(Tab.catalog)
-
-            BookmarksView()
-                .tabItem { Label("Закладки", systemImage: "bookmark") }
-                .tag(Tab.bookmarks)
-
-            ProfileTabView()
-                .tabItem { Label("Профиль", systemImage: "person.crop.circle") }
-                .tag(Tab.profile)
-                .badge(env.session.unreadNotifications)
+    @ViewBuilder
+    private func tabContent(_ tab: Tab) -> some View {
+        switch tab {
+        case .home: HomeView()
+        case .discover: DiscoverView()
+        case .bookmarks: BookmarksView()
+        case .feed: FeedView()
+        case .profile: ProfileTabView().badge(env.session.unreadNotifications)
         }
     }
 }
@@ -79,7 +97,7 @@ struct RootView: View {
 enum LaunchScreen: Equatable {
     case home
     case profile
-    case catalog
+    case feed
     case release(Int)
     /// `release` with no id: the smoke test does not know a live release id, so
     /// the app asks the server for one.
@@ -101,7 +119,9 @@ enum LaunchScreen: Equatable {
         let value = arguments[index + 1]
         switch value {
         case "profile": return .profile
-        case "catalog": return .catalog
+        case "feed": return .feed
+        // Retire the old diagnostic route without resurrecting a nonexistent tab.
+        case "catalog": return .home
         case "release": return .randomRelease
         // «Киберпанк: Бегущие по краю», the release the CI probe showed lists an
         // AniLibria hosting.
@@ -124,7 +144,7 @@ enum LaunchScreen: Equatable {
     var tab: RootView.Tab {
         switch self {
         case .profile: return .profile
-        case .catalog: return .catalog
+        case .feed: return .feed
         default: return .home
         }
     }

@@ -41,6 +41,7 @@ final class Paginator<Item: Identifiable & Codable & Sendable> {
     }
 
     var isLoadingFirstPage: Bool { state == .loading && items.isEmpty }
+    var hasLoaded: Bool { hasLoadedFirstPage }
     var isEmpty: Bool { items.isEmpty && state == .idle && !hasMore }
 
     var errorMessage: String? {

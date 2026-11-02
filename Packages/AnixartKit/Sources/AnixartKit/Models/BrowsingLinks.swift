@@ -70,11 +70,13 @@ private enum BrowsingLinkValue {
 extension Related {
     public var displayName: String { (nameRu?.isEmpty == false ? nameRu : nil) ?? "Франшиза" }
 
+    /// The wide artwork on the franchise destination, not a release poster.
+    public var bannerURL: URL? { AnixartURL.image(image) }
+
     public var posterURLs: [URL] {
         var seen = Set<URL>()
         let urls = (images ?? []).compactMap { AnixartURL.image($0) }
-        let candidates = urls.isEmpty ? [AnixartURL.image(image)].compactMap { $0 } : urls
-        return candidates.filter { seen.insert($0).inserted }
+        return urls.filter { seen.insert($0).inserted }
     }
 
     public var releaseCountText: String? {

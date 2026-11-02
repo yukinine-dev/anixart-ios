@@ -148,6 +148,11 @@ public struct FilterRequest: Codable, Hashable, Sendable {
         if request.genres == nil {
             request.genresMode = nil
             request.isGenresExcludeModeEnabled = nil
+        } else if request.genresMode == GenresMode.exclude.rawValue || request.isGenresExcludeModeEnabled == true {
+            request.genresMode = GenresMode.exclude.rawValue
+            request.isGenresExcludeModeEnabled = true
+        } else {
+            request.isGenresExcludeModeEnabled = nil
         }
         return request
     }

@@ -34,6 +34,18 @@ enum Format {
         return dayMonthYear.string(from: date)
     }
 
+    /// Absolute watch-history date, including the year and local 24-hour time.
+    /// Never turns an old entry into "месяц назад" or a current entry into "сегодня".
+    static func dateTime(_ date: Date?, timeZone: TimeZone = .autoupdatingCurrent) -> String? {
+        guard let date else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "d MMM yyyy 'в' HH:mm"
+        return formatter.string(from: date)
+    }
+
     /// `1:23:45` or `4:05`, for player positions.
     static func duration(_ seconds: TimeInterval) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }

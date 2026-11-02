@@ -26,10 +26,11 @@ struct FilteredReleasesView: View {
             ProfileViewerNotice(viewer: viewer)
             if viewer == env.session.viewerKey, let model, model.hasCurrentViewer {
                 PaginatedContent(paginator: model.paginator, emptyTitle: "Ничего не найдено", emptyMessage: "Попробуйте изменить фильтры") { release in
-                    ReleaseListRow(release: release) { actionTarget = release }
+                    ReleaseListRow(release: release, style: .plain) { actionTarget = release }
                         .onTapGesture { opened = release }
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 12))
                 }
             }
         }

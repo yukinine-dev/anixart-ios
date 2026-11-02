@@ -52,6 +52,24 @@ streaming blocks. Permission/audio and gallery lifecycle regressions use injecte
 mocks, never a real microphone. Native permission dialogs, speech availability,
 audio restoration and gallery gestures still need iOS runtime verification.
 
+The search/bookmarks follow-up uses saved screenshots and compiled layouts from
+the original Android app: an always-visible native search field, full-pill hit
+area, centred franchise suggestion, outlined full-filter controls and original
+wide bookmark rows. Bookmarks occupy the third slot and default to Favourites
+unless explicitly configured otherwise. Recent viewing shows the embedded episode
+when the flat label is absent, with an absolute local date and time. Added offline
+regressions still require a fresh macOS build/XCTest run; Windows syntax checks
+do not verify these layouts or touch behaviour on iOS.
+
+The root tabs are **Главная / Обзор / Закладки / Лента / Профиль**. There is no
+separate Catalogue tab. Feed browsing now has My feed, Fresh and Managed sections,
+period/channel filters, paged channel/blog/article search and native post/media,
+comment, voter and repost routes. Fresh/personal feeds require login (confirmed by
+anonymous API `code: 401`); feed search is public. Blog subscription uses the APK's
+friend-request route with an explicit explanation, not a channel-subscribe write.
+Publishing/editing posts and channels remains unimplemented. The added feed tests
+and Windows syntax checks still need a fresh macOS build and iOS runtime checks.
+
 Alongside the run, these were checked mechanically:
 
 - all 92 endpoint paths were diffed against the 296 Retrofit annotations extracted
@@ -114,7 +132,7 @@ Packages/AnixartKit/          platform-agnostic core — no SwiftUI, unit-testab
   Models/Generated/           60 Codable types generated from the APK's @JsonProperty data
   Models/                     enums, request bodies, display helpers, polymorphic notifications
   Networking/                 AnixartClient (actor), Endpoint, errors, keychain token store
-  API/                        92 typed endpoints grouped by area
+  API/                        typed endpoints grouped by area
 Anixart/                      the iOS app
   App/                        entry point, DI container, session, root tabs
   Features/                   one folder per screen area
@@ -143,16 +161,18 @@ are confirmed versus inferred.
 
 Implemented: the Главная tabs (four-field Моя вкладка plus the eight catalogue presets),
 explicit device-local default-tab selection, discover feed and its five browsing shortcuts,
-catalogue with the full filter, paginated release search with franchise results, release detail,
+the full filter and paginated release search with franchise results, release detail,
 explicit native voice search, full-screen screenshots, source-material search,
 the video hub and categories, voice-over/source/episode drill-down, playback (native and embedded), watch lists, favourites,
 history, collections, comments, profiles, friends, schedule, notifications, email sign-in and
 registration. Profiles include the six privacy-filtered sections, editor/account-health flows,
 badge categories and pin markers, whole-section themes, native JSON badge animations and
 explicit Save/Cancel ordering. Recent badge history is account-scoped and sent as CSV.
+The Feed tab includes personal/fresh posts, managed-channel browsing, channel/blog
+search and scoped subscription/voting/hide actions; no post is published on opening it.
 
 Not implemented: social sign-in/binding (needs the VK/Google/Telegram/Yandex SDKs and registered
-iOS client IDs), the global articles/channels feed, collection and article editing,
+iOS client IDs), collection, article and channel creation/editing,
 broader moderator tooling, push notifications, downloads and the Torlook torrent search.
 Existing profile blogs and typed report forms are implemented. `docs/PORTING.md` has the
 full matrix and the remaining verification limits.

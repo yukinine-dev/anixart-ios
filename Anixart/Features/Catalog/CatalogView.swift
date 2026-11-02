@@ -25,6 +25,7 @@ struct CatalogView: View {
                     get: { model?.query ?? "" },
                     set: { model?.query = $0 }
                 ),
+                placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Название аниме"
             )
             .toolbar {
@@ -131,21 +132,16 @@ struct RelatedReleasesView: View {
             ProfileViewerNotice(viewer: viewer)
             if viewer == env.session.viewerKey, let paginator {
                 if context.showsFranchiseHeader {
-                    Section {
-                        Text(related.displayName).font(.ax(.title2, .bold))
-                        if let description = related.description, !description.isEmpty {
-                            Text(description).font(.ax(.subheadline)).textSelection(.enabled)
-                        }
-                        if let count = related.releaseCountText {
-                            Text(count).font(.ax(.caption)).foregroundStyle(.secondary)
-                        }
-                    }
+                    RelatedFranchiseHeader(related: related)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                 }
                 PaginatedContent(paginator: paginator, emptyTitle: "Нет связанных релизов") { release in
-                    ReleaseListRow(release: release, showsSeasonAndCategory: true) { actionTarget = release }
+                    ReleaseListRow(release: release, style: .plain, showsSeasonAndCategory: true) { actionTarget = release }
                         .onTapGesture { opened = release }
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 12))
                 }
             }
         }

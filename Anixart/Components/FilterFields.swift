@@ -1,4 +1,5 @@
 import SwiftUI
+import AnixartKit
 
 /// The filter controls the Android "Настройки вкладки" screen uses: a labelled box
 /// showing the current value, or «Неважно» when nothing is chosen, which opens the
@@ -40,7 +41,7 @@ struct FilterValueLabel: View {
     var body: some View {
         HStack {
             Text(value ?? placeholder)
-                .foregroundStyle(value == nil ? .secondary : .primary)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Image(systemName: "chevron.down")
@@ -50,8 +51,8 @@ struct FilterValueLabel: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 13)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.3), lineWidth: 1)
         )
         .contentShape(Rectangle())
     }
@@ -79,12 +80,13 @@ struct SingleChoiceField<Option: Hashable & Identifiable>: View {
     let options: [Option]
     let label: (Option) -> String
     @Binding var selection: Option?
+    var allowsEmpty = true
 
     var body: some View {
         FilterFieldBox(title: title, footnote: footnote) {
             Menu {
                 Picker(title, selection: $selection) {
-                    Text("Неважно").tag(Option?.none)
+                    if allowsEmpty { Text("Неважно").tag(Option?.none) }
                     ForEach(options) { option in
                         Text(label(option)).tag(Option?.some(option))
                     }
@@ -177,7 +179,7 @@ struct SearchableChoiceList<Option: Hashable & Identifiable>: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $query, prompt: "Поиск")
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Поиск")
     }
 }
 
@@ -190,6 +192,7 @@ struct MultiChoiceField<Option: Hashable & Identifiable>: View {
     let options: [Option]
     let label: (Option) -> String
     @Binding var selection: [Option]
+    var showsSearch = false
 
     private var summary: String? {
         guard let first = selection.first else { return nil }
@@ -201,7 +204,7 @@ struct MultiChoiceField<Option: Hashable & Identifiable>: View {
     var body: some View {
         FilterFieldBox(title: title, footnote: footnote) {
             NavigationLink {
-                MultiChoiceList(title: title, options: options, label: label, selection: $selection)
+                MultiChoiceList(title: title, options: options, label: label, selection: $selection, showsSearch: showsSearch)
             } label: {
                 FilterValueLabel(value: summary)
             }
@@ -216,10 +219,34 @@ struct MultiChoiceList<Option: Hashable & Identifiable>: View {
     let options: [Option]
     let label: (Option) -> String
     @Binding var selection: [Option]
+    var showsSearch = false
+    @State private var query = ""
+
+    private var filtered: [Option] {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? options : options.filter { label($0).localizedCaseInsensitiveContains(text) }
+    }
 
     var body: some View {
+        Group {
+            if showsSearch {
+                list.searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Поиск")
+            } else { list }
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !selection.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Сбросить") { selection.removeAll() }
+                }
+            }
+        }
+    }
+
+    private var list: some View {
         List {
-            ForEach(options) { option in
+            ForEach(filtered) { option in
                 Button {
                     toggle(option)
                 } label: {
@@ -233,15 +260,6 @@ struct MultiChoiceList<Option: Hashable & Identifiable>: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-            }
-        }
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if !selection.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Сбросить") { selection.removeAll() }
-                }
             }
         }
     }
@@ -263,6 +281,7 @@ struct GroupedMultiChoiceField: View {
     var footnote: String?
     let groups: [(title: String, options: [String])]
     @Binding var selection: [String]
+    var matchingMode: Binding<GenresMode>? = nil
 
     private var summary: String? {
         guard let first = selection.first else { return nil }
@@ -272,7 +291,7 @@ struct GroupedMultiChoiceField: View {
     var body: some View {
         FilterFieldBox(title: title, footnote: footnote) {
             NavigationLink {
-                GroupedMultiChoiceList(title: title, groups: groups, selection: $selection)
+                GroupedMultiChoiceList(title: title, groups: groups, selection: $selection, matchingMode: matchingMode)
             } label: {
                 FilterValueLabel(value: summary)
             }
@@ -286,11 +305,22 @@ struct GroupedMultiChoiceList: View {
     let title: String
     let groups: [(title: String, options: [String])]
     @Binding var selection: [String]
+    var matchingMode: Binding<GenresMode>? = nil
 
     @State private var query = ""
 
     var body: some View {
         List {
+            if let matchingMode {
+                Section {
+                    Picker("Режим подбора", selection: matchingMode) {
+                        ForEach(GenresMode.allCases, id: \.rawValue) { mode in
+                            Text(mode.shortTitle).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } footer: { Text(matchingMode.wrappedValue.hint) }
+            }
             ForEach(groups, id: \.title) { group in
                 let options = matching(group.options)
                 if !options.isEmpty {
@@ -316,7 +346,7 @@ struct GroupedMultiChoiceList: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $query, prompt: "Поиск")
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Поиск")
         .toolbar {
             if !selection.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -363,7 +393,7 @@ struct TextFilterField: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 13)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
                 )
         }
@@ -393,7 +423,7 @@ struct YearRangeField: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 13)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
             )
         }

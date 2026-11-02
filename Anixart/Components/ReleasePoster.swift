@@ -1,15 +1,16 @@
 import SwiftUI
 import AnixartKit
 
-/// A release poster at Anixart's 3:4 ratio, with a placeholder that keeps the
-/// layout from jumping while the image loads.
+/// A poster with a size-preserving placeholder. Grids retain their default ratio;
+/// original wide rows and franchise suggestions explicitly request 2:3.
 @MainActor
 struct ReleasePoster: View {
     let url: URL?
     var width: CGFloat = Theme.Poster.gridWidth
     var cornerRadius: CGFloat = Theme.Poster.cornerRadius
+    var aspectRatio: CGFloat = Theme.Poster.aspectRatio
 
-    private var height: CGFloat { width / Theme.Poster.aspectRatio }
+    private var height: CGFloat { width / aspectRatio }
 
     var body: some View {
         CachedAsyncImage(url: url, maxPixelSize: width * 2) { image in

@@ -131,11 +131,23 @@ extension Release {
 
     /// "Продолжить: Серия 4 (AniLibria)" for a release already in progress.
     public var continueWatchingText: String? {
-        guard let episodeName = lastViewEpisodeName, !episodeName.isEmpty else { return nil }
-        if let typeName = lastViewEpisodeTypeName, !typeName.isEmpty {
+        guard let episodeName = lastViewedEpisodeText else { return nil }
+        if let typeName = lastViewEpisodeTypeName?.trimmingCharacters(in: .whitespacesAndNewlines), !typeName.isEmpty {
             return "\(episodeName) · \(typeName)"
         }
         return episodeName
+    }
+
+    /// Profile previews may return the embedded episode without the flat history
+    /// label. Do not confuse its position with the release's total episode count.
+    public var lastViewedEpisodeText: String? {
+        for candidate in [lastViewEpisodeName, lastViewEpisode?.name] {
+            if let text = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                return text
+            }
+        }
+        if let position = lastViewEpisode?.position, position > 0 { return "\(position) серия" }
+        return nil
     }
 
     public var lastViewedDate: Date? {

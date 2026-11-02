@@ -190,6 +190,7 @@ struct HomeSearchView: View {
         }
         .searchable(
             text: Binding(get: { model?.query ?? "" }, set: { model?.query = $0 }),
+            placement: .navigationBarDrawer(displayMode: .always),
             prompt: "Поиск аниме"
         )
         .task(id: env.session.viewerKey) {

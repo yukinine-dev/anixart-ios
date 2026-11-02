@@ -45,7 +45,7 @@ struct PaginatedContent<Item: Identifiable & Codable & Sendable, Row: View>: Vie
     @ViewBuilder var row: (Item) -> Row
 
     var body: some View {
-        if paginator.isLoadingFirstPage {
+        if paginator.isLoadingFirstPage || (!paginator.hasLoaded && paginator.errorMessage == nil) {
             ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
         } else if let error = paginator.errorMessage, paginator.items.isEmpty {
             StatusMessageView(

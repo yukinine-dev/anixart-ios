@@ -57,10 +57,11 @@ user's place.
 |---|---|---|
 | Главная | tab strip, nine tabs | Моя вкладка has its separate four-field device-local settings (country, category, genres, excluded lists), plus the eight APK filter presets. tabSettings exposes default selection and custom settings; ordinary switching never rewrites the launch default. Long-press remains an additional default shortcut |
 | Discover | обзор feed and browsing shortcuts | banners, Обсуждаемое сегодня with daily comment counts, continue watching, recommendations and comments of the week; blocks load concurrently. Partial refresh failures keep existing data and expose retry. Popular, Schedule, Collections, Filter and Random routes use existing typed endpoints |
-| Catalogue | browse, full filter, search, native voice input | full `FilterRequest`: sort, country, studio, source material, category, status, season, years, episode count/duration, age rating, genres with all three match modes, voice-over, excluded account lists. Release search pages by the APK's raw 25-item rule, preserves page-zero franchise metadata and exposes same-page retry. Voice input is explicit, permission-aware and scoped to the current query/viewer/scene |
+| Search/filter | full filter, search, native voice input | browsing stays under Home/Discover/search, with no Catalogue root tab. Full `FilterRequest`: sort, country, studio, source material, category, status, season, years, episode count/duration, age rating, genres with all three match modes, voice-over, excluded account lists. Release search pages by the APK's raw 25-item rule, preserves page-zero franchise metadata and exposes same-page retry. Voice input is explicit, permission-aware and scoped to the current query/viewer/scene |
 | Release | detail, titles, video hub/categories, streaming platforms, collections | poster over its own blurred backdrop, the list/bookmark/comments row, Воспроизвести with the last added episode under it, the icon fact lines, genre and source-material search links, description with Подробнее, Видео banners and full hub, rating histogram with star voting, В списках у людей, full-screen Кадры, Связанные релизы, the collection links, Рекомендуем также and the comment preview |
 | Playback | "Выберите вариант", episode list, player | the voice-over list with the Все/Озвучки/Субтитры filter, episode and view counts, and the СУБТИТРЫ and НОВИНКА badges; then the hosting picker and episodes. `AVPlayer` for direct URLs, `WKWebView` for `iframe` episodes; watched marks, resume, progress reporting |
-| Bookmarks | 8 tabs | collections, history, favourites and the five watch lists, with the sort order the Android app offers |
+| Bookmarks | 8 tabs | third root-tab slot; collections, history, favourites and the five watch lists. Defaults to favourites, preserving explicit device preferences. Original wide rows and sort orders; account-scoped reads and acknowledged history removal |
+| Feed | My feed, Fresh, Managed, search | original fourth root-tab slot; period/channel filtering, independent channel/blog/article search envelopes, paginated posts and channel lists. Native article/media/comments/voters/reposts routes; explicit acknowledged channel subscriptions, blog friend requests, votes and hide actions |
 | Collections | favourites list, detail | bookmark/unbookmark, paginated releases |
 | Comments | list, thread, composer | sorting, spoiler reveal, replies, up/down voting, posting with the spoiler flag |
 | Profile | own and others, editor, account health, lists, votes, friends, user search | six privacy-filtered sections, installed nickname badge, grouped friend requests, existing blog/cover reads independent of creation reputation, typed reports and independent full/reply comment sorts |
@@ -74,7 +75,7 @@ user's place.
 | Area | Why |
 |---|---|
 | Social sign-in (VK, Google, Telegram, Yandex) | needs each provider's SDK and the original app's registered client IDs and redirect URIs, which are not recoverable from the APK in a usable form. The endpoints are in `AuthEndpoints` and `SessionController` already has the methods — only the token acquisition is missing. |
-| Global articles/channels feed and publishing | existing profile blogs, article blocks, galleries, comments, voters and repost lists are readable. The block editor/media-token bridge, publishing flow and global feed remain separate work. |
+| Article/channel publishing and editing | global/personal feed and existing profile blogs are readable. The native block editor/media-token bridge, post publishing and channel editor remain separate work; managed-channel browsing is not presented as a finished admin editor. |
 | Creating and editing collections | needs multipart image upload |
 | Broader moderator tooling | typed profile/comment/article/collection report forms and account-health screens exist; broader channel/admin controls are not covered by the profile port |
 | Push notifications | `auth/firebase` is wrapped, but APNs needs a server-side counterpart; Anixart's push goes through FCM and AppMetrica |
@@ -195,6 +196,94 @@ Native permission prompts, speech availability, audio hand-back, full layouts,
 gallery gestures/rotation, Dynamic Type and physical-iOS behaviour remain unverified.
 The new offline suites require a fresh macOS build/XCTest; Windows parsing and
 Android static/text observations do not establish complete Android/iOS parity.
+
+### Search/bookmarks corrections (2 Nov 2026)
+
+This pass additionally inspected the saved **original Android screenshots**, not
+the reconstructed Figma export, and the APK's compiled layouts. `item_search_related`
+uses an 86×129 centre poster and two 64×96 side posters; `Related.images` supplies
+these, while `Related.image` is the separate 20:9 destination banner. Suggestions
+are centred, with the release count and a 200-wide capsule action; neither a row
+disclosure chevron nor a small horizontal poster strip replaces that block.
+
+The full filter follows `fragment_filter`: country, category, genres, excluded
+lists, voice-over variants, studio, source, paired years/season and episodes/status,
+duration, age rating, sort. Choices collapse to outlined fields and Reset/Apply
+stay below the scroll. Genre selection retains all three modes and the APK's
+labels/hints; the mode and legacy exclusion flag normalize together. Clearing the
+last genre removes both keys. Years have a separate Apply/Cancel range editor.
+Reset is explicit and keeps the cleared form open. None of this adds filter keys
+to a title-search request or alters the Home custom-tab preference.
+
+Both release-search entries request `.navigationBarDrawer(displayMode: .always)`;
+the Home/Discover search pill has an explicit capsule hit shape over its entire
+padded frame. Bookmarks occupy the third root-tab slot; the subsequent Feed pass
+removes the incorrect extra Catalogue tab. The eight inner tabs keep their APK order, scroll to
+the selected favourite/default and use an underline, not filled chips. Default
+selection is favourites for absent/invalid preferences; a user's explicit choice
+is not migrated or overwritten. Wide rows follow the original 104×156 poster,
+metadata, excerpt and overflow layout rather than the compact subtitle/status row.
+
+Recent viewing reads the flat episode label or the embedded episode's name/positive
+position; it never infers the viewed episode from the release's total count. Its
+date is absolute (`d MMM yyyy в HH:mm`) in the device's current time zone, including
+for today's entries. Missing metadata is omitted without empty separators or an
+invented series. History rows in bookmarks also include the episode and exact time.
+Their requests retain the opening viewer, paginate by the APK's raw 25-item rule,
+and require an explicit successful deletion before rebasing positional pages.
+
+`ReleaseHistoryContractTests`, `SearchBookmarksPresentationTests` and
+`BookmarkReleaseListTests` add offline regressions for these data/default/filter
+contracts and stale account/page responses. They do not click a native search
+drawer or measure touch coverage. This revision still needs fresh macOS
+typechecking/XCTest and iOS checks for repeated search navigation, scrolling,
+keyboard dismissal, filter sheets, both themes and Dynamic Type.
+
+### Feed/root-tab correction pass (2 Nov 2026)
+
+The root is exactly Home, Discover, Bookmarks, Feed, Profile. The old diagnostic
+`catalog` argument returns Home instead of reviving a sixth/incorrect root screen.
+Saved original phone screenshots confirm My feed, Fresh and the Managed icon,
+full-width article blocks and separate channel/blog search carousels. Existing
+Figma exports predate this pass and must not be used as the current/original UI.
+
+Static APK and live read-only checks distinguish several easily confused contracts:
+
+- Feed My/Fresh posts and article search use the **raw 25** boundary. Subscriptions
+  and recommendation lists use **30**; managed channels and channel search use 25.
+- `FeedSearchResponse` nests separate `PageableResponse` values in `channels`,
+  `blogs`, `articles`, `tags`. Their counts are not interchangeable. Preview groups
+  retain page-zero metadata while article paging continues.
+- The Feed `date` query is **0 Latest, 1 24 hours, 2 Week, 3 Month, 4 Year, 5 All
+  time**, not an epoch timestamp/calendar date. The original switch and resource
+  labels were checked directly. It remains independent of release-search filters.
+- Managed browsing uses `channel/all` with `ChannelsFilterRequest`, permission=1,
+  is_blog=false, sort=1 and optional is_subscribed=true. Channel search uses a
+  different request with query and is_blog; neither body is a release search body.
+- Anonymous Fresh/latest API reads return code 401, whereas search/feed returns
+  the real nested envelopes without a token. Opening Feed shows a sign-in prompt
+  instead of silently dispatching authenticated requests or forcing an auth sheet.
+- `ArticlePresenterDelegate` sends blog subscriptions to
+  `ProfileFriendApi.requestSend(blog_profile_id)`, ordinary subscriptions to
+  ChannelApi. The iOS confirmation names the friend-request effect. Removing a
+  blog relationship stays in the author's existing explicit profile controls.
+- Fresh checks `feed/latest` (`articleId`, camelCase) in a cancellable active-scene
+  120-second task. A new-post badge never auto-scrolls/replaces visible posts.
+
+Post/media, channel/profile, comments, voters, reposts and typed article reports
+reuse the existing native routes. Mutations require an explicit code=0 and the
+opening viewer; missing acknowledgements do not update rows or invent global vote
+or subscriber totals. Supplementary article reads have per-ID generations and
+read-only retry after an acknowledged vote. Initial paginators display loading,
+not a false empty state before their first request/debounce completes.
+
+`FeedContractTests`, `FeedStateTests` and `FeedActionTests` add 33 offline methods
+covering wire shape, periods, paging, stale viewers/read responses, root order,
+blog-vs-channel actions and acknowledgements. They are not an iOS runtime test.
+This pass opened nine screenshots total in the conversation (hard cap 49), made
+three anonymous API reads, and did not operate/change the original phone account.
+Fresh macOS typechecking/XCTest, physical-iOS navigation/layout checks and the
+separate publishing/editing implementation remain required before full parity.
 
 ## Typography
 

@@ -6,7 +6,8 @@ import AnixartKit
 @MainActor
 struct BookmarksView: View {
     @Environment(AppEnvironment.self) private var env
-    @State private var tab = BookmarkTab(storageKey: UserDefaults.standard.string(forKey: DeviceAppearancePreferenceKey.defaultBookmarks) ?? "") ?? .list(.watching)
+    @State private var tab = BookmarkTab.defaultSelection(storageKey: UserDefaults.standard.string(forKey: DeviceAppearancePreferenceKey.defaultBookmarks))
+    @AppStorage(DeviceAppearancePreferenceKey.defaultBookmarks) private var defaultTab = BookmarkTab.favorites.storageKey
     @State private var sort: BookmarkSort = .addedDescending
 
     enum BookmarkTab: Hashable, CaseIterable {
@@ -40,6 +41,10 @@ struct BookmarksView: View {
             self = tab
         }
 
+        static func defaultSelection(storageKey: String?) -> BookmarkTab {
+            storageKey.flatMap { BookmarkTab(storageKey: $0) } ?? .favorites
+        }
+
         /// Only the watch lists and favourites accept a sort order.
         var supportsSorting: Bool {
             switch self {
@@ -61,6 +66,7 @@ struct BookmarksView: View {
                 }
             }
             .navigationTitle("Закладки")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if env.session.isSignedIn {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -78,32 +84,38 @@ struct BookmarksView: View {
                     }
                 }
             }
+            .onChange(of: defaultTab) { _, value in tab = BookmarkTab.defaultSelection(storageKey: value) }
         }
     }
 
     private var signedInContent: some View {
         VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(BookmarkTab.allCases, id: \.self) { candidate in
-                        Button {
-                            tab = candidate
-                        } label: {
-                            Text(candidate.title)
-                                .font(.ax(.subheadline, tab == candidate ? .medium : .regular))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(
-                                    tab == candidate ? Theme.accent.opacity(0.15) : Color.primary.opacity(0.05),
-                                    in: Capsule()
-                                )
-                                .foregroundStyle(tab == candidate ? Theme.accent : .primary)
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.Spacing.tabGap) {
+                        ForEach(BookmarkTab.allCases, id: \.self) { candidate in
+                            Button {
+                                tab = candidate
+                            } label: {
+                                VStack(spacing: 8) {
+                                    Text(candidate.title)
+                                        .font(.ax(.title3, tab == candidate ? .medium : .regular))
+                                        .foregroundStyle(tab == candidate ? .primary : .secondary)
+                                    Capsule().fill(tab == candidate ? Color.primary : .clear).frame(height: 3)
+                                }
+                                .fixedSize()
+                                .padding(.vertical, 10)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .id(candidate)
+                            .accessibilityAddTraits(tab == candidate ? [.isSelected] : [])
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.horizontal, 16)
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+                .onAppear { proxy.scrollTo(tab, anchor: .center) }
+                .onChange(of: tab) { _, selected in proxy.scrollTo(selected, anchor: .center) }
             }
 
             Divider()
@@ -127,7 +139,7 @@ struct BookmarksView: View {
 struct BookmarkReleaseList: View {
     @Environment(AppEnvironment.self) private var env
 
-    enum Kind: Hashable {
+    enum Kind: Hashable, Sendable {
         case favorites
         case history
         case list(ProfileListStatus)
@@ -136,41 +148,59 @@ struct BookmarkReleaseList: View {
     let kind: Kind
     let sort: BookmarkSort
 
-    @State private var paginator: Paginator<Release>?
+    @State private var model: BookmarkReleaseListModel?
+    @State private var opened: Release?
+    @State private var actionTarget: Release?
+
+    private var taskID: BookmarkReleaseListKey {
+        BookmarkReleaseListKey(kind: kind, sort: sort, viewer: env.session.viewerKey)
+    }
 
     var body: some View {
         List {
-            if let paginator {
+            if let model, model.hasCurrentViewer, model.kind == kind, model.sort == sort {
+                if let error = model.actionError {
+                    Text(error).font(.ax(.subheadline)).foregroundStyle(.red)
+                }
                 PaginatedContent(
-                    paginator: paginator,
+                    paginator: model.paginator,
                     emptyTitle: emptyTitle,
                     emptyMessage: emptyMessage
                 ) { release in
-                    NavigationLink {
-                        ReleaseDetailView(releaseID: release.id, preloaded: release)
-                    } label: {
-                        ReleaseRow(release: release, showContinueWatching: kind == .history)
-                    }
+                    ReleaseListRow(release: release, style: .plain, showsWatchHistory: kind == .history) { actionTarget = release }
+                    .onTapGesture { opened = release }
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 12))
                     .swipeActions(edge: .trailing) {
                         if case .history = kind {
                             Button("Убрать", role: .destructive) {
-                                Task { await removeFromHistory(release) }
+                                Task { await model.removeFromHistory(releaseID: release.id) }
                             }
+                            .disabled(model.removingIDs.contains(release.id))
                         }
                     }
                 }
             }
         }
         .listStyle(.plain)
-        .refreshable { await paginator?.reload() }
-        .task(id: taskID) {
-            paginator = makePaginator()
-            await paginator?.loadFirstPageIfNeeded()
+        .refreshable { await model?.reload() }
+        .navigationDestination(item: $opened) { release in
+            ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
         }
+        .sheet(item: $actionTarget, onDismiss: { Task { await model?.reload() } }) { release in
+            if let model { ReleaseQuickActionsSheet(release: release, viewer: model.viewer) }
+        }
+        .task(id: taskID) {
+            if model?.viewer != taskID.viewer || model?.kind != kind || model?.sort != sort {
+                model = BookmarkReleaseListModel(kind: kind, sort: sort, session: env.session)
+                opened = nil
+                actionTarget = nil
+            }
+            await model?.paginator.loadFirstPageIfNeeded()
+        }
+        .onChange(of: env.session.viewerKey) { _, _ in opened = nil; actionTarget = nil }
     }
-
-    /// Rebuilds the list whenever the tab or the sort order changes.
-    private var taskID: String { "\(kind)-\(sort.rawValue)" }
 
     private var emptyTitle: String {
         switch kind {
@@ -188,30 +218,6 @@ struct BookmarkReleaseList: View {
         }
     }
 
-    private func makePaginator() -> Paginator<Release> {
-        let client = env.client
-        let sort = self.sort
-        switch kind {
-        case .favorites:
-            return Paginator { page in
-                try await client.send(BookmarkEndpoints.favorites(page: page, sort: sort))
-            }
-        case .history:
-            return Paginator { page in
-                try await client.send(BookmarkEndpoints.history(page: page))
-            }
-        case .list(let status):
-            return Paginator { page in
-                try await client.send(BookmarkEndpoints.list(status, page: page, sort: sort))
-            }
-        }
-    }
-
-    private func removeFromHistory(_ release: Release) async {
-        guard (try? await env.client.send(BookmarkEndpoints.removeFromHistory(releaseID: release.id))) != nil
-        else { return }
-        paginator?.remove(id: release.id)
-    }
 }
 
 /// Prompt shown instead of content when a screen needs a session.

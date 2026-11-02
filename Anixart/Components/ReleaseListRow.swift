@@ -4,21 +4,49 @@ import AnixartKit
 /// The wide row the Главная tabs use (`item_release` in the APK): poster on the left,
 /// then title, the episode counter and rating on one line, and a description excerpt.
 ///
-/// Each row is its own card so the list reads as a stack of titles rather than one
-/// run of text, and the excerpt is capped at four lines so the text column stays
-/// about as tall as the poster instead of stretching the row.
+/// Home keeps its card surface. Search, franchises and bookmarks use the original
+/// plain 104×156-poster layout; history substitutes episode/time for the excerpt.
+/// Descriptions are capped at four lines.
 @MainActor
 struct ReleaseListRow: View {
+    enum Style: Equatable { case card, plain }
+
     let release: Release
+    var style: Style = .card
     var showsSeasonAndCategory = false
     var showsDailyDiscussion = false
+    var showsWatchHistory = false
     var onOverflow: (() -> Void)?
 
-    private let posterWidth: CGFloat = 96
+    private var posterWidth: CGFloat { style == .plain ? 104 : 96 }
 
+    @ViewBuilder
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            ReleasePoster(url: release.posterURL, width: posterWidth)
+        if style == .card {
+            content.padding(12).glassCard().contentShape(Rectangle())
+        } else {
+            content.contentShape(Rectangle())
+        }
+    }
+
+    private var content: some View {
+        HStack(alignment: .top, spacing: style == .plain ? 24 : 12) {
+            ReleasePoster(url: release.posterURL, width: posterWidth,
+                          cornerRadius: style == .plain ? 16 : Theme.Poster.cornerRadius,
+                          aspectRatio: style == .plain ? 2.0 / 3.0 : Theme.Poster.aspectRatio)
+                .overlay(alignment: .bottom) {
+                    if style == .plain, let status = release.listStatus {
+                        Text(status.title)
+                            .font(.ax(.caption2, .medium))
+                            .foregroundStyle(Theme.listColor(status))
+                            .lineLimit(1)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .frame(maxWidth: .infinity)
+                            .background(.black.opacity(0.75), in: Capsule())
+                            .padding(6)
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -32,9 +60,10 @@ struct ReleaseListRow: View {
                     if let onOverflow {
                         Button(action: onOverflow) {
                             Image(systemName: "ellipsis")
+                                .rotationEffect(.degrees(style == .plain ? 90 : 0))
                                 .font(.ax(.subheadline))
                                 .foregroundStyle(.secondary)
-                                .frame(width: 26, height: 26)
+                                .frame(width: style == .plain ? 44 : 26, height: style == .plain ? 44 : 26)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -57,20 +86,35 @@ struct ReleaseListRow: View {
                     .font(.ax(.caption)).foregroundStyle(.secondary)
                 }
 
-                if let description = release.description, !description.isEmpty {
+                if showsWatchHistory {
+                    if let episode = release.continueWatchingText {
+                        Label(episode, systemImage: "checkmark.circle")
+                            .labelStyle(.compact)
+                            .font(.ax(.caption))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .padding(.top, 12)
+                    }
+                    if let date = Format.dateTime(release.lastViewedDate) {
+                        Label(date, systemImage: "clock")
+                            .labelStyle(.compact)
+                            .font(.ax(.caption))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 4)
+                    }
+                } else if let description = release.description, !description.isEmpty {
                     Text(description)
                         .font(.ax(.footnote))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(style == .plain ? .tertiary : .secondary)
                         .lineLimit(4)
+                        .lineSpacing(style == .plain ? 3 : 0)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
             Spacer(minLength: 0)
         }
-        .padding(12)
-        .glassCard()
-        .contentShape(Rectangle())
     }
 
     /// `154 из ? эп • 2.6★`, the way the Android row reads.
@@ -79,7 +123,7 @@ struct ReleaseListRow: View {
         let episodes = release.episodeProgressText
         let rating = release.ratingText
 
-        if episodes != nil || rating != nil {
+        if episodes != nil || rating != nil || (style == .plain && release.isFavorite == true) {
             HStack(spacing: 5) {
                 if let episodes {
                     Text(episodes)
@@ -92,7 +136,12 @@ struct ReleaseListRow: View {
                         Text(rating).monospacedDigit()
                         Image(systemName: "star.fill").font(.system(size: 9))
                     }
-                    .foregroundStyle(Theme.ratingColor(release.ratingValue ?? 0))
+                    .foregroundStyle(style == .plain ? Color.secondary : Theme.ratingColor(release.ratingValue ?? 0))
+                }
+                if style == .plain, release.isFavorite == true {
+                    Image(systemName: "heart.fill")
+                        .font(.ax(.caption))
+                        .foregroundStyle(.yellow)
                 }
             }
             .font(.ax(.subheadline))

@@ -126,6 +126,23 @@ public enum GenresMode: Int, Codable, CaseIterable, Sendable {
         case .exclude: return "Исключить выбранные"
         }
     }
+
+    /// The original genre selector's labels and explanatory text.
+    public var shortTitle: String {
+        switch self {
+        case .all: return "Все выбранные"
+        case .any: return "Хотя бы один"
+        case .exclude: return "Без выбранных"
+        }
+    }
+
+    public var hint: String {
+        switch self {
+        case .all: return "Покажем релизы со всеми выбранными жанрами. Для точного результата выбирайте не больше 2–3 жанров."
+        case .any: return "Покажем релизы хотя бы с одним выбранным жанром."
+        case .exclude: return "Покажем только релизы без выбранных жанров."
+        }
+    }
 }
 
 /// Episode-count presets, as the filter UI offers them.

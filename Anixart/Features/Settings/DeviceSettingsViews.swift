@@ -58,7 +58,7 @@ struct DevicePlaybackSettingsView: View {
 struct DeviceAppearanceSettingsView: View {
     @AppStorage(DeviceAppearancePreferenceKey.colorScheme) private var colorScheme = AppColorSchemePreference.system.rawValue
     @AppStorage(ProfileWatchTimeFormat.storageKey) private var watchTime = ProfileWatchTimeFormat.daysAndHours.rawValue
-    @AppStorage(DeviceAppearancePreferenceKey.defaultBookmarks) private var bookmarks = "list.1"
+    @AppStorage(DeviceAppearancePreferenceKey.defaultBookmarks) private var bookmarks = BookmarksView.BookmarkTab.favorites.storageKey
     @State private var home = HomePreferences()
     var body: some View {
         Form {
