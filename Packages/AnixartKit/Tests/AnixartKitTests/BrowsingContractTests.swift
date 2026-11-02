@@ -129,7 +129,7 @@ final class BrowsingContractTests: XCTestCase {
     }
 
     func testFullFilterBadgeIncludesPreviouslyMissingConstraintGroups() {
-        var request = FilterRequest(country: "Япония", studio: "OLM", source: .manga, episodeDuration: .upTo10)
+        var request = FilterRequest(episodeDuration: .upTo10, country: "Япония", studio: "OLM", source: .manga)
         XCTAssertEqual(request.activeConstraintCount, 4)
         request.episodesTo = 12
         XCTAssertEqual(request.activeConstraintCount, 5)
