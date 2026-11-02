@@ -308,6 +308,10 @@ final class AppTypefaceTests: XCTestCase {
         let tab = UITabBarAppearance()
         tab.backgroundColor = .purple
         tab.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.red]
+        // UIKit can supply default fonts even when only a colour was assigned.
+        // Verify that font-only copies leave the actual original attributes intact.
+        let originalNavigationAttributes = navigation.titleTextAttributes as NSDictionary
+        let originalTabAttributes = tab.stackedLayoutAppearance.selected.titleTextAttributes as NSDictionary
         let updatedNavigation = AppFont.navigationAppearance(from: navigation, typeface: .sfPro, compatibleWith: traits)
         let updatedTab = AppFont.tabAppearance(from: tab, typeface: .sfPro, compatibleWith: traits)
         XCTAssertEqual(updatedNavigation.backgroundColor, .orange)
@@ -316,8 +320,10 @@ final class AppTypefaceTests: XCTestCase {
         XCTAssertEqual(updatedTab.stackedLayoutAppearance.selected.titleTextAttributes[.foregroundColor] as? UIColor, .red)
         XCTAssertNotNil(updatedNavigation.titleTextAttributes[.font] as? UIFont)
         XCTAssertNotNil(updatedTab.stackedLayoutAppearance.selected.titleTextAttributes[.font] as? UIFont)
-        XCTAssertNil(navigation.titleTextAttributes[.font])
-        XCTAssertNil(tab.stackedLayoutAppearance.selected.titleTextAttributes[.font])
+        XCTAssertEqual(navigation.titleTextAttributes as NSDictionary, originalNavigationAttributes)
+        XCTAssertEqual(tab.stackedLayoutAppearance.selected.titleTextAttributes as NSDictionary, originalTabAttributes)
+        XCTAssertEqual(navigation.backgroundColor, .orange)
+        XCTAssertEqual(tab.backgroundColor, .purple)
     }
 
     @MainActor
