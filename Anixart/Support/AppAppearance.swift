@@ -147,12 +147,36 @@ private struct AppAppearanceModifier: ViewModifier {
             .tint(palette.accent.color)
             .scrollContentBackground(.hidden)
             .background(palette.background.color.ignoresSafeArea())
-            .onAppear { AppThemeUIKit.apply(palette: palette) }
-            .onChange(of: palette) { _, value in AppThemeUIKit.apply(palette: value) }
+            .task(id: palette) {
+                // Do not mutate UIKit while SwiftUI is updating a sheet/picker.
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                AppThemeUIKit.apply(palette: palette)
+            }
     }
 }
+
+@MainActor
+private struct AppColorSchemeModifier: ViewModifier {
+    @AppStorage(DeviceAppearancePreferenceKey.colorScheme) private var preference = AppColorSchemePreference.system.rawValue
+    @AppStorage(DeviceAppearancePreferenceKey.visualTheme) private var theme = AppVisualTheme.original.rawValue
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+
+    func body(content: Content) -> some View {
+        content
+            .preferredColorScheme(AppVisualTheme.stored(theme).colorScheme(
+                normal: (AppColorSchemePreference(rawValue: preference) ?? .system).colorScheme(lowPower: lowPower)))
+            .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+                lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+            }
+    }
+}
+
 extension View {
     @MainActor func anixartAppearance() -> some View { modifier(AppAppearanceModifier()) }
+    // A settings sheet owns its style preference instead of propagating it through
+    // the presenting TabView during dismissal. Neither modifier changes view IDs.
+    @MainActor func anixartColorScheme() -> some View { modifier(AppColorSchemeModifier()) }
 }
 
 /// Colour-only changes preserve the font attributes installed by AppFont.
@@ -185,7 +209,7 @@ enum AppThemeUIKit {
         for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
             for window in scene.windows {
                 window.backgroundColor = palette.background.uiColor
-                update(window, palette: palette)
+                if let root = window.rootViewController { update(root, palette: palette) }
             }
         }
     }
@@ -213,17 +237,22 @@ enum AppThemeUIKit {
         return value
     }
 
-    private static func update(_ view: UIView, palette: AppThemePalette) {
-        if let bar = view as? UINavigationBar {
+    /// Update bars only. SwiftUI owns its hosting/transition and collection views;
+    /// walking and clearing those views during a theme change can leave blank UI.
+    static func update(_ controller: UIViewController, palette: AppThemePalette) {
+        if controller.isViewLoaded, let navigationController = controller as? UINavigationController {
+            let bar = navigationController.navigationBar
             let value = navigation(bar.standardAppearance, palette: palette)
             bar.standardAppearance = value; bar.scrollEdgeAppearance = value; bar.compactAppearance = value
             bar.compactScrollEdgeAppearance = value
             bar.tintColor = palette.accent.uiColor
-        } else if let bar = view as? UITabBar {
+        } else if controller.isViewLoaded, let tabsController = controller as? UITabBarController {
+            let bar = tabsController.tabBar
             let value = tabs(bar.standardAppearance, palette: palette)
             bar.standardAppearance = value; bar.scrollEdgeAppearance = value
             bar.tintColor = palette.accent.uiColor
-        } else if view is UITableView || view is UICollectionView { view.backgroundColor = .clear }
-        for child in view.subviews { update(child, palette: palette) }
+        }
+        for child in controller.children { update(child, palette: palette) }
+        if let presented = controller.presentedViewController { update(presented, palette: palette) }
     }
 }

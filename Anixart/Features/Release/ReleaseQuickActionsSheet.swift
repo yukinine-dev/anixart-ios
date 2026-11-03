@@ -46,7 +46,7 @@ struct ReleaseQuickActionsSheet: View {
                     if let current = currentRelease {
                         Section {
                             Button { Task { await toggleFavorite() } } label: {
-                                Label(current.isFavorite == true ? "Убрать из избранного" : "Добавить в избранное", systemImage: "heart")
+                                Label(current.isFavorite == true ? "Убрать из избранного" : "Добавить в избранное", systemImage: "bookmark")
                             }
                             Button { showsStatuses = true } label: {
                                 Label("В списке: \(current.listStatus?.title ?? "не смотрю")", systemImage: "list.bullet")

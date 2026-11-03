@@ -4,9 +4,9 @@ import AnixartKit
 /// The wide row the Главная tabs use (`item_release` in the APK): poster on the left,
 /// then title, the episode counter and rating on one line, and a description excerpt.
 ///
-/// Home keeps its card surface. Search, franchises and bookmarks use the original
-/// plain 104×156-poster layout; history substitutes episode/time for the excerpt.
-/// Descriptions are capped at four lines.
+/// Home keeps its card surface. Posters share the original 104×156 proportions;
+/// history substitutes episode/time for the excerpt.
+/// Three-line excerpts keep the poster taller than the regular-size text block.
 @MainActor
 struct ReleaseListRow: View {
     enum Style: Equatable { case card, plain }
@@ -18,7 +18,7 @@ struct ReleaseListRow: View {
     var showsWatchHistory = false
     var onOverflow: (() -> Void)?
 
-    private var posterWidth: CGFloat { style == .plain ? 104 : 96 }
+    private var posterWidth: CGFloat { 104 }
 
     @ViewBuilder
     var body: some View {
@@ -33,7 +33,7 @@ struct ReleaseListRow: View {
         HStack(alignment: .top, spacing: style == .plain ? 24 : 12) {
             ReleasePoster(url: release.posterURL, width: posterWidth,
                           cornerRadius: style == .plain ? 16 : Theme.Poster.cornerRadius,
-                          aspectRatio: style == .plain ? 2.0 / 3.0 : Theme.Poster.aspectRatio)
+                          aspectRatio: 2.0 / 3.0)
                 .overlay(alignment: .bottom) {
                     if style == .plain, let status = release.listStatus {
                         Text(status.title)
@@ -77,11 +77,13 @@ struct ReleaseListRow: View {
                 }
 
                 if showsSeasonAndCategory {
-                    VStack(alignment: .leading, spacing: 6) {
+                    FlowRow(spacing: 6) {
                         if let season = release.seasonAndYear {
-                            ReleaseMetadataBadge(text: release.year?.isEmpty == false ? "\(season) г." : season)
+                            ReleaseMetadataBadge(text: release.year?.isEmpty == false ? "\(season) г." : season, isFranchise: true)
                         }
-                        ReleaseMetadataBadges(release: release)
+                        if let category = release.categoryBadgeText {
+                            ReleaseMetadataBadge(text: category, isFranchise: true)
+                        }
                     }
                 }
 
@@ -106,7 +108,7 @@ struct ReleaseListRow: View {
                     Text(description)
                         .font(.ax(.footnote))
                         .foregroundStyle(style == .plain ? .tertiary : .secondary)
-                        .lineLimit(4)
+                        .lineLimit(3)
                         .lineSpacing(style == .plain ? 3 : 0)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -138,7 +140,7 @@ struct ReleaseListRow: View {
                     .foregroundStyle(style == .plain ? Color.secondary : Theme.ratingColor(release.ratingValue ?? 0))
                 }
                 if style == .plain, release.isFavorite == true {
-                    Image(systemName: "heart.fill")
+                    Image(systemName: "bookmark.fill")
                         .font(.ax(.caption))
                         .foregroundStyle(.yellow)
                 }

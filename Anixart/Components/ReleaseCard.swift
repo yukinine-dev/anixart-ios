@@ -14,11 +14,11 @@ struct ReleaseCard: View {
                 HStack(spacing: 4) {
                     RatingBadge(grade: release.ratingValue, compact: true)
                     if release.isFavorite == true {
-                        Image(systemName: "heart.fill")
+                        Image(systemName: "bookmark.fill")
                             .font(.system(size: 9))
                             .foregroundStyle(.white)
                             .padding(3)
-                            .background(.pink, in: Circle())
+                            .background(Theme.accent, in: Circle())
                     }
                 }
                 .padding(5)

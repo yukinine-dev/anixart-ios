@@ -30,7 +30,7 @@ struct ProfileReleaseActionsSheet: View {
                     if let model, let release = model.release {
                         Section {
                             Button { Task { await model.toggleFavorite() } } label: {
-                                Label(release.isFavorite == true ? "Убрать из избранного" : "Добавить в избранное", systemImage: "heart")
+                                Label(release.isFavorite == true ? "Убрать из избранного" : "Добавить в избранное", systemImage: "bookmark")
                             }
                             Button { showsStatuses = true } label: {
                                 Label("Мой статус: \(release.profileListStatus.flatMap(ProfileListStatus.init(rawValue:))?.title ?? "Не смотрю")", systemImage: "list.bullet")

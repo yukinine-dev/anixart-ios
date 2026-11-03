@@ -26,6 +26,9 @@ Build `__BUILD__` from `__SHA__`.
 - Known 25-item browsing feeds use raw page sizes instead of stopping at a misleading zero or last-index page count.
 - Discover has Popular, Schedule, Collections, Filter and Random shortcuts, current-session loading and partial-refresh retry. Discussion rows show daily rather than lifetime comment counts.
 - Release details copy only real titles, retain two-decimal ratings and distinguish franchise headers from related-release lists.
+- Release details restore the large centred poster, description below the facts and age beside the original title. Studio, author and director share one wrapping fact with independent underlined search links.
+- Square badges are limited to franchise rows, use readable neutral colours and omit the airing-status badge. Release favourites use bookmark icons; Home posters are larger and row excerpts are shorter.
+- Theme updates are deferred and touch live navigation/tab bars rather than SwiftUI-owned collection and transition views. Settings own their colour-scheme preference; repeated changes and dismissal still need a physical-iOS check.
 - Home and filtered-result menus offer favourites and viewing status. Selecting the current status is a no-op; acknowledged changes rebase the displayed feed, and failed aggregate refreshes do not undo successful writes.
 - Video banners use their action/category IDs, and invalid URLs cannot open an empty web player. Random opens a release detail, not playback.
 

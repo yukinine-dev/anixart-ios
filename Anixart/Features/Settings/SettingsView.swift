@@ -112,5 +112,7 @@ struct SettingsView: View {
                 }
             }
         }
+        .anixartAppearance()
+        .anixartColorScheme()
     }
 }

@@ -6,9 +6,6 @@ struct RootView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var selection: Tab = LaunchScreen.current.tab
     @State private var homeNavigationRevision = 0
-    @AppStorage(DeviceAppearancePreferenceKey.colorScheme) private var colorScheme = AppColorSchemePreference.system.rawValue
-    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
-    @AppStorage(DeviceAppearancePreferenceKey.visualTheme) private var visualTheme = AppVisualTheme.original.rawValue
 
     enum Tab: Hashable, CaseIterable {
         // The original app has exactly these five root tabs; catalogue browsing
@@ -55,11 +52,7 @@ struct RootView: View {
         }
         .environment(\.returnToHome, homeAction)
         .anixartAppearance()
-        .preferredColorScheme(AppVisualTheme.stored(visualTheme).colorScheme(
-            normal: (AppColorSchemePreference(rawValue: colorScheme) ?? .system).colorScheme(lowPower: lowPower)))
-        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
-            lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
-        }
+        .anixartColorScheme()
         // Most of Anixart works signed out, so any screen that needs a session asks
         // for the sheet through the session object rather than owning it.
         .sheet(isPresented: Binding(

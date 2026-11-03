@@ -43,6 +43,8 @@ final class AppearanceProfileRegressionTests: XCTestCase {
                     }
                     XCTAssertGreaterThanOrEqual(palette.text.contrast(with: palette.background), 4.5, "\(theme) \(accent) \(dark)")
                     XCTAssertGreaterThanOrEqual(palette.text.contrast(with: palette.surface), 4.5, "\(theme) \(accent) \(dark)")
+                    XCTAssertGreaterThanOrEqual(palette.secondaryText.contrast(with: palette.surface), 4.5,
+                                                "Badge contrast: \(theme) \(accent) \(dark)")
                 }
             }
         }
@@ -55,6 +57,32 @@ final class AppearanceProfileRegressionTests: XCTestCase {
         XCTAssertGreaterThan(implicit.accent.red, implicit.accent.blue)
         XCTAssertGreaterThan(explicit.accent.blue, explicit.accent.red)
         XCTAssertNotEqual(implicit.surface, AppThemePalette.make(theme: .original, accent: .anixart, dark: false).surface)
+    }
+
+    @MainActor
+    func testThemeUpdatesPreserveNavigationAndSwiftUIOwnedContentBackgrounds() {
+        let screen = UIViewController()
+        let collection = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewFlowLayout())
+        collection.backgroundColor = .magenta
+        screen.view.addSubview(collection)
+        let navigation = UINavigationController(rootViewController: screen)
+        let tabs = UITabBarController()
+        tabs.viewControllers = [navigation]
+        tabs.loadViewIfNeeded()
+        navigation.loadViewIfNeeded()
+        let originalView = screen.view
+        for theme in AppVisualTheme.allCases {
+            for accent in AppAccentChoice.allCases {
+                let palette = AppThemePalette.make(theme: theme, accent: accent, dark: theme == .oled)
+                AppThemeUIKit.update(tabs, palette: palette)
+                XCTAssertTrue(tabs.selectedViewController === navigation)
+                XCTAssertTrue(navigation.topViewController === screen)
+                XCTAssertTrue(screen.view === originalView)
+                XCTAssertTrue(collection.superview === originalView)
+                XCTAssertEqual(collection.backgroundColor, .magenta)
+                XCTAssertEqual(navigation.navigationBar.standardAppearance.backgroundColor, palette.background.uiColor)
+            }
+        }
     }
 
     @MainActor

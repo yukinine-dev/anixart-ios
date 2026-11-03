@@ -1,100 +1,79 @@
 import SwiftUI
 import AnixartKit
 
-/// Poster precedes its metadata; the description starts beside it, not below it.
+/// Original detail order: large centred poster, title and original name with age.
 @MainActor
 struct ReleaseDetailHeader: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.appThemePalette) private var palette
     let release: Release
-    @Binding var isDescriptionExpanded: Bool
     let onTitles: () -> Void
-    let onExpand: (Bool) -> Void
+
+    static let posterHeight: CGFloat = 340
+    static let backdropHeight: CGFloat = 380
 
     var body: some View {
-        ReleaseHeaderLayout(largeText: dynamicTypeSize >= .xxxLarge) {
-            VStack(alignment: .leading, spacing: 8) {
-                ReleasePoster(url: release.posterURL, width: 148)
-                    .accessibilityHidden(true)
-                Button(action: onTitles) {
-                    Label {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: { Color.clear }
+                .frame(height: Self.backdropHeight)
+                .clipped()
+                .blur(radius: 28)
+                .overlay(.black.opacity(0.45))
+
+                CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
+                    image.resizable().scaledToFit()
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 14).fill(.quaternary)
+                        .frame(width: Self.posterHeight * 2 / 3)
+                }
+                .frame(height: Self.posterHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.backdropHeight)
+            .clipped()
+            .accessibilityHidden(true)
+
+            Button(action: onTitles) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Image(systemName: "info.circle").foregroundStyle(.secondary)
                         Text(release.displayTitle)
-                            .font(.ax(.title3, .bold))
+                            .font(.ax(.title2, .bold))
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
-                    } icon: {
-                        Image(systemName: "info.circle").foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        if let subtitle = release.displaySubtitle {
+                            Text(subtitle).font(.ax(.subheadline)).foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        if let age = release.ageRatingText {
+                            Text(age)
+                                .font(.ax(.caption2, .medium))
+                                .foregroundStyle(palette.background.color)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(palette.text.color, in: RoundedRectangle(cornerRadius: 3))
+                                .fixedSize()
+                                .accessibilityLabel("Возрастное ограничение: \(age)")
+                        }
+                    }
+                    .padding(.leading, 32)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.primary)
-                .accessibilityLabel("Названия релиза: \(release.displayTitle)")
-
-                if let subtitle = release.displaySubtitle {
-                    Text(subtitle).font(.ax(.caption)).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                FlowRow(spacing: 8) {
-                    if let episodes = release.episodeProgressText { Text(episodes) }
-                    if let rating = release.ratingText { Label(rating, systemImage: "star.fill").monospacedDigit() }
-                    if let age = release.ageRatingText { ReleaseMetadataBadge(text: age) }
-                }
-                .font(.ax(.subheadline))
-                .foregroundStyle(.secondary)
-                ReleaseMetadataBadges(release: release)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if let description = release.description?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
-                ReleaseExpandableText(text: description, lineLimit: 10, isExpanded: $isDescriptionExpanded, onExpand: onExpand)
-            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
+            .accessibilityLabel("Названия релиза: \(release.displayTitle)")
+            .accessibilityValue(release.ageRatingText ?? "")
+            .padding(.horizontal)
+            .padding(.top, Theme.Spacing.row)
         }
-        .padding(.horizontal)
-        .padding(.top, Theme.Spacing.row)
-    }
-}
-
-/// Measures both columns from the same top edge and stacks for narrow/large text.
-struct ReleaseHeaderLayout: Layout {
-    var largeText = false
-    static let spacing: CGFloat = 16
-    static let minimumColumnWidth: CGFloat = 324
-
-    static func usesColumns(availableWidth: CGFloat, largeText: Bool) -> Bool {
-        availableWidth >= minimumColumnWidth && !largeText
-    }
-
-    private func columnWidths(_ width: CGFloat, count: Int) -> (CGFloat, CGFloat?) {
-        guard count > 1, Self.usesColumns(availableWidth: width, largeText: largeText) else { return (width, nil) }
-        let metadata = max(148, min(208, width * 0.42))
-        return (metadata, width - metadata - Self.spacing)
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard let first = subviews.first else { return .zero }
-        let width = proposal.width ?? Self.minimumColumnWidth
-        let columns = columnWidths(width, count: subviews.count)
-        let metadata = first.sizeThatFits(ProposedViewSize(width: columns.0, height: nil))
-        guard subviews.count > 1 else { return CGSize(width: width, height: metadata.height) }
-        let description = subviews[1].sizeThatFits(ProposedViewSize(width: columns.1 ?? width, height: nil))
-        let height = columns.1 == nil ? metadata.height + Self.spacing + description.height : max(metadata.height, description.height)
-        return CGSize(width: width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard let first = subviews.first else { return }
-        let columns = columnWidths(bounds.width, count: subviews.count)
-        let metadataProposal = ProposedViewSize(width: columns.0, height: nil)
-        first.place(at: bounds.origin, anchor: .topLeading, proposal: metadataProposal)
-        guard subviews.count > 1 else { return }
-        let origin: CGPoint
-        if columns.1 != nil {
-            origin = CGPoint(x: bounds.minX + columns.0 + Self.spacing, y: bounds.minY)
-        } else {
-            origin = CGPoint(x: bounds.minX, y: bounds.minY + first.sizeThatFits(metadataProposal).height + Self.spacing)
-        }
-        subviews[1].place(at: origin, anchor: .topLeading, proposal: ProposedViewSize(width: columns.1 ?? bounds.width, height: nil))
     }
 }
 

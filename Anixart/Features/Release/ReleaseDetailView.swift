@@ -111,12 +111,18 @@ struct ReleaseDetailView: View {
     @ViewBuilder
     private func content(for release: Release, model: ReleaseDetailViewModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            ReleaseDetailHeader(release: release, isDescriptionExpanded: $isDescriptionExpanded,
-                                onTitles: { isShowingTitles = true }, onExpand: { expandDescription(fromKeyboard: $0) })
+            ReleaseDetailHeader(release: release, onTitles: { isShowingTitles = true })
             statusRow(release, model: model)
             playBlock(release)
             factLines(release)
             genres(release)
+
+            if let description = release.description?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
+                ReleaseExpandableText(text: description, lineLimit: 5, isExpanded: $isDescriptionExpanded,
+                                      onExpand: { expandDescription(fromKeyboard: $0) })
+                    .padding(.horizontal)
+                    .padding(.top, Theme.Spacing.row)
+            }
 
             if let banners = release.videoBanners, !banners.isEmpty {
                 sectionRule
@@ -320,34 +326,14 @@ struct ReleaseDetailView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Первоисточник: \(source)")
                 } else {
-                    factLine("target", "Первоисточник \(source)")
+                    factLine("target", "Первоисточник \(source)", underlined: source)
                         .accessibilityHint("Ссылка недоступна")
                 }
             }
-            factSearchLink("Студия", value: release.studio, scope: .studio, icon: "building.2")
-            factSearchLink("Автор", value: release.author, scope: .author, icon: "pencil")
-            factSearchLink("Режиссёр", value: release.director, scope: .director, icon: "video")
+            ReleaseCreditsLine(release: release, viewer: viewer)
         }
         .padding(.horizontal)
         .padding(.top, Theme.Spacing.section)
-    }
-
-    @ViewBuilder
-    private func factSearchLink(_ title: String, value: String?, scope: SearchScope, icon: String) -> some View {
-        if let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty {
-            if let viewer {
-                NavigationLink {
-                    SourceMaterialSearchView(query: value, scope: scope, title: "\(title): \(value)", viewer: viewer)
-                } label: {
-                    factLine(icon, "\(title): \(value)", underlined: value)
-                }
-                .buttonStyle(.plain)
-                .disabled(viewer != env.session.viewerKey)
-                .accessibilityLabel("Поиск: \(title), \(value)")
-            } else {
-                factLine(icon, "\(title): \(value)")
-            }
-        }
     }
 
     private func factLine(_ systemImage: String, _ text: String, underlined: String? = nil, flag: String? = nil) -> some View {

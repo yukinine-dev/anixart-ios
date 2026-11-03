@@ -5,13 +5,10 @@ import AnixartKit
 @testable import Anixart
 
 final class ReleaseDetailHeaderTests: XCTestCase {
-    func testColumnsFitRegularPhonesAndStackForNarrowOrLargeText() {
-        XCTAssertTrue(ReleaseHeaderLayout.usesColumns(availableWidth: 343, largeText: false))
-        XCTAssertTrue(ReleaseHeaderLayout.usesColumns(availableWidth: 800, largeText: false))
-        XCTAssertTrue(ReleaseHeaderLayout.usesColumns(availableWidth: 324, largeText: false))
-        XCTAssertFalse(ReleaseHeaderLayout.usesColumns(availableWidth: 323, largeText: false))
-        XCTAssertFalse(ReleaseHeaderLayout.usesColumns(availableWidth: 288, largeText: false))
-        XCTAssertFalse(ReleaseHeaderLayout.usesColumns(availableWidth: 800, largeText: true))
+    @MainActor
+    func testDetailRestoresTheLargePosterNotAListThumbnail() {
+        XCTAssertEqual(ReleaseDetailHeader.posterHeight, 340)
+        XCTAssertGreaterThan(ReleaseDetailHeader.backdropHeight, ReleaseDetailHeader.posterHeight)
     }
 
     func testMoreButtonRequiresActuallyHiddenLinesNotJustANonemptyDescription() {
@@ -23,20 +20,33 @@ final class ReleaseDetailHeaderTests: XCTestCase {
 
     @MainActor
     func testHeaderStaysWithinPhoneWidthsAndMeasurementDoesNotInvokeActions() throws {
-        let release = try profileTestDecode(Release.self, #"{"id":71,"title_ru":"Длинное название релиза для проверки переноса","episodes_released":5,"episodes_total":12,"grade":4.2,"status_id":2,"description":"Начало описания рядом с постером. Остальной текст должен переноситься и оставаться доступным при увеличенном размере шрифта."}"#)
+        let release = try profileTestDecode(Release.self, #"{"id":71,"title_ru":"Длинное название релиза для проверки переноса","title_original":"Original title","age_rating":5,"description":"Описание должно быть ниже характеристик, не в шапке."}"#)
+        XCTAssertEqual(release.ageRatingText, "18+")
         var actions = 0
         for width in [CGFloat(320), 375, 768] {
             for size in [DynamicTypeSize.large, .xxxLarge, .accessibility3] {
-                let header = ReleaseDetailHeader(release: release, isDescriptionExpanded: .constant(false),
-                                                 onTitles: { actions += 1 }, onExpand: { _ in actions += 1 })
+                let header = ReleaseDetailHeader(release: release, onTitles: { actions += 1 })
                 let host = UIHostingController(rootView: header.dynamicTypeSize(size).frame(width: width)
                     .fixedSize(horizontal: false, vertical: true))
                 let measured = host.sizeThatFits(in: CGSize(width: width, height: 10_000))
                 XCTAssertLessThanOrEqual(measured.width, width + 0.5)
-                XCTAssertGreaterThan(measured.height, 0)
+                XCTAssertGreaterThan(measured.height, ReleaseDetailHeader.backdropHeight)
                 XCTAssertTrue(measured.height.isFinite)
             }
         }
         XCTAssertEqual(actions, 0)
+    }
+
+    func testCreditsShareOneFactAndKeepThreeIndependentUnderlinedSearchLinks() throws {
+        let release = try profileTestDecode(Release.self, #"{"id":71,"studio":" Studio ","author":"Author","director":"Director"}"#)
+        let entries = ReleaseCredit.entries(for: release)
+        XCTAssertEqual(entries.map(\.scope), [.studio, .author, .director])
+        let text = ReleaseCredit.text(for: entries)
+        XCTAssertEqual(String(text.characters), "Студия Studio, автор Author, режиссёр Director")
+        let links = text.runs.compactMap { $0.link }
+        XCTAssertEqual(links, entries.map(\.url))
+        XCTAssertEqual(text.runs.filter { $0.underlineStyle == .single }.count, 3)
+        let empty = try profileTestDecode(Release.self, #"{"id":72,"studio":"  ","author":"\n"}"#)
+        XCTAssertTrue(ReleaseCredit.entries(for: empty).isEmpty)
     }
 }
