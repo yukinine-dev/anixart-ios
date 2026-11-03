@@ -64,7 +64,9 @@ final class AudioImpactTap {
                 monitor.format = formatPointer.pointee
             },
             unprepare: { _ in },
-            process: { tap, numberFrames, _, bufferListInOut, flagsOut, numberFramesOut in
+            // The callback's own parameter order is (numberFramesOut, flagsOut) --
+            // opposite of how `MTAudioProcessingTapGetSourceAudio` takes them.
+            process: { tap, numberFrames, _, bufferListInOut, numberFramesOut, flagsOut in
                 let status = MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut, flagsOut, nil, numberFramesOut)
                 guard status == noErr else { return }
                 let monitor = Unmanaged<AudioImpactTap>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
@@ -72,7 +74,7 @@ final class AudioImpactTap {
             }
         )
 
-        var tap: Unmanaged<MTAudioProcessingTap>?
+        var tap: MTAudioProcessingTap?
         let status = MTAudioProcessingTapCreate(
             kCFAllocatorDefault,
             &callbacks,
@@ -80,9 +82,7 @@ final class AudioImpactTap {
             &tap
         )
         guard status == noErr, let created = tap else { return false }
-        // `takeRetainedValue` balances Create's +1 under ARC: `tapRef` owns it from
-        // here on, with no further manual retain/release anywhere in this class.
-        tapRef = created.takeRetainedValue()
+        tapRef = created
         return true
     }
 
