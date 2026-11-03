@@ -41,6 +41,7 @@ final class EpisodeLauncher {
     }
 
     func open(_ episode: Episode) {
+        AppHaptics.shared.play(.episodeChanged)
         preferences.reload()
         if preferences.hasAcceptedDisclaimer {
             resolve(episode)

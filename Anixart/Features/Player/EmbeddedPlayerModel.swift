@@ -116,6 +116,9 @@ final class EmbeddedPlayerModel {
     @ObservationIgnored private var pendingSeek: CMTime?
     @ObservationIgnored private var isSeekingReplacement = false
     @ObservationIgnored private var resumeAfterSeek = false
+    /// Owns itself for as long as the tap is attached (see `AudioImpactTap`); kept
+    /// here too so a quality change or retry can simply be handed a fresh one.
+    @ObservationIgnored private var audioImpactTap: AudioImpactTap?
 
     private var hasPendingSeek: Bool { pendingSeek != nil }
 
@@ -180,7 +183,27 @@ final class EmbeddedPlayerModel {
         let item = AVPlayerItem(asset: asset)
         player.replaceCurrentItem(with: item)
         observe(item)
+        attachContentReactiveTapIfNeeded(to: item, asset: asset)
         return item
+    }
+
+    /// Reacting to the episode's own audio is a separate, explicit setting on
+    /// top of "Плеер" -- someone may want the transport haptics above without
+    /// their phone buzzing on every loud scene. Checked once, when the item is
+    /// installed, not re-checked live while it plays.
+    private func attachContentReactiveTapIfNeeded(to item: AVPlayerItem, asset: AVURLAsset) {
+        audioImpactTap = nil
+        guard AppHaptics.shared.isContentReactiveEnabled() else { return }
+        let sensitivity = AppHaptics.shared.contentSensitivity()
+        Task { [weak self] in
+            guard let tracks = try? await asset.loadTracks(withMediaType: .audio), !tracks.isEmpty else { return }
+            guard let self, !self.isStopped, self.player.currentItem === item else { return }
+            self.audioImpactTap = AudioImpactTap.attach(to: item, tracks: tracks, sensitivity: sensitivity) { strength in
+                Task { @MainActor in
+                    AppHaptics.shared.play(.contentImpact(strength: strength))
+                }
+            }
+        }
     }
 
     func stop() {
@@ -195,6 +218,7 @@ final class EmbeddedPlayerModel {
         pendingSeek = nil
         isSeekingReplacement = false
         resumeAfterSeek = false
+        audioImpactTap = nil
         detachObservations()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
@@ -233,6 +257,7 @@ final class EmbeddedPlayerModel {
         let description = detail.flatMap { $0.isEmpty ? nil : $0 }
             ?? "Источник не удалось воспроизвести. Попробуйте ещё раз или откройте веб-плеер."
         playbackError = description
+        AppHaptics.shared.play(.error)
         Self.log.error("playback failed: \(description, privacy: .public)")
         player.pause()
         isPlaying = false
@@ -351,6 +376,7 @@ final class EmbeddedPlayerModel {
 
     func togglePlayback() {
         guard !isStopped, playbackError == nil else { return }
+        AppHaptics.shared.play(.playbackToggled)
         isPlaying.toggle()
         if hasPendingSeek {
             resumeAfterSeek = isPlaying
@@ -364,13 +390,14 @@ final class EmbeddedPlayerModel {
         scheduleControlsHide()
     }
 
-    func seek(by offset: TimeInterval) {
+    func seek(by offset: TimeInterval, isIntroSkip: Bool = false) {
         let target = max(0, min(duration > 0 ? duration : .greatestFiniteMagnitude, position + offset))
         player.seek(to: CMTime(seconds: target, preferredTimescale: 600))
         position = target
         retryPosition = target
         scrubPosition = target
         showSeekFeedback(offset >= 0 ? "+\(Int(offset)) с" : "\(Int(offset)) с")
+        AppHaptics.shared.play(isIntroSkip ? .introSkipped : .seekTick)
         scheduleControlsHide()
     }
 
@@ -583,6 +610,7 @@ final class EmbeddedPlayerModel {
     private func finish() {
         guard !hasReportedFinish else { return }
         hasReportedFinish = true
+        AppHaptics.shared.play(.episodeFinished)
         onFinished?()
     }
 }
