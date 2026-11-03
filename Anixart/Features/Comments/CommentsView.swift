@@ -196,9 +196,13 @@ struct CommentsView: View {
         defer { votingIDs.remove(comment.id) }
         do {
             try await env.session.sendConfirmedAccountRequest(CommentEndpoints.vote(commentID: comment.id, vote: vote), for: account)
+            AppHaptics.shared.play(.voteCast)
             await list?.reload()
         } catch {
-            if hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) { actionError = Paginator<Release>.message(for: error) }
+            if hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) {
+                actionError = Paginator<Release>.message(for: error)
+                AppHaptics.shared.play(.error)
+            }
         }
     }
 
@@ -207,8 +211,11 @@ struct CommentsView: View {
         let account = composer.viewer?.account
         let location = ProfileCommentLocation(category: .releases, parentID: releaseID)
         if await composer.send(at: location, parentCommentID: composer.replyingTo?.threadRootID, session: env.session) {
+            AppHaptics.shared.play(.commentSent)
             await list?.reload()
             if let account { await env.session.refreshProfile(for: account) }
+        } else {
+            AppHaptics.shared.play(.commentFailed)
         }
     }
 
