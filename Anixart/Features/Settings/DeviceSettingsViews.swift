@@ -150,3 +150,68 @@ struct DeviceAdditionalSettingsView: View {
         .navigationTitle("Дополнительно").navigationBarTitleDisplayMode(.inline)
     }
 }
+
+/// Вибро-отклик, подстраивающийся под происходящее: лайки и закладки отдаются
+/// коротким «пружинистым» паттерном, пропуск опенинга и смена серии -- своим,
+/// а системные события (ошибки, подтверждение необратимых действий) -- резким.
+/// Сила и то, какие группы событий откликаются, настраиваются здесь.
+@MainActor
+struct DeviceHapticsSettingsView: View {
+    @AppStorage(AppHapticsPreferenceKey.enabled) private var enabled = true
+    @AppStorage(AppHapticsPreferenceKey.intensity) private var intensity = AppHapticIntensity.normal.rawValue
+    @AppStorage(AppHapticCategory.interface.storageKey) private var interfaceEnabled = true
+    @AppStorage(AppHapticCategory.social.storageKey) private var socialEnabled = true
+    @AppStorage(AppHapticCategory.player.storageKey) private var playerEnabled = true
+    @AppStorage(AppHapticCategory.system.storageKey) private var systemEnabled = true
+    @AppStorage(AppHapticsPreferenceKey.contentReactive) private var contentReactive = false
+    @AppStorage(AppHapticsPreferenceKey.contentSensitivity) private var contentSensitivity = AppHapticContentSensitivity.normal.rawValue
+
+    private func isOn(_ category: AppHapticCategory) -> Binding<Bool> {
+        switch category {
+        case .interface: return $interfaceEnabled
+        case .social: return $socialEnabled
+        case .player: return $playerEnabled
+        case .system: return $systemEnabled
+        }
+    }
+
+    var body: some View {
+        Form {
+            Section { Toggle("Вибро-отклик", isOn: $enabled) } footer: {
+                Text("Короткая вибрация на лайки, закладки, события плеера и системные уведомления. Подстраивается под то, что происходит -- у разных событий разный характер отклика.")
+            }
+            Section("Сила") {
+                Picker("Сила отклика", selection: $intensity) {
+                    ForEach(AppHapticIntensity.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!enabled)
+                Button("Проверить") { AppHaptics.shared.play(.likeOn) }
+                    .disabled(!enabled)
+            }
+            Section("События") {
+                ForEach(AppHapticCategory.allCases) { category in
+                    Toggle(isOn: isOn(category)) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(category.title)
+                            Text(category.detail).font(.ax(.caption)).foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(!enabled)
+                }
+            }
+            Section {
+                Toggle("Реакция на звук в аниме", isOn: $contentReactive)
+                    .disabled(!enabled || !playerEnabled)
+                Picker("Чувствительность", selection: $contentSensitivity) {
+                    ForEach(AppHapticContentSensitivity.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!enabled || !playerEnabled || !contentReactive)
+            } footer: {
+                Text("Экспериментально: вибрация на резкий всплеск громкости в звуке самой серии -- выстрел, взрыв, удар. Это не распознавание сцен, а реакция на громкость, поэтому может сработать и на громкую музыку. Действует только во встроенном плеере и применяется при открытии следующей серии или смене качества.")
+            }
+        }
+        .navigationTitle("Вибро-отклик").navigationBarTitleDisplayMode(.inline)
+    }
+}
