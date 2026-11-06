@@ -74,7 +74,7 @@ struct DiscoverView: View {
     private var shortcuts: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             NavigationLink {
-                FilteredReleasesView(filter: FilterRequest(sort: .popularDescending), title: "Популярное")
+                PopularReleasesView()
             } label: { shortcutLabel("Популярное", systemImage: "flame") }
             NavigationLink { ScheduleView() } label: { shortcutLabel("Расписание", systemImage: "calendar") }
             NavigationLink { PublicCollectionsView() } label: { shortcutLabel("Коллекции", systemImage: "rectangle.stack") }
