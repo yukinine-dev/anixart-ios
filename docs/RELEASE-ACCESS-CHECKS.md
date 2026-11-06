@@ -1,51 +1,27 @@
-# Release access regression checks
+# Регрессионные проверки доступа к тайтлу
 
-`ReleaseAccessPolicyTests` covers the local first-use age acknowledgement and
-the release's server-supplied playback restriction flags. Acknowledgement does
-not grant a server permission and never removes a region/view/deletion block.
+`ReleaseAccessPolicyTests` покрывает локальное подтверждение возраста при первом использовании и переданные сервером флаги ограничений воспроизведения тайтла. Подтверждение не предоставляет серверных разрешений и никогда не снимает региональную блокировку, запрет просмотра или блокировку удалённого тайтла.
 
-Native iOS checks required after a fresh macOS build:
+Нативные проверки iOS, необходимые после новой сборки на macOS:
 
-- With no saved `release.adultAcknowledged.v1`, open an adult release. Its poster
-  and description must remain hidden behind the age confirmation sheet.
-- Back out without confirming, then open another adult release: confirmation
-  must still be required. Swiping the sheet away must not reveal the content.
-- Confirm using **Да, мне есть 18**. Subsequent adult releases on this device
-  should not ask again until sign-out. Non-adult releases should never show the sheet.
-- Tap **Воспроизвести** on a region-restricted release. Show the licensing
-  explanation (including the server's note), not the episode picker. Deleted and view-disabled releases must
-  remain unavailable.
-- Change the viewer while the playback destination or restriction alert is
-  open. No old-viewer playback presentation should be retained.
-- Repeat with large Dynamic Type, landscape, Reduce Motion and resource saving.
-- Verify that the bundled warning animation renders; backgrounding and closing
-  the sheet must stop its loop. Confirming must not restart animation elsewhere.
+- Без сохранённого `release.adultAcknowledged.v1` откройте тайтл для взрослых. Его постер и описание должны оставаться скрытыми за листом подтверждения возраста.
+- Вернитесь назад без подтверждения и откройте другой тайтл для взрослых: подтверждение по-прежнему должно требоваться. Смахивание листа не должно раскрывать содержимое.
+- Подтвердите выбор кнопкой **Да, мне есть 18**. Следующие тайтлы для взрослых на этом устройстве не должны повторно запрашивать подтверждение до выхода из аккаунта. Для тайтлов не для взрослых лист не должен появляться.
+- Нажмите **Воспроизвести** на тайтле с региональным ограничением. Должно показаться объяснение лицензирования (включая примечание сервера), а не выбор эпизода. Удалённые тайтлы и тайтлы с запретом просмотра должны оставаться недоступными.
+- Смените пользователя, пока открыт экран воспроизведения или предупреждение об ограничении. Отображение воспроизведения предыдущего пользователя не должно сохраняться.
+- Повторите проверку с крупным Dynamic Type, в альбомной ориентации, с Reduce Motion и экономией ресурсов.
+- Убедитесь, что встроенная анимация предупреждения отображается; переход в фон и закрытие листа должны останавливать её цикл. Подтверждение не должно запускать анимацию в другом месте.
 
-The original warning uses `age_rating == 5` (release wire values are 1-based,
-unlike filter picker indexes), not `is_adult`. Its artwork is the APK's unmodified
-`res/raw/sticker_4.json`, a 3-second 60-fps Lottie animation, not a GIF. SHA-256:
+Оригинальное предупреждение использует `age_rating == 5` (значения тайтла в API начинаются с 1, в отличие от индексов выбора фильтра), а не `is_adult`. Его графика — неизменённый `res/raw/sticker_4.json` из APK, трёхсекундная анимация Lottie с частотой 60 кадров/с, а не GIF. SHA-256:
 `662f469ca40a5b8bc7e0944504498a10f8177ce8bb06d6a5501b5206baaea6ff`.
-The loop pauses off-screen, in background, under Reduce Motion or resource saving.
-Licensing text is not invented from a restriction flag: it must come from `note`.
+Цикл приостанавливается вне экрана, в фоне, при включённом Reduce Motion или экономии ресурсов. Текст о лицензировании не придумывается на основании флага ограничения: он должен поступать из `note`.
 
-Windows syntax parsing is not Swift typechecking, XCTest, a simulator launch,
-or proof of any of these native interactions. Archived Android screenshots are
-reference material, not screenshots of the changed iOS application.
+Разбор синтаксиса в Windows не является проверкой типов Swift, запуском XCTest или симулятора и не подтверждает ни одно из этих нативных взаимодействий. Архивные скриншоты Android — справочный материал, а не снимки изменённого iOS-приложения.
 
-## Detail and franchise follow-up
+## Дополнительные изменения страницы тайтла и франшизы
 
-- Studio/author/director fact rows now have separate aligned icons and scoped
-  search links. The original ReleaseSearchFragment uses studio `1`, director `2`,
-  author `3`, source `5`. Earlier `SearchScope` title-language names remain
-  compatibility aliases for stored numeric values; the visible labels are corrected.
-- **На главный экран** selects the root Home tab and resets its navigation stack,
-  rather than pushing another HomeView into release navigation. This is in-app
-  navigation, not installation of an iOS Home Screen shortcut.
-- Franchise rows have square season/type badges and an accent-coloured connector
-  behind the posters. First/last endpoints stop at poster centres.
-- Franchise description **Подробнее** is based on measured truncation, not an
-  arbitrary character count. Short descriptions must not show a no-op button.
-- Three implementation directions reviewed 49 existing Android PNGs each. The
-  release direction's selected images mostly cover other screens and contain no
-  franchise screen; they do not prove franchise visual parity or the Mushoku
-  Tensei runtime case. Check that case on iOS after a fresh macOS build.
+- Строки фактов о студии, авторе и режиссёре теперь имеют отдельные выровненные значки и ссылки на поиск с соответствующей областью. Оригинальный ReleaseSearchFragment использует для студии `1`, режиссёра `2`, автора `3`, первоисточника `5`. Прежние названия языков заголовка в `SearchScope` сохранены как совместимые псевдонимы для сохранённых числовых значений; видимые подписи исправлены.
+- **На главный экран** выбирает корневую вкладку «Главная» и сбрасывает её стек навигации, вместо добавления ещё одного HomeView в навигацию тайтла. Это переход внутри приложения, а не установка ярлыка на экран «Домой» iOS.
+- В строках франшизы используются квадратные значки сезона/типа и соединитель акцентного цвета за постерами. Первый и последний концы доходят до центров постеров.
+- Кнопка **Подробнее** в описании франшизы зависит от измеренного обрезания текста, а не произвольного количества символов. Для короткого описания не должна показываться кнопка без действия.
+- В каждом из трёх рассмотренных вариантов реализации изучено 49 существующих PNG из Android. Изображения, выбранные для варианта страницы тайтла, в основном относятся к другим экранам и не содержат экран франшизы; они не подтверждают визуальное соответствие франшизы или работу случая Mushoku Tensei. Проверьте этот случай на iOS после новой сборки на macOS.

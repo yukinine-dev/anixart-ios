@@ -1,96 +1,73 @@
-Build `__BUILD__` from `__SHA__`.
+Сборка `__BUILD__` из `__SHA__`.
 
-## Launch, appearance and native interactions
+## Запуск, внешний вид и нативные взаимодействия
 
-- Cold start uses one shared, bounded configuration/session/Home preparation task. Home adopts the warmed first page, including retryable failures, without a second automatic initial request.
-- Device appearance adds original/accented/OLED/Monet-style themes and a live Roboto/SF Pro choice. Monet-style is a seed-based approximation, not access to the iOS wallpaper.
-- Home search keeps bounded, account/guest-separated local query history with individual removal and explicit clearing. Clearing the search field does not clear history.
-- Selected tab/chip highlights move with the existing 220 ms curve, and label/checkmark space stays stable. Profile sections, voice-over filters and hostings share the same selection behavior.
-- Reputation/contact information uses a native sheet in compact layouts, landscape or large Dynamic Type, with scrolling and explicit close controls. Regular-space popovers adapt when space becomes compact. Only one identity information window is owned by a profile.
-- The avatar retains its native Open/Edit/Delete menu and separate deletion confirmation. Opening information or the menu does not mutate the account.
-- Existing description, spoiler and episode-hint animations preserve their normal behavior but now respect Reduce Motion, resource saving and keyboard activation. No new reveal effects were added.
+- Холодный запуск использует одну общую ограниченную по времени задачу подготовки конфигурации, сессии и главной страницы. Главная принимает предварительно загруженную первую страницу, включая ошибки с возможностью повтора, без второго автоматического начального запроса.
+- Внешний вид устройства включает оригинальную, акцентную, OLED и темы в стиле Monet, а также переключение Roboto/SF Pro без перезапуска. Стиль Monet — приближение на основе заданного цвета, а не доступ к обоям iOS.
+- Поиск на главной сохраняет ограниченную локальную историю запросов отдельно для аккаунта и гостя, с удалением отдельных записей и явной очисткой. Очистка поля поиска не удаляет историю.
+- Подсветка выбранной вкладки или чипа перемещается с существующей кривой длительностью 220 мс, а место для подписи и галочки остаётся стабильным. Разделы профиля, фильтры озвучек и хостинги используют одинаковое поведение выбора.
+- Информация о репутации и контактах использует нативный лист на компактных экранах, в альбомной ориентации или при крупном Dynamic Type, с прокруткой и явными элементами закрытия. Всплывающие окна при обычной ширине адаптируются к компактной. У профиля может быть только одно окно информации об идентичности.
+- Аватар сохраняет нативное меню открытия, редактирования и удаления с отдельным подтверждением удаления. Открытие информации или меню не изменяет аккаунт.
+- Существующие анимации описания, спойлеров и подсказок эпизодов сохраняют обычное поведение, но теперь учитывают Reduce Motion, экономию ресурсов и активацию с клавиатуры. Новые эффекты появления не добавлены.
 
-## Remaining browsing routes
+## Остальные сценарии просмотра
 
-- Native voice input starts only on an explicit microphone-button tap or Retry. Permission failures, cancellation, manual edits, session changes and inactive scenes stop the attempt; audio configuration is restored on cleanup.
-- Recommendation help shows the original APK's information text rather than invented iOS-side eligibility rules.
-- Release screenshots open full-screen at the tapped index, with paging, accessible controls, fresh image retry and at most three retained frames. Reduce Motion avoids spatial paging.
-- Source-material links use the original release-search route with `searchBy: 5`, without replacing the user's title search or filter.
-- The full video hub loads category blocks, streaming services and recent videos; later pages keep raw-count pagination. Streaming refresh failures expose retry.
+- Нативный голосовой ввод начинается только после явного нажатия кнопки микрофона или повтора. Ошибки разрешений, отмена, ручное редактирование, смена сессии и неактивность сцены останавливают попытку; при завершении настройки аудио восстанавливаются.
+- Справка о рекомендациях показывает информационный текст оригинального APK, а не придуманные на стороне iOS правила доступности.
+- Скриншоты тайтла открываются на весь экран с выбранного изображения; доступны перелистывание, доступные элементы управления и повторная загрузка. В памяти удерживается не более трёх кадров. При Reduce Motion пространственного перелистывания нет.
+- Ссылки на первоисточник используют оригинальный маршрут поиска тайтлов с `searchBy: 5`, не заменяя пользовательский запрос или фильтр.
+- Полный видеохаб загружает блоки категорий, стриминговые сервисы и недавние видео; последующие страницы сохраняют пагинацию по исходному количеству элементов. При ошибке обновления трансляций доступен повтор.
 
-## Home, search and release updates
+## Изменения главной, поиска и тайтлов
 
-- Tab settings include an explicit launch-default selector and separate four-field settings for the device-local custom tab.
-- Release search uses the original v2 contract, paginated results, a separate franchise card and same-page retry. The full filter is accessible from search; Apply switches to filter results even when its values are unchanged. Old queries and sessions cannot replace current results.
-- The full catalogue filter includes studio, source material and episode duration. Empty selections are omitted, and guest browsing does not borrow account-list exclusions.
-- Known 25-item browsing feeds use raw page sizes instead of stopping at a misleading zero or last-index page count.
-- Discover has Popular, Schedule, Collections, Filter and Random shortcuts, current-session loading and partial-refresh retry. Discussion rows show daily rather than lifetime comment counts.
-- Release details copy only real titles, retain two-decimal ratings and distinguish franchise headers from related-release lists.
-- Release details restore the large centred poster, description below the facts and age beside the original title. Studio, author and director share one wrapping fact with independent underlined search links.
-- Square badges are limited to franchise rows, use readable neutral colours and omit the airing-status badge. Release favourites use bookmark icons; Home posters are larger and row excerpts are shorter.
-- Theme updates are deferred and touch live navigation/tab bars rather than SwiftUI-owned collection and transition views. Settings own their colour-scheme preference; repeated changes and dismissal still need a physical-iOS check.
-- Home and filtered-result menus offer favourites and viewing status. Selecting the current status is a no-op; acknowledged changes rebase the displayed feed, and failed aggregate refreshes do not undo successful writes.
-- Video banners use their action/category IDs, and invalid URLs cannot open an empty web player. Random opens a release detail, not playback.
+- Настройки вкладок включают явный выбор вкладки при запуске и отдельные настройки четырёх полей локальной пользовательской вкладки.
+- Поиск тайтлов использует оригинальный контракт v2, постраничные результаты, отдельную карточку франшизы и повтор текущей страницы. Полный фильтр доступен из поиска; кнопка применения переключает на результаты фильтра даже при неизменённых значениях. Старые запросы и сессии не могут заменить текущие результаты.
+- Полный фильтр каталога включает студию, первоисточник и продолжительность эпизода. Пустые варианты не передаются, а гостевой просмотр не заимствует исключения списков аккаунта.
+- Известные ленты просмотра по 25 элементов используют исходный размер страницы и не останавливаются из-за вводящего в заблуждение нулевого значения или номера последнего индекса.
+- В «Обзоре» есть быстрые переходы «Популярное», «Расписание», «Коллекции», «Фильтр» и «Случайное», загрузка для текущей сессии и повтор частичного обновления. В строках обсуждений отображается дневное, а не общее за всё время количество комментариев.
+- Страница тайтла копирует только существующие названия, сохраняет оценки с двумя знаками после запятой и различает заголовки франшиз и списки связанных тайтлов.
+- На странице тайтла восстановлены крупный постер по центру, описание под фактами и возраст рядом с оригинальным названием. Студия, автор и режиссёр объединены в одну строку фактов с переносом и независимыми подчёркнутыми ссылками поиска.
+- Квадратные значки используются только в строках франшизы, имеют читаемые нейтральные цвета и не содержат значка статуса выхода. Для избранного тайтлов используются значки закладок; постеры на главной крупнее, а отрывки в строках короче.
+- Обновления темы откладываются и применяются к активным панелям навигации и вкладок, а не к представлениям коллекций и переходов под управлением SwiftUI. Настройки управляют собственным предпочтением цветовой схемы; повторные изменения и закрытие ещё требуют проверки на физическом устройстве iOS.
+- В меню главной и результатов фильтра доступны избранное и статус просмотра. Выбор текущего статуса ничего не меняет; подтверждённые изменения переосновывают отображаемую ленту, а ошибки общего обновления не отменяют успешные записи.
+- Видеобаннеры используют свои идентификаторы действий и категорий, а некорректные URL не открывают пустой веб-плеер. Случайный выбор открывает страницу тайтла, а не воспроизведение.
 
-## Profile updates
+## Изменения профиля
 
-- Badge previews use four columns, conditional overflow and independent pin/selection markers; partial entries retain their artwork.
-- The installed nickname badge opens its details; "Change badge" opens the selection screen without changing the account. Compact tiles retain related-release subtitles.
-- Animated badges use native Lottie, paused off-screen, in the background, for Reduce Motion and for resource saving.
-- Recent badges are cached per account and sent as CSV; foreign profile reads do not borrow that history.
-- Badge changes require a current owner snapshot and explicit server acknowledgement, including after signing in again to the same account.
-- Both reorder screens use an explicit Save/Cancel draft; cancelled refreshes cannot submit an acknowledged order twice.
-- Nickname editing waits for both availability and restrictions, with retry after a failed load.
+- Предпросмотр значков использует четыре столбца, условный индикатор дополнительных значков и независимые маркеры закрепления и выбора; неполные записи сохраняют изображения.
+- Установленный значок ника открывает сведения о нём; «Изменить значок» открывает экран выбора без изменения аккаунта. Компактные плитки сохраняют подписи связанных тайтлов.
+- Анимированные значки используют нативный Lottie и приостанавливаются вне экрана, в фоне, при Reduce Motion и экономии ресурсов.
+- Недавние значки кэшируются отдельно для каждого аккаунта и отправляются как CSV; при чтении чужого профиля эта история не используется.
+- Изменение значков требует актуального снимка профиля владельца и явного подтверждения сервера, в том числе после повторного входа в тот же аккаунт.
+- Оба экрана изменения порядка используют черновик с явным сохранением или отменой; отменённые обновления не могут повторно отправить уже подтверждённый порядок.
+- Редактирование ника ожидает данные и о доступности, и об ограничениях; после ошибки загрузки доступна повторная попытка.
 
-## Before you install
+## Перед установкой
 
-This `.ipa` is **unsigned** — no Apple Developer certificate exists in this repository,
-so iOS will not install it as-is. Re-sign it with one you control:
+Этот `.ipa` **не подписан**: в репозитории нет сертификата Apple Developer, поэтому iOS не установит его как есть. Подпишите его заново сертификатом, которым вы управляете:
 
-| Tool | Needs | Install lasts |
+| Инструмент | Что требуется | Срок установки |
 |---|---|---|
-| [Sideloadly](https://sideloadly.io) | any Apple ID | 7 days free, a year on a paid account |
-| [AltStore](https://altstore.io) / SideStore | any Apple ID | same, refreshes itself |
-| [TrollStore](https://github.com/opa334/TrollStore) | a supported iOS version | permanent |
+| [Sideloadly](https://sideloadly.io) | любой Apple ID | 7 дней бесплатно, год с платным аккаунтом |
+| [AltStore](https://altstore.io) / SideStore | любой Apple ID | столько же, с автоматическим обновлением |
+| [TrollStore](https://github.com/opa334/TrollStore) | поддерживаемая версия iOS | бессрочно |
 
-Bundle id is `app.anixart.client`. A free Apple ID caps you at three sideloaded apps.
+Идентификатор пакета — `app.anixart.client`. Бесплатный Apple ID ограничивает число приложений, установленных в обход магазина, тремя.
 
-## What this build is checked against
+## Что проверено для этой сборки
 
-CI compiled it, ran the AnixartKit and app XCTest suites, booted a simulator, launched the app and
-confirmed the process survives with no crash report. It then relaunches the app straight
-onto a profile and onto a release page and photographs both, so those two screens are
-checked to render against live data with no decode failures.
+CI скомпилировал проект, запустил наборы XCTest для AnixartKit и приложения, загрузил симулятор, запустил приложение и подтвердил, что процесс продолжает работать без отчёта о сбое. Затем он повторно запускает приложение непосредственно на странице профиля и странице тайтла и делает снимки обоих экранов, проверяя их отображение на реальных данных без ошибок декодирования.
 
-Profile regression tests use isolated fixtures for artwork, recent history, ownership,
-ordering, cancellation and nickname availability. Read-only Android checks use the
-original phone app, not a reconstructed design. This does not establish full runtime
-parity on a physical iOS device; live public-pinned and animated badge examples remain
-verification gaps in `docs/PORTING.md`.
+Регрессионные тесты профиля используют изолированные фикстуры для изображений, недавней истории, принадлежности, порядка, отмены и доступности ника. Проверки Android только на чтение используют оригинальное приложение на телефоне, а не восстановленный дизайн. Это не подтверждает полного соответствия во время работы на физическом устройстве iOS; реальные примеры публично закреплённых и анимированных значков остаются пробелами проверки в `docs/PORTING.md`.
 
-Browsing regressions also cover query/session isolation, raw-count pagination,
-franchise suggestions, filters, acknowledged row actions, URL validation and random
-failures. Public read-only API checks confirmed the v2 franchise response and the
-pagination metadata differences; those HTTP observations are not iOS UI tests.
+Регрессионные тесты просмотра также покрывают изоляцию запросов и сессий, пагинацию по исходному числу элементов, предложения франшиз, фильтры, подтверждённые действия со строками, проверку URL и ошибки случайного выбора. Публичные проверки API только на чтение подтвердили ответ франшиз v2 и различия метаданных пагинации; эти наблюдения HTTP не являются UI-тестами iOS.
 
-Additional offline tests cover bounded launch/handoff and timeout behavior, local
-query history, appearance/typeface/image handling, selection sizing and motion
-gates, plus adaptive information policy and stale dismissal callbacks. They do
-not verify actual popover arrow placement, native compact adaptation or frame
-rate on a physical iPhone.
+Дополнительные локальные тесты покрывают ограниченные по времени запуск, передачу управления и тайм-ауты, локальную историю запросов, внешний вид, обработку шрифтов и изображений, размеры выбора и условия анимации, а также правила адаптивной информации и устаревшие колбэки закрытия. Они не проверяют фактическое расположение стрелки всплывающего окна, нативную адаптацию к компактному размеру или частоту кадров на физическом iPhone.
 
-Player XCTest covers native AVPlayer failure and recovery using a local PCM WAV file,
-resume position, speed, quality, stale callbacks, stop and web-fallback routing. Live
-player screenshots and hosting diagnostics are best-effort: the full Kodik
-advert-to-video transition is not a required passing test.
+XCTest плеера покрывает ошибки и восстановление нативного AVPlayer с локальным файлом PCM WAV, позицию продолжения, скорость, качество, устаревшие колбэки, остановку и переход к запасному веб-плееру. Снимки работающего плеера и диагностика хостингов выполняются по возможности: полный переход Kodik от рекламы к видео не является обязательным проходным тестом.
 
-Catalogue, search, filter dialogs, the episode drill-down, bookmarks and comments are
-built and have offline regressions where noted, but are not clicked through in the
-simulator. Voice authorization/audio and gallery lifecycle tests use injected mocks:
-they do not activate a real microphone or prove native permission, gesture, rotation
-or playback hand-back behavior. Those flows still require physical-iOS checks.
-Video submission/appeal creation, social account binding and blog editing remain
-outside this browsing patch. This has only ever run in a simulator, never on a
-physical iOS device.
+Каталог, поиск, диалоги фильтров, переход к эпизодам, закладки и комментарии собираются и, где указано, имеют локальные регрессионные тесты, но в симуляторе их не проходили вручную. Тесты разрешений голоса/аудио и жизненного цикла галереи используют внедрённые моки: они не включают настоящий микрофон и не подтверждают работу нативных разрешений, жестов, поворота или возврата воспроизведения. Эти сценарии по-прежнему требуют проверки на физическом устройстве iOS.
 
-See [`docs/PORTING.md`](../blob/__SHA__/docs/PORTING.md) for what is not implemented yet.
+Отправка видео и создание апелляций, привязка социальных аккаунтов и редактирование блогов остаются за пределами этого патча просмотра. Приложение запускалось только в симуляторе, ни разу на физическом устройстве iOS.
+
+Что ещё не реализовано, см. в [`docs/PORTING.md`](../blob/__SHA__/docs/PORTING.md).

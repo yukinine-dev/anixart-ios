@@ -1,19 +1,10 @@
 # Anime4K
 
-The two shaders here are taken verbatim from [bloc97/Anime4K](https://github.com/bloc97/Anime4K)
-at the commit this was vendored from, under the MIT licence in `LICENSE`. They
-are not edited by hand and should not be: they are weights.
+Два шейдера здесь без изменений взяты из [bloc97/Anime4K](https://github.com/bloc97/Anime4K) на коммите, из которого они были включены в проект, по лицензии MIT из файла `LICENSE`. Они не редактируются вручную и не должны редактироваться: это веса модели.
 
-* `Anime4K_Restore_CNN_S.glsl` — four convolution passes with a residual
-  connection, trained to undo the blur and compression a low-bitrate encode
-  leaves behind.
-* `Anime4K_Upscale_CNN_x2_S.glsl` — four convolutions and a depth-to-space pass
-  that doubles the picture.
+* `Anime4K_Restore_CNN_S.glsl` — четыре прохода свёртки с остаточным соединением, обученные устранять размытие и артефакты сжатия после кодирования с низким битрейтом.
+* `Anime4K_Upscale_CNN_x2_S.glsl` — четыре свёртки и проход depth-to-space, который увеличивает изображение вдвое.
 
-`S` is the small variant. The repository also ships M, L, VL, UL and GAN
-variants, up to 300 KB of weights each; those are sized for a desktop GPU
-driving a 4K display and are not what a phone has to spend on a frame.
+`S` — малый вариант. В репозитории также есть варианты M, L, VL, UL и GAN, с весами до 300 КБ каждый; они рассчитаны на настольный GPU с дисплеем 4K и выходят за пределы бюджета обработки кадра на телефоне.
 
-`Tools/convert-anime4k.py` translates them into Core Image Metal kernels, since
-the originals are written for mpv's shader hook format. Run it again after
-updating the files here — never edit the generated output.
+`Tools/convert-anime4k.py` преобразует их в Metal-ядра Core Image, поскольку оригиналы написаны для формата shader hook в mpv. После обновления файлов здесь запустите скрипт снова — никогда не редактируйте сгенерированный результат вручную.

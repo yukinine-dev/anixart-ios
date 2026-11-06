@@ -1,225 +1,113 @@
-# Anixart for iOS
+# Anixart для iOS
 
-A native iOS client for Anixart, ported from the Android app (`com.swiftsoft.anixartd` 10.5).
-SwiftUI, iOS 17+, async/await. The core has no third-party dependencies;
-the app uses native [Lottie](https://github.com/airbnb/lottie-ios) (Apache-2.0)
-for animated profile badges.
+Нативный клиент Anixart для iOS, портированный из Android-приложения (`com.swiftsoft.anixartd` 10.5).
+SwiftUI, iOS 17+, async/await. В ядре нет сторонних зависимостей; приложение использует нативную библиотеку [Lottie](https://github.com/airbnb/lottie-ios) (Apache-2.0) для анимации значков профиля.
 
-This is an unofficial client. It talks to the same public API the Android app uses and adds
-nothing that bypasses it — no ad removal, no premium unlocking, no scraping around the API.
+Это неофициальный клиент. Он обращается к тому же публичному API, что и Android-приложение, и не добавляет способов его обхода: удаления рекламы, разблокировки премиум-функций или сбора данных в обход API.
 
 ---
 
-## What is and is not verified
+## Что проверено, а что нет
 
-CI builds and runs this on macOS. Successful runs verify:
+CI собирает и запускает проект на macOS. Успешные запуски подтверждают следующее:
 
-- **It compiles.** `AnixartKit` and the iOS app target both build, and the kit's
-  **unit tests pass**.
-- **It launches.** A simulator boots the app, and the job fails if a crash report
-  appears or the process is gone 25 seconds later. It survives.
-- **It decodes live API responses.** The probe and launch/profile/release smoke
-  routes read configuration and public catalogue, profile and release content.
-  The smoke job fails on an app decoder error. This checks the reverse-engineered
-  JSON keys against real server payloads, not only against offline fixtures; it
-  does not establish that every navigation route or hosting works.
+- **Проект компилируется.** Собираются `AnixartKit` и цель iOS-приложения, **модульные тесты** ядра проходят.
+- **Приложение запускается.** Симулятор запускает приложение; задание завершается с ошибкой, если появляется отчёт о сбое или процесс исчезает в течение 25 секунд. Приложение продолжает работать.
+- **Реальные ответы API декодируются.** Проверочный скрипт и дымовые сценарии запуска, профиля и страницы тайтла получают конфигурацию и публичные данные каталога, профиля и тайтла. При ошибке декодирования задание завершается с ошибкой. Так извлечённые при обратном проектировании ключи JSON проверяются на реальных ответах сервера, а не только на локальных фикстурах; это не подтверждает работу всех переходов или хостингов.
 
-What that does **not** cover:
+Что эти проверки **не охватывают**:
 
-- **Only the launch, public-profile and release-detail smoke routes are exercised.**
-  Catalogue, filter, search, the episode drill-down, bookmarks and comments compile and
-  are wired to APK-verified endpoints, but are not clicked through in the simulator. Owner-only profile
-  flows have offline regression tests, not an end-to-end simulator account check.
-- **Playback is untested.** Both players are the least certain part of the port — see
-  "Known risks" in `docs/PORTING.md`.
-- **It has never run on a physical device**, only in the simulator.
+- **Проверены только дымовые сценарии запуска, публичного профиля и страницы тайтла.** Каталог, фильтры, поиск, переход к эпизодам, закладки и комментарии компилируются и подключены к эндпоинтам, проверенным по APK, но в симуляторе их не проходили вручную. Для функций профиля, доступных только владельцу, есть локальные регрессионные тесты, но нет сквозной проверки с аккаунтом в симуляторе.
+- **Воспроизведение не проверено.** Оба плеера — наименее проверенная часть порта; см. раздел известных рисков в `docs/PORTING.md`.
+- **На физическом устройстве приложение ни разу не запускалось**, только в симуляторе.
 
-CI results apply only to the exact tested revision. Badge previews, recent history,
-ordering and Lottie have offline fixtures; those do not establish full live parity.
-Syntax checking on Windows is not Swift typechecking or XCTest.
+Результаты CI относятся только к конкретной проверенной ревизии. Для предварительного просмотра значков, недавней истории, порядка значков и Lottie есть локальные фикстуры; они не подтверждают полного соответствия при работе с сервером. Проверка синтаксиса в Windows не заменяет проверку типов Swift или XCTest.
 
-The 2 Nov 2026 Home/Discover audit used text UI trees from the original Android
-application, not the reconstructed design. It adds offline regressions for
-viewer-scoped feeds/actions, release-search paging and franchise navigation,
-banner/video-category contracts and random-release failures. Each revision requires
-a fresh macOS build and test run; an earlier alpha's green CI does not verify later
-changes. Android observations are not iOS runtime or full-parity checks.
+Аудит экранов «Главная» и «Обзор» от 2 ноября 2026 года использовал текстовые деревья интерфейса исходного Android-приложения, а не восстановленный дизайн. Он добавляет локальные регрессионные тесты для лент и действий с учётом текущего пользователя, постраничного поиска тайтлов и навигации по франшизам, контрактов баннеров и видеокатегорий, а также ошибок случайного тайтла. Для каждой ревизии нужны новая сборка и запуск тестов на macOS; успешный CI предыдущей альфа-версии не подтверждает последующие изменения. Наблюдения за Android не являются проверкой работы на iOS или полного соответствия.
 
-Browsing follow-up adds native, explicitly started speech input, the APK's
-recommendation information dialog, full-screen screenshot paging and the
-source-material search link (`searchBy: 5`), plus the full video hub's category and
-streaming blocks. Permission/audio and gallery lifecycle regressions use injected
-mocks, never a real microphone. Native permission dialogs, speech availability,
-audio restoration and gallery gestures still need iOS runtime verification.
+Последующие изменения просмотра добавляют нативный голосовой ввод, запускаемый явным действием, информационный диалог рекомендаций из APK, полноэкранный просмотр скриншотов с перелистыванием и ссылку поиска по первоисточнику (`searchBy: 5`), а также категории и блоки трансляций полного видеохаба. Регрессионные тесты разрешений, аудио и жизненного цикла галереи используют внедрённые моки, а не настоящий микрофон. Нативные диалоги разрешений, доступность распознавания речи, восстановление аудио и жесты галереи ещё требуют проверки на iOS.
 
-The search/bookmarks follow-up uses saved screenshots and compiled layouts from
-the original Android app: an always-visible native search field, full-pill hit
-area, centred franchise suggestion, outlined full-filter controls and original
-wide bookmark rows. Bookmarks occupy the third slot and default to Favourites
-unless explicitly configured otherwise. Recent viewing shows the embedded episode
-when the flat label is absent. Profile views from the last 24 hours show a short
-relative age; older views and bookmark-history rows retain the exact local
-date/time. Added offline regressions still require a fresh macOS build/XCTest run;
-Windows syntax checks do not verify these layouts or touch behaviour on iOS.
+Доработка поиска и закладок использует сохранённые скриншоты и скомпилированные макеты оригинального Android-приложения: постоянно видимое нативное поле поиска, область нажатия по всей капсуле, предложение франшизы по центру, контурные элементы полного фильтра и оригинальные широкие строки закладок. Закладки занимают третью вкладку и по умолчанию открывают «Избранное», если не настроено иначе. В недавних просмотрах показывается вложенный эпизод, когда плоская подпись отсутствует. Для просмотров профиля за последние 24 часа показывается короткое относительное время; для более старых просмотров и строк истории закладок сохраняются точные локальные дата и время. Добавленным локальным регрессионным тестам по-прежнему нужны свежая сборка на macOS и запуск XCTest; проверка синтаксиса в Windows не подтверждает эти макеты и обработку касаний на iOS.
 
-The root tabs are **Главная / Обзор / Закладки / Лента / Профиль**. There is no
-separate Catalogue tab. Feed browsing now has My feed, Fresh and Managed sections,
-period/channel filters, paged channel/blog/article search and native post/media,
-comment, voter and repost routes. Fresh/personal feeds require login (confirmed by
-anonymous API `code: 401`); feed search is public. Blog subscription uses the APK's
-friend-request route with an explicit explanation, not a channel-subscribe write.
-Publishing/editing posts and channels remains unimplemented. The added feed tests
-and Windows syntax checks still need a fresh macOS build and iOS runtime checks.
+Корневые вкладки: **Главная / Обзор / Закладки / Лента / Профиль**. Отдельной вкладки «Каталог» нет. Лента содержит разделы «Моя лента», «Свежее» и управления, фильтры периода и каналов, постраничный поиск каналов, блогов и статей, а также нативные переходы к публикациям и медиа, комментариям, проголосовавшим и репостам. Свежая и личная ленты требуют входа (это подтверждено ответом API `code: 401` для анонимного пользователя); поиск по ленте публичный. Для подписки на блог используется эндпоинт запроса в друзья из APK с явным пояснением, а не запись подписки на канал. Публикация и редактирование постов и каналов пока не реализованы. Добавленные тесты ленты и проверки синтаксиса в Windows по-прежнему требуют свежей сборки на macOS и проверки работы на iOS.
 
-Appearance/profile refinements add original neutral/lavender and carmine-accent
-themes, true-black OLED and a seed-driven **Monet-style** palette (not iOS wallpaper
-access), plus a live device-local **Roboto / native SF Pro** choice. Reputation
-and presence share a row; foreign reputation shows a profile-specific fact rather
-than the owner's help text. Reputation/contact information uses a sheet for compact
-layouts and large Dynamic Type, and an anchored popover in regular space. Tiny
-nonzero chart slices remain visible, and the
-profile's absent-blog API code is not presented as a failed login/load. The
-upgrade information dialog uses the original local Anixa artwork without creating
-a blog. Photo decoders retain ICC/alpha and explicitly render originals; no
-brightness filter is used or claimed as a proven fix for every image. These later
-edits require a new build/XCTest and iOS visual check, not Build 95's earlier result.
+Доработки внешнего вида и профиля добавляют исходные нейтральную/лавандовую и карминовую темы, настоящий чёрный цвет для OLED и палитру **в стиле Monet** на основе заданного цвета (без доступа к обоям iOS), а также переключение **Roboto / нативный SF Pro** на самом устройстве. Репутация и статус присутствия находятся в одной строке; для чужой репутации показывается факт конкретного профиля, а не справочный текст владельца. Сведения о репутации и контактах открываются в виде листа на компактных экранах и при крупном Dynamic Type либо привязанного всплывающего окна при достаточном пространстве. Маленькие ненулевые доли диаграммы остаются видимыми, а код API для отсутствующего блога профиля не отображается как ошибка входа или загрузки. Информационный диалог повышения использует исходное локальное изображение Anixa, не создавая блог. Декодеры фотографий сохраняют ICC и альфа-канал и явно отображают оригиналы; фильтр яркости не используется и не заявляется как доказанное исправление всех изображений. Этим последующим изменениям необходимы новая сборка/XCTest и визуальная проверка на iOS; прежний результат Build 95 их не подтверждает.
 
-Cold start now shows the same static app mark in the native launch screen and the
-runtime loading view. Configuration/session restoration precede warming the saved
-Home tab's first page; Home adopts that complete model instead of requesting it
-again. Errors/timeouts reveal normal retry UI. Unset custom filters and non-Home
-smoke routes skip irrelevant warm requests, and foreground/resume never restarts
-the coordinator. This is a new flow, not a verified physical-device launch result.
+При холодном запуске одинаковый статичный знак приложения показывается на нативном стартовом экране и в представлении загрузки. До предварительной загрузки первой страницы сохранённой вкладки «Главная» восстанавливаются конфигурация и сессия; вкладка использует уже готовую модель вместо повторного запроса. Ошибки и тайм-ауты показывают обычный интерфейс повторной попытки. Если пользовательские фильтры не заданы, а также для дымовых сценариев вне «Главной», лишние предварительные запросы пропускаются; переход на передний план и возобновление не перезапускают координатор. Это новый сценарий, а не подтверждённый результат запуска на физическом устройстве.
 
-Home search now has a device-local, account/guest-separated history of at most 20
-queries, recorded only on submit, history selection, opening a result or accepting
-voice input. Entries can be removed and clearing requires confirmation; intermediate
-typed prefixes, API results and tokens are not stored. Avatar commands use a native
-menu at the photo, with deletion still separately confirmed. Episode/view-age labels
-have independent spacing and a vertical fallback for large text. Tab indicators
-move briefly (220 ms), without animating the result list; Reduce Motion, resource
-saving and keyboard activation disable custom movement. These changes still need
-fresh macOS typechecking/XCTest and native-iOS interaction checks.
+В поиске на главной появилась локальная история до 20 запросов, раздельная для аккаунта и гостя. Запрос записывается только после отправки, выбора истории, открытия результата или принятия голосового ввода. Записи можно удалять, а очистка требует подтверждения; промежуточный ввод, ответы API и токены не сохраняются. Действия с аватаром доступны через нативное меню у фотографии, удаление по-прежнему требует отдельного подтверждения. У подписей эпизода и времени просмотра независимые отступы и вертикальный вариант для крупного текста. Индикаторы вкладок перемещаются с короткой анимацией (220 мс), список результатов не анимируется; Reduce Motion, экономия ресурсов и активация с клавиатуры отключают пользовательское движение. Для этих изменений по-прежнему нужны свежая проверка типов/XCTest на macOS и проверка взаимодействий на iOS.
 
-Profile information has explicit close controls, scrollable content and a single
-identity presentation per profile. Avatar editing/gallery routes close that
-information first; the native avatar menu and separate deletion confirmation stay.
-Existing description, spoiler and episode-hint animations retain their original
-normal-mode timing but now obey Reduce Motion, resource saving and keyboard input.
-This does not add new reveal effects or establish physical-device smoothness.
+В информации профиля есть явные элементы закрытия, прокручиваемое содержимое и единое представление идентичности для каждого профиля. Переходы к редактированию аватара и галерее сначала закрывают эту информацию; нативное меню аватара и отдельное подтверждение удаления сохранены. Существующие анимации описания, спойлеров и подсказок эпизодов сохраняют исходную длительность в обычном режиме, но теперь учитывают Reduce Motion, экономию ресурсов и ввод с клавиатуры. Это не добавляет новых эффектов появления и не подтверждает плавность на физическом устройстве.
 
-Alongside the run, these were checked mechanically:
+Наряду с запуском механически проверено следующее:
 
-- all 92 endpoint paths were diffed against the 296 Retrofit annotations extracted
-  from the APK — they match exactly;
-- the JSON key for every model field came from the APK's Jackson `@JsonProperty`
-  annotations rather than hand-typing, via a committed script that reproduces both the
-  extracted map and all 60 generated Swift files (`Tools/`);
-- the unit tests assert the wire shape directly: token as a query parameter, form
-  encoding, the filter body's snake_case keys with absent rather than null fields,
-  `searchBy` staying camelCase, mirror-host rewriting, and the mixed-casing payloads.
+- все 92 пути эндпоинтов сравнены с 296 аннотациями Retrofit, извлечёнными из APK, — они полностью совпадают;
+- ключ JSON каждого поля модели взят из аннотаций Jackson `@JsonProperty` в APK, а не введён вручную; сохранённый в репозитории скрипт воспроизводит как извлечённую карту, так и все 60 сгенерированных файлов Swift (`Tools/`);
+- модульные тесты напрямую проверяют формат передачи: токен как параметр запроса, кодирование формы, ключи тела фильтра в snake_case с отсутствующими, а не null-полями, сохранение camelCase в `searchBy`, переписывание хостов зеркал и данные со смешанным регистром ключей.
 
-The `smoke` job also prints the first frame into its log as a base64 JPEG, so the
-rendered screen can be inspected without downloading the artifact.
+Задание `smoke` также выводит первый кадр в лог в виде JPEG, закодированного в base64, чтобы экран можно было осмотреть без скачивания артефакта.
 
-## Releases
+## Релизы
 
-Every push to the development branch that gets past the simulator launch test is
-published as an **alpha pre-release** on the
-[Releases page](https://github.com/yukinine-dev/anixart-ios/releases), with the `.ipa`
-attached. They are tagged `v0.1.0-alpha.<build>` and marked as pre-releases, which
-keeps the repository's "Latest release" empty — an alpha is never presented as the
-finished thing.
+Каждый push в ветку разработки, прошедший тест запуска в симуляторе, публикуется как **предварительный альфа-релиз** на [странице релизов](https://github.com/yukinine-dev/anixart-ios/releases) с приложенным `.ipa`. Они получают теги `v0.1.0-alpha.<build>` и помечаются как предварительные релизы, поэтому поле репозитория «Latest release» остаётся пустым — альфа не выдаётся за готовый продукт.
 
-When the port is ready to be called finished, run the **Build** workflow manually
-(Actions → Build → Run workflow) with **"Publish as a full release"** ticked. That
-publishes `v<MARKETING_VERSION>` as a normal release instead. Bump
-`MARKETING_VERSION` in `project.yml` first.
+Когда порт будет готов к полноценному релизу, запустите workflow **Build** вручную (Actions → Build → Run workflow), отметив **«Publish as a full release»**. Тогда `v<MARKETING_VERSION>` будет опубликован как обычный релиз. Предварительно увеличьте `MARKETING_VERSION` в `project.yml`.
 
-The same `.ipa` is also attached to each run as the `Anixart-unsigned-ipa` artifact,
-which is the quicker route while iterating.
+Тот же `.ipa` прикладывается к каждому запуску как артефакт `Anixart-unsigned-ipa`; это более быстрый способ получить сборку во время разработки.
 
-## Installing the IPA
+## Установка IPA
 
-No Apple Developer certificate exists in this repository, so builds have code signing
-switched off and **iOS will not install the `.ipa` as-is** — it has to be re-signed
-with a certificate you control.
+В этом репозитории нет сертификата Apple Developer, поэтому сборки создаются с отключённой подписью кода, а **iOS не установит `.ipa` в текущем виде** — его необходимо повторно подписать сертификатом, которым вы управляете.
 
-The usual routes, in order of how long the install lasts:
+Обычные способы, в порядке срока действия установки:
 
-| Tool | Needs | Install lasts |
+| Инструмент | Что требуется | Срок установки |
 |---|---|---|
-| [Sideloadly](https://sideloadly.io) | any Apple ID | 7 days on a free account, a year on a paid one |
-| [AltStore](https://altstore.io) / SideStore | any Apple ID | same, but refreshes itself |
-| [TrollStore](https://github.com/opa334/TrollStore) | a device and iOS version it supports | permanent |
-| Xcode | the repo and a Mac | 7 days, or a year on a paid account |
+| [Sideloadly](https://sideloadly.io) | любой Apple ID | 7 дней с бесплатным аккаунтом, год с платным |
+| [AltStore](https://altstore.io) / SideStore | любой Apple ID | столько же, но с автоматическим обновлением |
+| [TrollStore](https://github.com/opa334/TrollStore) | поддерживаемые устройство и версия iOS | бессрочно |
+| Xcode | репозиторий и Mac | 7 дней или год с платным аккаунтом |
 
-A free Apple ID also caps you at three sideloaded apps. The bundle identifier is
-`app.anixart.client`; change `PRODUCT_BUNDLE_IDENTIFIER` in `project.yml` if it collides
-with something you already have installed.
+Бесплатный Apple ID также ограничивает число приложений, установленных в обход магазина, тремя. Идентификатор пакета — `app.anixart.client`; измените `PRODUCT_BUNDLE_IDENTIFIER` в `project.yml`, если он совпадает с идентификатором уже установленного приложения.
 
-**To get a directly installable build instead**, add an Apple Developer signing certificate
-(`.p12`) and a provisioning profile to the repository's Actions secrets and switch the `ipa`
-job to a signed `xcodebuild archive` / `-exportArchive`. Nothing in the port needs to change
-for that — only the signing settings, which are deliberately empty here.
+**Чтобы получить сборку, готовую к непосредственной установке**, добавьте сертификат подписи Apple Developer (`.p12`) и provisioning profile в секреты Actions репозитория и переключите задание `ipa` на подписанные `xcodebuild archive` / `-exportArchive`. Менять сам порт для этого не нужно — только настройки подписи, которые здесь намеренно оставлены пустыми.
 
-## Layout
+## Структура
 
 ```
-Packages/AnixartKit/          platform-agnostic core — no SwiftUI, unit-testable on its own
-  Models/Generated/           60 Codable types generated from the APK's @JsonProperty data
-  Models/                     enums, request bodies, display helpers, polymorphic notifications
-  Networking/                 AnixartClient (actor), Endpoint, errors, keychain token store
-  API/                        typed endpoints grouped by area
-Anixart/                      the iOS app
-  App/                        entry point, DI container, session, root tabs
-  Features/                   one folder per screen area
-  Components/                 posters, cards, paginated list, status views
-  Support/                    Paginator, formatters, theme
-Tools/                        the extraction/generation scripts and the extracted model map
-docs/API.md                   the reverse-engineered API reference (300 endpoints)
-docs/PORTING.md               Android → iOS mapping, feature coverage, known gaps
+Packages/AnixartKit/          независимое от платформы ядро — без SwiftUI, с отдельными модульными тестами
+  Models/Generated/           60 типов Codable, сгенерированных из данных @JsonProperty в APK
+  Models/                     перечисления, тела запросов, помощники отображения, полиморфные уведомления
+  Networking/                 актор AnixartClient, Endpoint, ошибки, хранилище токенов в keychain
+  API/                        типизированные эндпоинты, сгруппированные по областям
+Anixart/                      приложение для iOS
+  App/                        точка входа, DI-контейнер, сессия, корневые вкладки
+  Features/                   отдельная папка для каждой области экранов
+  Components/                 постеры, карточки, постраничный список, представления состояний
+  Support/                    Paginator, форматирование, тема
+Tools/                        скрипты извлечения и генерации, извлечённая карта моделей
+docs/API.md                   справочник по API, полученный обратным проектированием (300 эндпоинтов)
+docs/PORTING.md               соответствие Android → iOS, покрытие функций, известные пробелы
 ```
 
-## What the API looks like
+## Как устроен API
 
-Three things shape the whole client and are worth knowing before reading the code:
+На устройство клиента влияют три важных особенности, которые полезно знать до чтения кода:
 
-1. **The session token is a query parameter**, not a header: `?token=...`.
-2. **Failure arrives as HTTP 200** with a non-zero `code` in the body, so `AnixartClient`
-   checks every decoded response and raises `AnixartError.api`.
-3. **The host is not fixed.** `config/urls` returns the live API host list and a
-   `shouldUseMirrorUrls` flag; the client adopts both at launch, including the `mirror-`
-   host rewriting the Android app does.
+1. **Токен сессии передаётся в параметре запроса**, а не в заголовке: `?token=...`.
+2. **Ошибка приходит с HTTP 200** и ненулевым `code` в теле, поэтому `AnixartClient` проверяет каждый декодированный ответ и выдаёт `AnixartError.api`.
+3. **Хост не фиксирован.** `config/urls` возвращает актуальный список хостов API и флаг `shouldUseMirrorUrls`; клиент применяет оба при запуске, включая переписывание хостов с `mirror-`, как в Android-приложении.
 
-`docs/API.md` has the rest, including why the JSON key casing is mixed and which enum values
-are confirmed versus inferred.
+Остальные сведения находятся в `docs/API.md`, включая причины смешанного регистра ключей JSON и то, какие значения перечислений подтверждены, а какие предположительны.
 
-## Feature coverage
+## Покрытие функций
 
-Implemented: the icon-based cold-start flow, local Home query history, the Главная
-tabs (four-field Моя вкладка plus the eight catalogue presets),
-explicit device-local default-tab selection, discover feed and its five browsing shortcuts,
-the full filter and paginated release search with franchise results, release detail,
-explicit native voice search, full-screen screenshots, source-material search,
-the video hub and categories, voice-over/source/episode drill-down, playback (native and embedded), watch lists, favourites,
-history, collections, comments, profiles, friends, schedule, notifications, email sign-in and
-registration. Profiles include the six privacy-filtered sections, editor/account-health flows,
-badge categories and pin markers, whole-section themes, native JSON badge animations and
-explicit Save/Cancel ordering. Recent badge history is account-scoped and sent as CSV.
-The Feed tab includes personal/fresh posts, managed-channel browsing, channel/blog
-search and scoped subscription/voting/hide actions; no post is published on opening it.
+Реализованы: холодный запуск со значком, локальная история запросов на главной, вкладки «Главной» (четыре поля «Моей вкладки» и восемь пресетов каталога), явный локальный выбор вкладки по умолчанию, лента «Обзор» и пять быстрых переходов, полный фильтр и постраничный поиск тайтлов с результатами франшиз, страница тайтла, нативный голосовой поиск по действию пользователя, полноэкранные скриншоты, поиск по первоисточнику, видеохаб и категории, переход по озвучке/источнику/эпизоду, воспроизведение (нативное и встроенное), списки просмотра, избранное, история, коллекции, комментарии, профили, друзья, расписание, уведомления, вход и регистрация по электронной почте. Профили включают шесть разделов с учётом настроек приватности, редактирование и проверку состояния аккаунта, категории и отметки закрепления значков, темы для целых разделов, нативные JSON-анимации значков и явное сохранение/отмену порядка. Недавняя история значков привязана к аккаунту и отправляется как CSV.
 
-Not implemented: social sign-in/binding (needs the VK/Google/Telegram/Yandex SDKs and registered
-iOS client IDs), collection, article and channel creation/editing,
-broader moderator tooling, push notifications, downloads and the Torlook torrent search.
-Existing profile blogs and typed report forms are implemented. `docs/PORTING.md` has the
-full matrix and the remaining verification limits.
+Вкладка «Лента» включает личные и свежие публикации, просмотр управляемых каналов, поиск каналов и блогов, а также действия подписки, голосования и скрытия с учётом области действия; при её открытии публикация не создаётся.
 
-## Licence and attribution
+Не реализованы: вход и привязка социальных аккаунтов (нужны SDK VK/Google/Telegram/Yandex и зарегистрированные идентификаторы iOS-клиентов), создание и редактирование коллекций, статей и каналов, расширенные инструменты модератора, push-уведомления, загрузки и поиск торрентов Torlook. Существующие блоги профилей и типизированные формы жалоб реализованы. Полная матрица и оставшиеся ограничения проверки приведены в `docs/PORTING.md`.
 
-Anixart, its API, its content and its branding belong to their owners. The original
-Anixa mascot used by the upgrade dialog is attributed in
-`Anixart/Resources/Images/ATTRIBUTION.md`; the port does not claim ownership. Its app
-icon remains a placeholder. This client is not affiliated with or endorsed by the
-Anixart team. SF Pro is used through Apple's system font API, not redistributed files.
+## Лицензия и указание авторства
+
+Anixart, его API, контент и брендинг принадлежат соответствующим правообладателям. Авторство оригинального маскота Anixa, используемого в диалоге повышения, указано в `Anixart/Resources/Images/ATTRIBUTION.md`; порт не претендует на права на него. Значок приложения остаётся временным. Этот клиент не связан с командой Anixart и не одобрен ею. SF Pro используется через системный API шрифтов Apple; файлы шрифта не распространяются.

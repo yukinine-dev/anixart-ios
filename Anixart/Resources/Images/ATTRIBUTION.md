@@ -1,8 +1,5 @@
-# Anixa artwork
+# Изображение Anixa
 
-`anixa_wow.webp` is the original Anixart mascot image used by
-`res/layout/dialog_blog_create.xml` in the supplied Anixart 10.5 APK.
-The artwork and character belong to Anixart and their respective authors.
-This unofficial port does not claim ownership of or official affiliation with them.
-The asset is kept unchanged; it is used locally in the profile-upgrade information
-dialog and does not trigger account creation, publishing or audio playback.
+`anixa_wow.webp` — оригинальное изображение маскота Anixart, используемое в `res/layout/dialog_blog_create.xml` из предоставленного APK Anixart 10.5.
+Изображение и персонаж принадлежат Anixart и соответствующим авторам. Этот неофициальный порт не претендует на права на них и не заявляет об официальной связи с ними.
+Файл сохранён без изменений; он используется локально в информационном диалоге повышения профиля и не запускает создание аккаунта, публикацию или воспроизведение аудио.
