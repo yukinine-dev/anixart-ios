@@ -53,7 +53,7 @@ struct DiscoverView: View {
                 Button(RecommendationHelp.dismissTitle, role: .cancel) { }
             } message: { Text(RecommendationHelp.message) }
             .sheet(isPresented: $isShowingFilter) {
-                FilterSheet(current: filter, onApply: {
+                DiscoverFilterSheet(current: filter, onApply: {
                     filter = $0
                     appliedFilter = $0
                 }, onReset: { filter = FilterRequest() })
