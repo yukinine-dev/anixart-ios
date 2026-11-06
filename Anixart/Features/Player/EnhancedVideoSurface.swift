@@ -3,6 +3,7 @@ import CoreGraphics
 import CoreImage
 import MetalKit
 import SwiftUI
+import UIKit
 import os
 
 /// Draws the player's frames through the enhancement kernel.
@@ -84,6 +85,10 @@ struct EnhancedVideoSurface: UIViewRepresentable {
         /// while nothing is advancing, and without this the screen goes black
         /// the moment the user pauses.
         private var lastBuffer: CVPixelBuffer?
+        /// A retained buffer is needed for pause/resize, not a reason to run
+        /// the entire shader chain on every display tick.
+        private var renderState = EnhancedFrameRenderState()
+        private var activeObservation: NSObjectProtocol?
         private var hasReportedFailure = false
 
         init(player: AVPlayer, onFailure: @escaping (String) -> Void) {
@@ -118,10 +123,22 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             itemObservation = player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
                 self?.attachToCurrentItem()
             }
+            activeObservation = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                // A paused player may have no new decoded frame on returning
+                // to the app. Re-present its cached frame once.
+                self?.renderState.invalidatePresentation()
+            }
         }
 
         deinit {
             itemObservation = nil
+            if let activeObservation {
+                NotificationCenter.default.removeObserver(activeObservation)
+            }
             attachedItem?.remove(output)
         }
 
@@ -133,16 +150,24 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             item.add(output)
             attachedItem = item
             lastBuffer = nil
+            renderState.reset()
         }
 
         func detach() {
             itemObservation = nil
+            if let activeObservation {
+                NotificationCenter.default.removeObserver(activeObservation)
+                self.activeObservation = nil
+            }
             attachedItem?.remove(output)
             attachedItem = nil
             lastBuffer = nil
+            renderState.reset()
         }
 
-        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+            renderState.invalidatePresentation()
+        }
 
         func draw(in view: MTKView) {
             guard let queue, let context else {
@@ -158,13 +183,25 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             if output.hasNewPixelBuffer(forItemTime: time),
                let fresh = output.copyPixelBuffer(forItemTime: time, itemTimeForDisplay: nil) {
                 lastBuffer = fresh
+                renderState.receivedFrame()
             } else if lastBuffer == nil,
                       let first = output.copyPixelBuffer(forItemTime: time, itemTimeForDisplay: nil) {
                 // Turned on while paused: there is no *new* frame, but there is
                 // a current one, and without this the picture would go black.
                 lastBuffer = first
+                renderState.receivedFrame()
             }
-            guard let buffer = lastBuffer,
+            guard let buffer = lastBuffer else { return }
+
+            let configuration = EnhancedFrameRenderState.Configuration(
+                drawableSize: view.drawableSize,
+                isFilling: isFilling,
+                strength: strength
+            )
+            // Do this before acquiring a drawable or building any CI graph.
+            // New frames still render at the existing cadence; unchanged
+            // paused/buffering frames retain their last presented texture.
+            guard renderState.needsRender(configuration: configuration),
                   let drawable = view.currentDrawable,
                   let commandBuffer = queue.makeCommandBuffer()
             else { return }
@@ -193,6 +230,9 @@ struct EnhancedVideoSurface: UIViewRepresentable {
             }
             commandBuffer.present(drawable)
             commandBuffer.commit()
+            // Only consume the pending frame after submission. If a drawable
+            // was temporarily unavailable, the next tick must try again.
+            renderState.didSubmit(configuration: configuration)
         }
 
         /// Same geometry as `AVLayerVideoGravity`: fit by default, fill when the
