@@ -22,6 +22,9 @@ struct ReleaseDetailView: View {
     @State private var isDescriptionExpanded = false
     @State private var screenshotGallery: ReleaseScreenshotPresentation?
     @State private var report: ProfileReportPresentation?
+    @State private var inlineReply: ReleaseComment?
+    @State private var inlineVotingIDs = Set<Int>()
+    @State private var inlineCommentError: String?
 
     private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
@@ -106,6 +109,14 @@ struct ReleaseDetailView: View {
         } message: {
             Text(model?.actionError ?? "")
         }
+        .alert("Комментарии", isPresented: Binding(
+            get: { inlineCommentError != nil },
+            set: { if !$0 { inlineCommentError = nil } }
+        )) {
+            Button("Понятно", role: .cancel) { inlineCommentError = nil }
+        } message: {
+            Text(inlineCommentError ?? "")
+        }
     }
 
     @ViewBuilder
@@ -156,7 +167,7 @@ struct ReleaseDetailView: View {
             }
 
             sectionRule
-            commentsSection(release)
+            commentsSection(release, model: model)
         }
         .padding(.bottom, Theme.Spacing.section)
         .sheet(isPresented: $isShowingListPicker) {
@@ -178,6 +189,14 @@ struct ReleaseDetailView: View {
             AddToCollectionSheet(releaseID: release.id, viewer: viewer)
         }
         .sheet(item: $report) { ProfileReportView(target: $0) }
+        .sheet(item: $inlineReply) { comment in
+            CommentsView(
+                releaseID: release.id,
+                releaseTitle: release.displayTitle,
+                viewer: viewer,
+                initialReplyTo: comment
+            )
+        }
     }
 
     private var sectionRule: some View {
@@ -623,7 +642,34 @@ struct ReleaseDetailView: View {
 
     // MARK: - Comments
 
-    private func commentsSection(_ release: Release) -> some View {
+    private func voteInlineComment(_ comment: ReleaseComment, _ vote: CommentVote,
+                                   model: ReleaseDetailViewModel) async {
+        guard comment.isDeleted != true, comment.canLike != false,
+              !inlineVotingIDs.contains(comment.id), viewer == env.session.viewerKey
+        else { return }
+        guard let account = viewer?.account else {
+            env.session.promptSignIn()
+            return
+        }
+
+        inlineVotingIDs.insert(comment.id)
+        defer { inlineVotingIDs.remove(comment.id) }
+        do {
+            try await env.session.sendConfirmedAccountRequest(
+                CommentEndpoints.vote(commentID: comment.id, vote: vote),
+                for: account
+            )
+            AppHaptics.shared.play(.voteCast)
+            await model.load()
+        } catch {
+            if !ProfileRequestFailure.isCancellation(error) {
+                inlineCommentError = Paginator<Release>.message(for: error)
+                AppHaptics.shared.play(.error)
+            }
+        }
+    }
+
+    private func commentsSection(_ release: Release, model: ReleaseDetailViewModel) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -643,7 +689,15 @@ struct ReleaseDetailView: View {
 
             if let comments = release.comments, !comments.isEmpty {
                 ForEach(comments.prefix(3)) { comment in
-                    CommentRow(comment: comment)
+                    CommentRow(
+                        comment: comment,
+                        onReply: { inlineReply = comment },
+                        onVote: { vote in
+                            Task { await voteInlineComment(comment, vote, model: model) }
+                        },
+                        isVoting: inlineVotingIDs.contains(comment.id),
+                        actionsEnabled: !model.isPerformingAction
+                    )
                         .padding(.horizontal)
                 }
             } else {

@@ -8,6 +8,7 @@ struct CommentsView: View {
 
     let releaseID: Int
     let releaseTitle: String
+    let initialReplyTo: ReleaseComment?
 
     @State private var paginator: Paginator<ReleaseComment>?
     @State private var sort = ProfileCommentSort.newest.rawValue
@@ -16,9 +17,11 @@ struct CommentsView: View {
     @State private var actionError: String?
     @State private var openThread: ReleaseComment?
 
-    init(releaseID: Int, releaseTitle: String, viewer: ProfileViewerKey? = nil) {
+    init(releaseID: Int, releaseTitle: String, viewer: ProfileViewerKey? = nil,
+         initialReplyTo: ReleaseComment? = nil) {
         self.releaseID = releaseID
         self.releaseTitle = releaseTitle
+        self.initialReplyTo = initialReplyTo
         _composer = State(initialValue: ProfileCommentDraft(viewer: viewer))
     }
 
@@ -70,6 +73,9 @@ struct CommentsView: View {
         .task(id: sort) {
             let viewer = composer.captureViewer(env.session.viewerKey)
             guard viewer == env.session.viewerKey else { return }
+            if composer.replyingTo == nil, let initialReplyTo {
+                composer.replyingTo = ProfileComment(releaseComment: initialReplyTo)
+            }
             let session = env.session
             let id = releaseID
             let currentSort = sort
