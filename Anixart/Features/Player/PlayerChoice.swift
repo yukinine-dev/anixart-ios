@@ -79,7 +79,12 @@ final class PlaybackPreferences {
     func reload() {
         choice = PlayerChoice(rawValue: defaults.string(forKey: Key.choice) ?? "") ?? .web
         alwaysAsk = defaults.object(forKey: Key.alwaysAsk) as? Bool ?? true
+        hasAcceptedDisclaimer = defaults.bool(forKey: Key.acceptedDisclaimer)
+        hasSeenEnhanceExplainer = defaults.bool(forKey: Key.enhanceExplained)
         rewindSeconds = max(0, defaults.object(forKey: Key.rewindSeconds) as? Int ?? 85)
+        enhanceStrength = VideoEnhanceFilter.Strength(
+            rawValue: defaults.object(forKey: Key.enhanceStrength) as? Int ?? 1
+        ) ?? .medium
     }
 
     func acceptDisclaimer() {

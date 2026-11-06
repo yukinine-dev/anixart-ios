@@ -21,6 +21,7 @@ final class EpisodeLauncher {
 
     private(set) var stage: Stage = .idle
     let preferences: PlaybackPreferences
+    @ObservationIgnored private var resolutionTask: Task<Void, Never>?
 
     init(preferences: PlaybackPreferences) {
         self.preferences = preferences
@@ -41,6 +42,7 @@ final class EpisodeLauncher {
     }
 
     func open(_ episode: Episode) {
+        resolutionTask?.cancel()
         AppHaptics.shared.play(.episodeChanged)
         preferences.reload()
         if preferences.hasAcceptedDisclaimer {
@@ -62,18 +64,21 @@ final class EpisodeLauncher {
     }
 
     func cancel() {
+        resolutionTask?.cancel()
+        resolutionTask = nil
         stage = .idle
     }
 
     /// Finds the stream, then asks unless the user unticked "Спрашивать всегда".
     private func resolve(_ episode: Episode) {
         stage = .resolving(episode)
-        Task { [weak self] in
+        resolutionTask = Task { [weak self] in
             let target = await PlaybackResolver.shared.target(for: episode)
             guard let self, case .resolving(let pending) = self.stage, pending.id == episode.id else { return }
             self.stage = self.preferences.alwaysAsk
                 ? .picking(episode, target)
                 : .playing(episode, self.preferences.choice, target)
+            self.resolutionTask = nil
         }
     }
 }

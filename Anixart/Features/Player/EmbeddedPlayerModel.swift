@@ -137,10 +137,18 @@ final class EmbeddedPlayerModel {
         onProgress: @escaping (TimeInterval) -> Void,
         onFinished: @escaping () -> Void
     ) async {
-        guard !isStopped, asset == nil, let first = variants.first else { return }
+        guard !isStopped, asset == nil else { return }
         self.onProgress = onProgress
         self.onFinished = onFinished
         self.referer = referer
+
+        guard let first = variants.first else {
+            playbackError = "Источник не вернул ссылку на видео. Откройте веб-плеер или выберите другой источник."
+            isBuffering = false
+            areControlsVisible = true
+            return
+        }
+
         if let startAt, startAt.isFinite, startAt > 1 {
             retryPosition = startAt
             position = startAt

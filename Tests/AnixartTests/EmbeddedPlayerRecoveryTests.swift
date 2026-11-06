@@ -6,6 +6,28 @@ import AnixartKit
 
 final class EmbeddedPlayerRecoveryTests: XCTestCase {
     @MainActor
+    func testEmptyVariantListShowsPlaybackErrorInsteadOfBlackScreen() async throws {
+        let model = EmbeddedPlayerModel()
+        defer { model.stop() }
+
+        await model.start(
+            variants: [],
+            referer: nil,
+            startAt: nil,
+            onProgress: { _ in },
+            onFinished: {}
+        )
+
+        XCTAssertEqual(
+            model.playbackError,
+            "Источник не вернул ссылку на видео. Откройте веб-плеер или выберите другой источник."
+        )
+        XCTAssertFalse(model.isBuffering)
+        XCTAssertTrue(model.areControlsVisible)
+        XCTAssertFalse(model.canRetry)
+    }
+
+    @MainActor
     func testMissingLocalFileReportsFailureWithoutFinishing() async throws {
         let directory = try makeDirectory()
         let url = directory.appendingPathComponent("episode.wav")
