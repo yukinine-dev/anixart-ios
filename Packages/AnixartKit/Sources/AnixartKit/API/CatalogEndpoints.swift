@@ -95,7 +95,7 @@ public enum DiscoverEndpoints {
         Endpoint(method: .post, path: "discover/comments", auth: .none)
     }
 
-    /// "Continue watching" -- requires a session.
+    /// "Watching now" block on the overview -- requires a session.
     public static func watching(page: Int) -> Endpoint<PageableResponse<Release>> {
         Endpoint(method: .post, path: "discover/watching/\(page)", auth: .required)
     }

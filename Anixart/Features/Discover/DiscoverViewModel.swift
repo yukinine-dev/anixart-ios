@@ -8,7 +8,7 @@ import AnixartKit
 final class DiscoverViewModel {
     private(set) var banners: [Interesting] = []
     private(set) var discussing: [Release] = []
-    private(set) var continueWatching: [Release] = []
+    private(set) var watchingNow: [Release] = []
     private(set) var recommendations: [Release] = []
     private(set) var commentsOfTheWeek: [ReleaseComment] = []
 
@@ -36,7 +36,7 @@ final class DiscoverViewModel {
     }
 
     var isEmpty: Bool {
-        banners.isEmpty && discussing.isEmpty && continueWatching.isEmpty
+        banners.isEmpty && discussing.isEmpty && watchingNow.isEmpty
             && recommendations.isEmpty && commentsOfTheWeek.isEmpty
     }
 
@@ -88,8 +88,8 @@ final class DiscoverViewModel {
         else { failedBlocks.append("Сейчас обсуждают") }
         if let value = commentResult.value { commentsOfTheWeek = Self.unique(value) }
         else { failedBlocks.append("Комментарии недели") }
-        if let value = watchingResult.value { continueWatching = Self.unique(value) }
-        else { failedBlocks.append("Продолжить просмотр") }
+        if let value = watchingResult.value { watchingNow = Self.unique(value) }
+        else { failedBlocks.append("Смотрят сейчас") }
         if let value = recommendationResult.value { recommendations = Self.unique(value) }
         else { failedBlocks.append("Рекомендации") }
 
