@@ -19,8 +19,8 @@ final class FeedStateTests: XCTestCase {
     }
 
     @MainActor
-    func testExactlyFiveRootTabsAndOriginalFeedSections() {
-        XCTAssertEqual(RootView.Tab.allCases.map(\.title), ["Главная", "Обзор", "Закладки", "Лента", "Профиль"])
+    func testRootTabsAreFourSectionsPlusSearchAndOriginalFeedSections() {
+        XCTAssertEqual(RootView.Tab.allCases.map(\.title), ["Главная", "Обзор", "Закладки", "Лента", "Поиск"])
         XCTAssertEqual(FeedTab.allCases.map(\.title), ["Моя лента", "Свежее", "Управляемые"])
         XCTAssertEqual(FeedTab.visibleTabs(signedIn: false), [.my, .fresh])
         XCTAssertEqual(FeedTab.visibleTabs(signedIn: true), [.my, .fresh, .managed])
