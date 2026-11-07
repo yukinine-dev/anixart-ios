@@ -11,6 +11,7 @@ struct DiscoverView: View {
     @State private var filter = FilterRequest()
     @State private var appliedFilter: FilterRequest?
     @State private var opened: Release?
+    @State private var commentsTarget: Release?
     @State private var actionTarget: Release?
     @State private var isShowingWatchingNow = false
     @State private var isShowingRecommendationHelp = false
