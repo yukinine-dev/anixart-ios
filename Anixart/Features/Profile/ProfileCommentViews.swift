@@ -185,7 +185,7 @@ struct ProfileCommentDetailView: View {
     private var location: ProfileCommentLocation? { comment?.location ?? parent.value?.location ?? fallbackLocation }
     private var rootID: Int { comment?.threadRootID ?? commentID }
     private var hasCurrentViewer: Bool { composer.viewer == env.session.viewerKey }
-    private var actionsEnabled: Bool { hasCurrentViewer && resource.value != nil && !resource.isLoading }
+    private var actionsEnabled: Bool { hasCurrentViewer && comment != nil && !resource.isLoading }
     private var contextComment: ProfileComment? { comment?.location == nil ? parent.value ?? comment : comment }
     private var threadRoot: ProfileComment? { rootID == commentID ? comment : parent.value }
     private var errorMessage: String? { actionError ?? composer.errorMessage }
@@ -621,9 +621,4 @@ struct ProfileCollectionDestination: View {
         await resource.load {
             let response = try await env.session.sendViewerRequest(CollectionEndpoints.collection(id: collectionID), for: viewer)
             guard response.collection?.id == collectionID else {
-                throw AnixartError.decoding(message: "Ответ не содержит коллекцию", path: "collection/\(collectionID)")
-            }
-            return response
-        }
-    }
-}
+                throw AnixartError.decoding(message:

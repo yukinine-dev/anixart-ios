@@ -1,16 +1,16 @@
 import SwiftUI
 import AnixartKit
 
-/// Weekly airing schedule. The whole week arrives in one response, so this screen
-/// loads once and then just switches the selected day.
+/// Weekly airing schedule. Android shows one continuous week feed with a short
+/// explanation, day headers and three-column poster grids; do the same here.
 @MainActor
 struct ScheduleView: View {
     @Environment(AppEnvironment.self) private var env
 
     @State private var days: [(title: String, releases: [Release])] = []
-    @State private var selectedDay = 0
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @AppStorage("schedule.explanation.dismissed") private var explanationDismissed = false
 
     var body: some View {
         Group {
@@ -24,41 +24,81 @@ struct ScheduleView: View {
                     retry: { await load() }
                 )
             } else {
-                VStack(spacing: 0) {
-                    Picker("День", selection: $selectedDay) {
-                        ForEach(Array(days.enumerated()), id: \.offset) { index, day in
-                            Text(shortTitle(day.title)).tag(index)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Theme.Spacing.section) {
+                        if !explanationDismissed {
+                            explanation
                         }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
 
-                    List {
-                        if days.indices.contains(selectedDay) {
-                            let day = days[selectedDay]
-                            if day.releases.isEmpty {
-                                Text("В этот день ничего не выходит")
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                ForEach(day.releases) { release in
-                                    NavigationLink {
-                                        ReleaseDetailView(releaseID: release.id, preloaded: release)
-                                    } label: {
-                                        ReleaseRow(release: release)
-                                    }
-                                }
+                        ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                            if !day.releases.isEmpty {
+                                daySection(day, index: index)
                             }
                         }
                     }
-                    .listStyle(.plain)
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
                 }
+                .refreshable { await reload() }
             }
         }
         .navigationTitle("Расписание")
         .task {
-            selectedDay = todayIndex()
             await load()
+        }
+    }
+
+    private var explanation: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .foregroundStyle(Theme.accent)
+            Text("В расписании указаны дни недели, в которые выходят новые серии представленных релизов в Японии и Китае. Уже переведённые серии в озвучке и субтитрах появляются позже.")
+                .font(.ax(.footnote))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Button {
+                explanationDismissed = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Закрыть пояснение")
+        }
+        .padding(14)
+        .glassCard()
+    }
+
+    private func daySection(_ day: (title: String, releases: [Release]), index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(day.title)
+                    .font(.ax(.title3, .semibold))
+                if index == todayIndex() {
+                    Text("Сегодня")
+                        .font(.ax(.caption, .medium))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Theme.accent.opacity(0.14), in: Capsule())
+                }
+            }
+
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
+                alignment: .leading,
+                spacing: 16
+            ) {
+                ForEach(day.releases) { release in
+                    NavigationLink {
+                        ReleaseDetailView(releaseID: release.id, preloaded: release)
+                    } label: {
+                        ReleaseCard(release: release, width: Theme.Poster.gridWidth)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 
@@ -75,13 +115,15 @@ struct ScheduleView: View {
         isLoading = false
     }
 
+    private func reload() async {
+        days = []
+        await load()
+    }
+
     /// `byWeekday` is Monday-first; `Calendar.component(.weekday:)` is Sunday-first.
     private func todayIndex() -> Int {
         let weekday = Calendar(identifier: .gregorian).component(.weekday, from: .now)
         return (weekday + 5) % 7
     }
 
-    private func shortTitle(_ title: String) -> String {
-        String(title.prefix(2))
-    }
 }
