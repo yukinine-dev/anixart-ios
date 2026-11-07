@@ -18,12 +18,17 @@ struct ContinueWatchingCard: View {
         release.map { "\($0.id)|\($0.continueWatchingText ?? "")" }
     }
 
+    private var fadeAmount: Double {
+        let progress: Double = min(Double(abs(dragOffset)) / 240.0, 0.8)
+        return 1.0 - progress
+    }
+
     var body: some View {
         Group {
             if isEnabled, let release, let key, key != dismissedKey, let viewer, viewer == env.session.viewerKey {
                 card(release)
                     .offset(x: dragOffset)
-                    .opacity(1 - min(abs(dragOffset) / 240, 0.8))
+                    .opacity(fadeAmount)
                     .gesture(
                         DragGesture(minimumDistance: 16)
                             .onChanged { dragOffset = $0.translation.width }
