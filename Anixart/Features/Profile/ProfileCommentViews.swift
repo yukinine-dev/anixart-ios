@@ -621,4 +621,9 @@ struct ProfileCollectionDestination: View {
         await resource.load {
             let response = try await env.session.sendViewerRequest(CollectionEndpoints.collection(id: collectionID), for: viewer)
             guard response.collection?.id == collectionID else {
-                throw AnixartError.decoding(message:
+                throw AnixartError.decoding(message: "Ответ не содержит коллекцию", path: "collection/\(collectionID)")
+            }
+            return response
+        }
+    }
+}
