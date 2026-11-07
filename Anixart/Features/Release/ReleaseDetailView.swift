@@ -22,6 +22,9 @@ struct ReleaseDetailView: View {
     @State private var isDescriptionExpanded = false
     @State private var screenshotGallery: ReleaseScreenshotPresentation?
     @State private var report: ProfileReportPresentation?
+    @State private var inlineReply: ReleaseComment?
+    @State private var inlineVotingIDs = Set<Int>()
+    @State private var inlineCommentError: String?
 
     private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
@@ -106,6 +109,14 @@ struct ReleaseDetailView: View {
         } message: {
             Text(model?.actionError ?? "")
         }
+        .alert("Комментарии", isPresented: Binding(
+            get: { inlineCommentError != nil },
+            set: { if !$0 { inlineCommentError = nil } }
+        )) {
+            Button("Понятно", role: .cancel) { inlineCommentError = nil }
+        } message: {
+            Text(inlineCommentError ?? "")
+        }
     }
 
     @ViewBuilder
@@ -156,7 +167,7 @@ struct ReleaseDetailView: View {
             }
 
             sectionRule
-            commentsSection(release)
+            commentsSection(release, model: model)
         }
         .padding(.bottom, Theme.Spacing.section)
         .sheet(isPresented: $isShowingListPicker) {
@@ -178,6 +189,14 @@ struct ReleaseDetailView: View {
             AddToCollectionSheet(releaseID: release.id, viewer: viewer)
         }
         .sheet(item: $report) { ProfileReportView(target: $0) }
+        .sheet(item: $inlineReply) { comment in
+            CommentsView(
+                releaseID: release.id,
+                releaseTitle: release.displayTitle,
+                viewer: viewer,
+                initialReplyTo: comment
+            )
+        }
     }
 
     private var sectionRule: some View {
@@ -623,7 +642,34 @@ struct ReleaseDetailView: View {
 
     // MARK: - Comments
 
-    private func commentsSection(_ release: Release) -> some View {
+    private func voteInlineComment(_ comment: ReleaseComment, _ vote: CommentVote,
+                                   model: ReleaseDetailViewModel) async {
+        guard comment.isDeleted != true, comment.canLike != false,
+              !inlineVotingIDs.contains(comment.id), viewer == env.session.viewerKey
+        else { return }
+        guard let account = viewer?.account else {
+            env.session.promptSignIn()
+            return
+        }
+
+        inlineVotingIDs.insert(comment.id)
+        defer { inlineVotingIDs.remove(comment.id) }
+        do {
+            try await env.session.sendConfirmedAccountRequest(
+                CommentEndpoints.vote(commentID: comment.id, vote: vote),
+                for: account
+            )
+            AppHaptics.shared.play(.voteCast)
+            await model.load()
+        } catch {
+            if !ProfileRequestFailure.isCancellation(error) {
+                inlineCommentError = Paginator<Release>.message(for: error)
+                AppHaptics.shared.play(.error)
+            }
+        }
+    }
+
+    private func commentsSection(_ release: Release, model: ReleaseDetailViewModel) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -643,7 +689,15 @@ struct ReleaseDetailView: View {
 
             if let comments = release.comments, !comments.isEmpty {
                 ForEach(comments.prefix(3)) { comment in
-                    CommentRow(comment: comment)
+                    CommentRow(
+                        comment: comment,
+                        onReply: { inlineReply = comment },
+                        onVote: { vote in
+                            Task { await voteInlineComment(comment, vote, model: model) }
+                        },
+                        isVoting: inlineVotingIDs.contains(comment.id),
+                        actionsEnabled: !model.isPerformingAction
+                    )
                         .padding(.horizontal)
                 }
             } else {
@@ -736,56 +790,4 @@ struct RelatedReleaseRow: View {
                     if let year = release.year, !year.isEmpty {
                         Text("\(year) год")
                             .font(.ax(.subheadline))
-                            .foregroundStyle(.secondary)
-                        Text("•").foregroundStyle(.secondary)
-                    }
-                    if let rating = release.ratingText {
-                        HStack(spacing: 3) {
-                            Text(rating).font(.ax(.subheadline)).foregroundStyle(.secondary)
-                            Image(systemName: "star.fill").font(.ax(.caption2)).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                ReleaseMetadataBadges(release: release)
-            }
-            Spacer(minLength: 0)
-        }
-        .contentShape(Rectangle())
-    }
-}
-
-/// Wraps its children onto as many lines as they need.
-struct FlowRow: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
-        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
-                x = 0
-                y += lineHeight + spacing
-                lineHeight = 0
-            }
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
-        }
-        return CGSize(width: proposal.width ?? x, height: y + lineHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, lineHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += lineHeight + spacing
-                lineHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
-        }
-    }
-}
+     
