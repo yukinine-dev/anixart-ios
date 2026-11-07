@@ -26,6 +26,8 @@ struct FavoriteCollectionsList: View {
             }
         }
         .listStyle(.plain)
+        .navigationTitle("Мои коллекции")
+        .navigationBarTitleDisplayMode(.inline)
         .refreshable { await paginator?.reload() }
         .task(id: env.session.viewerKey) {
             let viewer = env.session.viewerKey
