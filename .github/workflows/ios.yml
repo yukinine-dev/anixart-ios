@@ -11,7 +11,9 @@ name: Build
 on:
   push:
     branches: ["**"]
+    paths-ignore: ["docs/**", "design/**", "**/*.md"]
   pull_request:
+    paths-ignore: ["docs/**", "design/**", "**/*.md"]
   workflow_dispatch:
     inputs:
       full_release:
@@ -55,6 +57,9 @@ jobs:
   probe:
     name: Live response shapes
     runs-on: macos-15
+    # Slow or network-dependent checks: only on the main branch and on demand, so a
+    # feature branch gets the fast build-and-test feedback.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/claude/ios-port-d6ttd5'
     steps:
       - uses: actions/checkout@v4
 
@@ -348,6 +353,9 @@ jobs:
   smoke:
     name: Simulator launch test
     runs-on: macos-15
+    # Slow or network-dependent checks: only on the main branch and on demand, so a
+    # feature branch gets the fast build-and-test feedback.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/claude/ios-port-d6ttd5'
     needs: app
     steps:
       - uses: actions/checkout@v4
@@ -547,7 +555,7 @@ jobs:
   ipa:
     name: Unsigned IPA
     runs-on: macos-15
-    needs: app
+    # Builds in parallel with app: a device build is wanted even while tests run.
     steps:
       - uses: actions/checkout@v4
 
