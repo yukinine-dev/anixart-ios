@@ -320,7 +320,18 @@ jobs:
             -parallel-testing-enabled NO \
             -resultBundlePath "$RUNNER_TEMP/PlayerTests.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee "$RUNNER_TEMP/player-tests.log"
+            2>&1 | tee "$RUNNER_TEMP/player-tests.log" || status=$?
+          if [ -n "${status:-}" ]; then
+            echo
+            echo "--- player test failures ---"
+            failures=$(grep -E "error:|failed|Assertion|Test Case.*failed|Test Suite.*failed" "$RUNNER_TEMP/player-tests.log" \
+              | tail -80 || true)
+            printf '%s\n' "$failures"
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error::$line"
+            done <<< "$failures"
+            exit "$status"
+          fi
 
       - name: Upload player test results
         if: always()
