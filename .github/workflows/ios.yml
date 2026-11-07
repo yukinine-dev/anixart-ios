@@ -291,9 +291,13 @@ jobs:
           if [ -n "${status:-}" ]; then
             echo
             echo "--- what actually failed ---"
-            grep -E "error:|warning: .*(deprecated|unused)" "$RUNNER_TEMP/build.log" \
+            errors=$(grep -E "error:|warning: .*(deprecated|unused)" "$RUNNER_TEMP/build.log" \
               | sed -e "s|/Users/runner/work/anixart-ios/anixart-ios/||" \
-              | sort -u | head -40
+              | sort -u | head -40 || true)
+            printf '%s\n' "$errors"
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error::$line"
+            done <<< "$errors"
             exit "$status"
           fi
 
