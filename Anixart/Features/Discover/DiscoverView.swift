@@ -171,20 +171,107 @@ struct DiscoverView: View {
 }
 
 /// Editorial banners from `discover/interesting`.
+///
+/// Paged, endlessly looping carousel. The title and description sit under the
+/// picture (as in the Android app) and the page advances every three seconds,
+/// but only while the carousel is actually on screen and the app is active.
+/// Swiping by hand restarts the three-second timer.
 @MainActor
 struct BannerCarousel: View {
     let banners: [Interesting]
     let viewer: ProfileViewerKey
 
+    /// How long a banner stays before the next one slides in.
+    static let autoAdvanceInterval: Duration = .seconds(3)
+    /// The banners are laid out three times so both directions can loop;
+    /// the position is silently moved back to the middle copy at the edges.
+    private static let copies = 3
+
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var position: Int?
+    @State private var isOnScreen = false
+
+    private var count: Int { banners.count }
+
+    private struct PlaybackKey: Equatable {
+        let isPlaying: Bool
+        let position: Int?
+    }
+
+    private var isPlaying: Bool { count > 1 && isOnScreen && scenePhase == .active }
+
+    /// Index into `banners` of the page that is currently shown.
+    private var currentIndex: Int {
+        guard count > 0 else { return 0 }
+        return ((position ?? count) % count + count) % count
+    }
+
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Spacing.row) {
-                ForEach(banners) { banner in
-                    bannerCard(banner)
+        VStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: Theme.Spacing.row) {
+                    ForEach(0..<(count * Self.copies), id: \.self) { index in
+                        bannerCard(banners[index % count])
+                            .containerRelativeFrame(.horizontal)
+                            .id(index)
+                    }
                 }
+                .scrollTargetLayout()
             }
-            .padding(.horizontal)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $position)
+            .onChange(of: position) { _, value in recenter(value) }
+
+            if count > 1 {
+                HStack(spacing: 6) {
+                    ForEach(0..<count, id: \.self) { index in
+                        Circle()
+                            .fill(index == currentIndex ? Color.primary.opacity(0.8) : Color.primary.opacity(0.2))
+                            .frame(width: 6, height: 6)
+                    }
+                }
+                .accessibilityHidden(true)
+            }
         }
+        .background(
+            GeometryReader { geometry in
+                Color.clear.preference(key: BannerFramePreference.self, value: geometry.frame(in: .global))
+            }
+        )
+        .onPreferenceChange(BannerFramePreference.self) { frame in
+            // Visible once any part sits below the header and above the screen bottom.
+            let visible = frame.maxY > 60 && frame.minY < UIScreen.main.bounds.height
+            if visible != isOnScreen { isOnScreen = visible }
+        }
+        .onAppear {
+            if position == nil, count > 0 { position = count }
+        }
+        .onDisappear { isOnScreen = false }
+        .task(id: PlaybackKey(isPlaying: isPlaying, position: position)) {
+            guard isPlaying else { return }
+            try? await Task.sleep(for: Self.autoAdvanceInterval)
+            guard !Task.isCancelled else { return }
+            advance()
+        }
+    }
+
+    private func advance() {
+        let next = (position ?? count) + 1
+        if reduceMotion {
+            position = next
+        } else {
+            withAnimation(.easeInOut(duration: 0.45)) { position = next }
+        }
+    }
+
+    /// Jumps from an outer copy to the identical page in the middle copy, without animation.
+    private func recenter(_ value: Int?) {
+        guard count > 1, let value, value < count || value >= count * 2 else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { position = count + value % count }
     }
 
     @ViewBuilder
@@ -204,36 +291,38 @@ struct BannerCarousel: View {
     }
 
     private func bannerContent(_ banner: Interesting) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Rectangle().fill(.quaternary)
-            }
-            .frame(width: 300, height: 150)
-            .clipped()
-
-            LinearGradient(
-                colors: [.black.opacity(0.75), .clear],
-                startPoint: .bottom,
-                endPoint: .top
-            )
+        VStack(alignment: .leading, spacing: 8) {
+            Color.clear
+                .aspectRatio(2, contentMode: .fit)
+                .overlay {
+                    CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 720) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Rectangle().fill(.quaternary)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(banner.title ?? "")
                     .font(.ax(.headline))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2, reservesSpace: true)
                 if let description = banner.description, !description.isEmpty {
                     Text(description)
                         .font(.ax(.caption))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .lineLimit(2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2, reservesSpace: true)
                 }
             }
-            .padding(12)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .frame(width: 300, height: 150)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .contentShape(Rectangle())
     }
+}
+
+private struct BannerFramePreference: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
 }

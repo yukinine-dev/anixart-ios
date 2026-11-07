@@ -759,7 +759,7 @@ struct FlowRow: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? .greatestFiniteMagnitude
         var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0
         for subview in subviews {
             let size = subview.sizeThatFits(.unspecified)
@@ -771,7 +771,8 @@ struct FlowRow: Layout {
             x += size.width + spacing
             lineHeight = max(lineHeight, size.height)
         }
-        return CGSize(width: proposal.width ?? x, height: y + lineHeight)
+        let fitted = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? max(0, x - spacing)
+        return CGSize(width: fitted, height: y + lineHeight)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {

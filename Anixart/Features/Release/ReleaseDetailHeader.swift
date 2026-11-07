@@ -109,7 +109,6 @@ struct ReleaseExpandableText: View {
             fullText
                 .lineLimit(isExpanded ? nil : lineLimit)
                 .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: alignment == .center ? .center : .leading)
                 .background {
                     GeometryReader { geometry in
@@ -135,7 +134,10 @@ struct ReleaseExpandableText: View {
             }
         }
         .onPreferenceChange(ReleaseTextHeightPreference.self) { heights in
-            isTruncated = ReleaseTextTruncation.needsExpansion(fullHeight: heights["full"] ?? 0, visibleHeight: heights["visible"] ?? 0)
+            let full = heights["full"] ?? 0, visible = heights["visible"] ?? 0
+            guard full.isFinite, visible.isFinite else { return }
+            let truncated = ReleaseTextTruncation.needsExpansion(fullHeight: full, visibleHeight: visible)
+            if truncated != isTruncated { isTruncated = truncated }
         }
     }
 
