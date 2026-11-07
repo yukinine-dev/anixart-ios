@@ -12,6 +12,7 @@ struct DiscoverView: View {
     @State private var appliedFilter: FilterRequest?
     @State private var opened: Release?
     @State private var actionTarget: Release?
+    @State private var isShowingWatchingNow = false
     @State private var isShowingRecommendationHelp = false
 
     var body: some View {
@@ -39,6 +40,11 @@ struct DiscoverView: View {
             .navigationDestination(item: $opened) { release in
                 ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
             }
+            .navigationDestination(isPresented: $isShowingWatchingNow) {
+                if let viewer = model?.viewer {
+                    DiscoverWatchingView(viewer: viewer)
+                }
+            }
             .sheet(item: $actionTarget) { release in
                 if let viewer = model?.viewer { ReleaseQuickActionsSheet(release: release, viewer: viewer) }
             }
@@ -47,7 +53,7 @@ struct DiscoverView: View {
                 Button(RecommendationHelp.dismissTitle, role: .cancel) { }
             } message: { Text(RecommendationHelp.message) }
             .sheet(isPresented: $isShowingFilter) {
-                FilterSheet(current: filter, onApply: {
+                DiscoverFilterSheet(current: filter, onApply: {
                     filter = $0
                     appliedFilter = $0
                 }, onReset: { filter = FilterRequest() })
@@ -60,7 +66,7 @@ struct DiscoverView: View {
                 await env.session.refreshNotificationCount()
             }
             .onChange(of: env.session.viewerKey) { _, _ in
-                opened = nil; actionTarget = nil; isShowingRecommendationHelp = false
+                opened = nil; actionTarget = nil; isShowingWatchingNow = false; isShowingRecommendationHelp = false
             }
         }
     }
@@ -68,7 +74,7 @@ struct DiscoverView: View {
     private var shortcuts: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             NavigationLink {
-                FilteredReleasesView(filter: FilterRequest(sort: .popularDescending), title: "Популярное")
+                PopularReleasesView()
             } label: { shortcutLabel("Популярное", systemImage: "flame") }
             NavigationLink { ScheduleView() } label: { shortcutLabel("Расписание", systemImage: "calendar") }
             NavigationLink { PublicCollectionsView() } label: { shortcutLabel("Коллекции", systemImage: "rectangle.stack") }
@@ -107,8 +113,26 @@ struct DiscoverView: View {
                 } else if model.isEmpty, model.viewer.account == nil {
                     StatusMessageView(title: "Пока ничего нет", message: "Обновите обзор позже")
                 }
-                if !model.continueWatching.isEmpty {
-                    carousel("Продолжить просмотр", releases: model.continueWatching, viewer: model.viewer)
+                if !model.watchingNow.isEmpty {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.row) {
+                        SectionHeader(title: "Смотрят сейчас") {
+                            Button("Показать все") { isShowingWatchingNow = true }
+                                .font(.ax(.subheadline, .medium))
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(alignment: .top, spacing: Theme.Spacing.row) {
+                                ForEach(model.watchingNow) { release in
+                                    NavigationLink {
+                                        ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model.viewer)
+                                    } label: {
+                                        ReleaseCard(release: release)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
                 }
 
                 if !model.recommendations.isEmpty {
