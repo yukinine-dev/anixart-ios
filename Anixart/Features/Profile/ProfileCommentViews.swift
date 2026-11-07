@@ -439,17 +439,20 @@ struct ProfileCommentRow: View {
     var actionsEnabled = true
     var contextCategory: ProfileCommentCategory?
     @State private var revealsSpoiler = false
+    /// A NavigationLink inside a List row draws a disclosure chevron and splits the
+    /// row into columns, so the profile is opened from buttons instead.
+    @State private var openedProfileID: Int?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             if let profile = comment.profile {
-                NavigationLink { ProfileView(profileID: profile.id, viewer: viewer) } label: { Avatar(url: AnixartURL.image(profile.avatar), size: 40) }
+                Button { openedProfileID = profile.id } label: { Avatar(url: AnixartURL.image(profile.avatar), size: 40) }
                     .buttonStyle(.plain)
             }
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     if let profile = comment.profile {
-                        NavigationLink(profile.login ?? "Пользователь") { ProfileView(profileID: profile.id, viewer: viewer) }.buttonStyle(.plain)
+                        Button(profile.login ?? "Пользователь") { openedProfileID = profile.id }.buttonStyle(.plain)
                         if let url = AnixartURL.image(profile.badgeUrl) {
                             CachedAsyncImage(url: url, maxPixelSize: 80) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
                                 .frame(width: 20, height: 20)
@@ -494,6 +497,9 @@ struct ProfileCommentRow: View {
         }
         .padding(.vertical, 8)
         .profileCommentContext(comment, category: contextCategory ?? comment.category, viewer: viewer)
+        .navigationDestination(item: $openedProfileID) { id in
+            ProfileView(profileID: id, viewer: viewer)
+        }
     }
 
     private func voteButton(_ value: CommentVote, icon: String) -> some View {

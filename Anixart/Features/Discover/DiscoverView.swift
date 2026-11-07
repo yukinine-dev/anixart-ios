@@ -281,7 +281,7 @@ struct BannerCarousel: View {
             .scrollTargetLayout()
             .padding(.horizontal)
         }
-        .scrollTargetBehavior(.viewAligned)
+        .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
         .scrollPosition(id: $current)
         .simultaneousGesture(DragGesture(minimumDistance: 8).onChanged { _ in isInteracting = true })
         .task(id: TimerKey(id: currentID.map { "\($0)" } ?? "", interacting: isInteracting)) { await run() }
@@ -346,13 +346,13 @@ struct BannerCarousel: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(banner.title ?? "")
-                    .font(.ax(.title3, .medium))
+                    .font(.ax(.headline))
                     .lineLimit(2)
                 if let description = banner.description, !description.isEmpty {
                     Text(description)
-                        .font(.ax(.title3))
+                        .font(.ax(.subheadline))
                         .foregroundStyle(.secondary)
-                        .lineLimit(3)
+                        .lineLimit(2)
                 }
             }
             .multilineTextAlignment(.leading)

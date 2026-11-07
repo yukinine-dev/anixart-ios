@@ -59,7 +59,9 @@ struct EmbeddedPlayerView: View {
                 .ignoresSafeArea()
                 .onTapGesture { model.toggleControls() }
 
-            if model.isBuffering, model.playbackError == nil {
+            // With the controls up the spinner takes the place of the play button;
+            // otherwise it floats over the picture.
+            if model.isBuffering, model.playbackError == nil, !model.areControlsVisible || model.isLocked {
                 ProgressView()
                     .controlSize(.large)
                     .tint(.white)
@@ -343,10 +345,18 @@ struct EmbeddedPlayerView: View {
             Button { model.seek(by: -10) } label: {
                 Image(systemName: "gobackward.10").font(.ax(fixed: 34)).playerHitArea(64)
             }
-            Button { model.togglePlayback() } label: {
-                Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.ax(fixed: 44))
-                    .playerHitArea(72)
+            if model.isBuffering {
+                // Loading: the play/pause button gives way to a spinner.
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+                    .frame(width: 72, height: 72)
+            } else {
+                Button { model.togglePlayback() } label: {
+                    Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.ax(fixed: 44))
+                        .playerHitArea(72)
+                }
             }
             Button { model.seek(by: 10) } label: {
                 Image(systemName: "goforward.10").font(.ax(fixed: 34)).playerHitArea(64)

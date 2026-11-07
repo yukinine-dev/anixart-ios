@@ -61,8 +61,13 @@ extension AnixartError: LocalizedError {
             case AnixartStatus.invalidPassword: return "Неверный пароль"
             default: return "Сервер отклонил запрос \(path) (код \(code))"
             }
-        case .decoding(_, let path):
-            return "Не удалось разобрать ответ сервера для \(path)"
+        case .decoding(let message, let path):
+            // The underlying error names the field that did not match; keep a short
+            // form of it so a report says more than "could not parse".
+            let detail = String(message.replacingOccurrences(of: "\n", with: " ").prefix(240))
+            return detail.isEmpty
+                ? "Не удалось разобрать ответ сервера для \(path)"
+                : "Не удалось разобрать ответ сервера для \(path)\n(\(detail))"
         case .notAuthenticated:
             return "Нужно войти в аккаунт"
         case .invalidURL(let path):
