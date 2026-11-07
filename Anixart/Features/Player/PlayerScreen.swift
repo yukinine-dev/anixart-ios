@@ -174,11 +174,14 @@ struct PlayerScreen: View {
 
                 VStack(spacing: 14) {
                     Spacer()
-                    Text("Реклама источника. Серия откроется во встроенном плеере.")
-                        .font(.ax(.caption))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
+                    HStack(spacing: 10) {
+                        ProgressView().tint(.white)
+                        Text("Загружаем рекламу источника. Если она не отвечает, серия откроется сама, это может занять до полуминуты.")
+                            .font(.ax(.caption))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .multilineTextAlignment(.leading)
+                    }
+                    .padding(.horizontal, 24)
 
                     // A waterfall of ad networks can take a while before one
                     // fills, and nobody should be held in it with no way out.

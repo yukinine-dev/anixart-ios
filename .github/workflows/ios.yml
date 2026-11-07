@@ -279,33 +279,6 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
-      - name: Build for simulator
-        run: |
-          # xcodebuild's failure output is tens of thousands of lines of
-          # dependency bookkeeping with the actual error buried in the middle,
-          # and a log can only be read from its end. So the errors are repeated
-          # at the end, where they can be found.
-          set -o pipefail
-          xcodebuild build \
-            -project Anixart.xcodeproj \
-            -scheme Anixart \
-            -destination 'generic/platform=iOS Simulator' \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee "$RUNNER_TEMP/build.log" || status=$?
-          if [ -n "${status:-}" ]; then
-            echo
-            echo "--- what actually failed ---"
-            errors=$(grep -E "error:|warning: .*(deprecated|unused)" "$RUNNER_TEMP/build.log" \
-              | sed -e "s|/Users/runner/work/anixart-ios/anixart-ios/||" \
-              | sort -u | head -40 || true)
-            printf '%s\n' "$errors"
-            while IFS= read -r line; do
-              [ -n "$line" ] && echo "::error::$line"
-            done <<< "$errors"
-            exit "$status"
-          fi
-
       - name: Test player recovery and routing
         run: |
           set -o pipefail
@@ -332,7 +305,7 @@ jobs:
             failures=$(grep -E "error:|Assertion|Test Case.*failed" "$RUNNER_TEMP/player-tests.log" \
               | grep -v "nw_socket" \
               | sed -e "s|/Users/runner/work/anixart-ios/anixart-ios/||" \
-              | head -10 || true)
+              | sort -u | head -40 || true)
             printf '%s\n' "$failures"
             while IFS= read -r line; do
               [ -n "$line" ] && echo "::error::$line"

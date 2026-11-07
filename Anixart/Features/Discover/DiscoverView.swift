@@ -225,7 +225,7 @@ struct DiscoverView: View {
                 .buttonStyle(.plain)
             }
             .padding(18)
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
             .padding(.horizontal)
         }
     }
@@ -274,7 +274,7 @@ struct BannerCarousel: View {
             LazyHStack(alignment: .top, spacing: 12) {
                 ForEach(banners) { banner in
                     bannerCard(banner)
-                        .containerRelativeFrame(.horizontal) { width, _ in width - 56 }
+                        .containerRelativeFrame(.horizontal) { width, _ in width - 80 }
                         .id(banner.id)
                 }
             }
@@ -326,7 +326,7 @@ struct BannerCarousel: View {
         let isCurrent = banner.id == currentID
         return VStack(alignment: .leading, spacing: 10) {
             Color.clear
-                .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                .aspectRatio(2.2, contentMode: .fit)
                 .overlay {
                     CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 900) { image in
                         image.resizable().scaledToFill()
@@ -341,8 +341,8 @@ struct BannerCarousel: View {
                             .frame(maxHeight: .infinity, alignment: .bottom)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(banner.title ?? "")
