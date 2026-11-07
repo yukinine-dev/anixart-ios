@@ -133,8 +133,12 @@ struct OverviewCommentCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Text(comment.authorLogin).font(.ax(.headline, .medium)).lineLimit(1)
-                    if let badge = comment.profile?.selectedBadge {
-                        ProfileBadgeImage(badge: badge, size: 22)
+                    // A comment only carries the flat badge fields; animated (non-zero
+                    // type) badges are Lottie on Android, so only static art is shown.
+                    if let url = AnixartURL.image(comment.profile?.badgeUrl), (comment.profile?.badgeType ?? 0) == 0 {
+                        CachedAsyncImage(url: url, maxPixelSize: 66) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
+                            .frame(width: 22, height: 22)
+                            .accessibilityHidden(true)
                     }
                     Text("к релизу").font(.ax(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
                     Spacer(minLength: 0)
