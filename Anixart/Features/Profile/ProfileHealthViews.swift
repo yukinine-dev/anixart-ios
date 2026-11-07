@@ -39,8 +39,8 @@ struct ProfileHealthView: View {
                 }
                 Section {
                     Picker("История", selection: $kind) {
-                        Text("Ограничения").tag(ProfileEnforcementListView.Kind.account)
-                        Text("Действия с контентом").tag(ProfileEnforcementListView.Kind.content)
+                        Text("Аккаунт").tag(ProfileEnforcementListView.Kind.account)
+                        Text("Контент").tag(ProfileEnforcementListView.Kind.content)
                     }.pickerStyle(.segmented)
                     if let list = lists[kind] {
                         PaginatedContent(paginator: list, emptyTitle: "Нет данных для отображения") { enforcement in

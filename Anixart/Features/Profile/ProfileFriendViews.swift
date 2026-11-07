@@ -8,6 +8,7 @@ struct FriendsView: View {
     @State private var viewer: ProfileViewerKey?
     @State private var model: ProfileFriendsModel?
     @State private var pendingRemoval: Profile?
+    @State private var query = ""
 
     init(profileID: Int, viewer: ProfileViewerKey? = nil) {
         self.profileID = profileID
@@ -15,6 +16,7 @@ struct FriendsView: View {
     }
 
     private var ownsProfile: Bool { model?.ownsList == true }
+    private var normalizedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         List {
@@ -49,6 +51,7 @@ struct FriendsView: View {
             }
         }
         .listStyle(.plain)
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Поиск по никнейму")
         .navigationTitle(ownsProfile ? "Мои друзья" : "Список друзей")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
@@ -96,11 +99,25 @@ struct FriendsView: View {
     private func group(_ group: ProfileFriendsModel.Group, title: String) -> some View {
         if let model, let list = model.lists[group], group == .friends || !list.isEmpty {
             Section {
+                if group == .friends, !normalizedQuery.isEmpty {
+                    // The server has no friend search; filter what is loaded.
+                    let matches = list.items.filter { $0.displayLogin.localizedCaseInsensitiveContains(normalizedQuery) }
+                    if matches.isEmpty {
+                        Text("Ничего не найдено").foregroundStyle(.secondary)
+                    }
+                    ForEach(matches) { profile in
+                        HStack(spacing: 8) {
+                            NavigationLink { ProfileView(profileID: profile.id, viewer: viewer) } label: { ProfileFriendRow(profile: profile) }
+                            if ownsProfile { actions(profile, group: group).disabled(model.savingIDs.contains(profile.id)) }
+                        }
+                    }
+                } else {
                 PaginatedContent(paginator: list, emptyTitle: "Друзей пока нет") { profile in
                     HStack(spacing: 8) {
                         NavigationLink { ProfileView(profileID: profile.id, viewer: viewer) } label: { ProfileFriendRow(profile: profile) }
                         if ownsProfile { actions(profile, group: group).disabled(model.savingIDs.contains(profile.id)) }
                     }
+                }
                 }
             } header: {
                 Text(title + (list.totalCount.map { " · \(Format.count($0))" } ?? ""))

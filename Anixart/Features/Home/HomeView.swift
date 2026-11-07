@@ -23,8 +23,8 @@ struct HomeView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
-                tabStrip
-                Divider()
+                tabStrip.floatingStrip()
+                ContinueWatchingCard()
 
                 Group {
                     switch selection ?? preferences.defaultTab {
@@ -62,7 +62,7 @@ struct HomeView: View {
     // MARK: - Header
 
     private var header: some View {
-        BrowsingHeader(onSearch: { isShowingSearch = true }, onSettings: { isShowingSettings = true })
+        BrowsingHeader(onSettings: { isShowingSettings = true })
     }
 
     // MARK: - Tabs

@@ -14,6 +14,7 @@ struct EpisodePickerView: View {
     @State private var viewer: ProfileViewerKey?
     @State private var model: EpisodePickerViewModel?
     @State private var isHintVisible = true
+    @AppStorage("episodePicker.pinnedVoiceovers") private var pinnedRaw = ""
     @Namespace private var kindHighlight
     @State private var kindMotion = SelectionMotionIntent<EpisodePickerViewModel.Kind>()
 
@@ -83,13 +84,36 @@ struct EpisodePickerView: View {
                                 .padding(.bottom, 8)
                         }
 
-                        ForEach(model.visibleTypes) { type in
+                        ForEach(pinnedFirst(model.visibleTypes)) { type in
                             NavigationLink {
                                 EpisodeListView(release: release, type: type, viewer: viewer)
                             } label: {
                                 typeRow(type, model: model)
+                                    .overlay(alignment: .topTrailing) {
+                                        if isPinned(type) {
+                                            Image(systemName: "pin.fill")
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(.secondary)
+                                                .padding(10)
+                                        }
+                                    }
                             }
                             .buttonStyle(.plain)
+                            // Swipe the row to the left to pin or unpin the voice-over.
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 40)
+                                    .onEnded { value in
+                                        guard value.translation.width < -80,
+                                              abs(value.translation.height) < 40 else { return }
+                                        withAnimation { togglePin(type) }
+                                    }
+                            )
+                            .contextMenu {
+                                Button(isPinned(type) ? "Открепить" : "Закрепить",
+                                       systemImage: isPinned(type) ? "pin.slash" : "pin") {
+                                    withAnimation { togglePin(type) }
+                                }
+                            }
                             Divider().padding(.leading, 96)
                         }
                     }
@@ -101,6 +125,20 @@ struct EpisodePickerView: View {
                 }
             }
         }
+    }
+
+    private var pinnedIDs: Set<String> { Set(pinnedRaw.split(separator: ",").map(String.init)) }
+    private func isPinned(_ type: EpisodeType) -> Bool { pinnedIDs.contains("(type.id)") }
+
+    private func togglePin(_ type: EpisodeType) {
+        var ids = pinnedIDs
+        if !ids.insert("(type.id)").inserted { ids.remove("(type.id)") }
+        pinnedRaw = ids.sorted().joined(separator: ",")
+    }
+
+    /// Pinned voice-overs first; the server order is otherwise kept.
+    private func pinnedFirst(_ types: [EpisodeType]) -> [EpisodeType] {
+        types.filter(isPinned) + types.filter { !isPinned($0) }
     }
 
     private func kindChips(_ model: EpisodePickerViewModel) -> some View {

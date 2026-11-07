@@ -21,3 +21,6 @@ Package.resolved
 # Fastlane / CI artefacts
 fastlane/report.xml
 fastlane/screenshots
+
+# Local Android reference captures (contain account data)
+design/android-capture/

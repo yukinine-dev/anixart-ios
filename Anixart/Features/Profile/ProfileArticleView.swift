@@ -351,6 +351,7 @@ struct ProfileArticleBlockView: View {
             }
             .aspectRatio(large ? mediaRatio(file) : 1.35, contentMode: .fit)
             .clipped()
+            .pinchToZoom()
         }
         .buttonStyle(.plain).accessibilityLabel("Открыть изображение \(index + 1)")
     }

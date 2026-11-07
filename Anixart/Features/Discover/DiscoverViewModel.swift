@@ -9,7 +9,10 @@ final class DiscoverViewModel {
     private(set) var banners: [Interesting] = []
     private(set) var discussing: [Release] = []
     private(set) var watchingNow: [Release] = []
+    /// Backwards-compatible name used by the existing Discover state contract.
+    var continueWatching: [Release] { watchingNow }
     private(set) var recommendations: [Release] = []
+    private(set) var collectionsOfTheWeek: [ReleaseCollection] = []
     private(set) var commentsOfTheWeek: [ReleaseComment] = []
 
     private(set) var isLoading = false
@@ -69,17 +72,20 @@ final class DiscoverViewModel {
             guard viewer.account != nil else { return [] }
             return try await session.sendViewerRequest(DiscoverEndpoints.watching(page: 0), for: viewer).items
         }
+        async let collectionsTask = Self.attempt {
+            try await session.sendViewerRequest(CollectionEndpoints.ofTheWeek(), for: viewer).items
+        }
         async let recommendationsTask = Self.attempt { () -> [Release] in
             guard viewer.account != nil else { return [] }
             return try await session.sendViewerRequest(DiscoverEndpoints.recommendations(page: 0), for: viewer).items
         }
 
-        let (bannerResult, discussingResult, commentResult, watchingResult, recommendationResult) =
-            await (bannersTask, discussingTask, commentsTask, watchingTask, recommendationsTask)
+        let (bannerResult, discussingResult, commentResult, watchingResult, recommendationResult, collectionResult) =
+            await (bannersTask, discussingTask, commentsTask, watchingTask, recommendationsTask, collectionsTask)
         guard token == generation, hasCurrentViewer, !Task.isCancelled else { return }
         // Do not commit a half-cancelled snapshot from a disappearing view.
         guard !bannerResult.wasCancelled, !discussingResult.wasCancelled, !commentResult.wasCancelled,
-              !watchingResult.wasCancelled, !recommendationResult.wasCancelled else { return }
+              !watchingResult.wasCancelled, !recommendationResult.wasCancelled, !collectionResult.wasCancelled else { return }
 
         failedBlocks = []
         if let value = bannerResult.value { banners = Self.unique(value.filter { $0.isHidden != true }) }
@@ -92,6 +98,9 @@ final class DiscoverViewModel {
         else { failedBlocks.append("Смотрят сейчас") }
         if let value = recommendationResult.value { recommendations = Self.unique(value) }
         else { failedBlocks.append("Рекомендации") }
+
+        if let value = collectionResult.value { collectionsOfTheWeek = Self.unique(value) }
+        else { failedBlocks.append("Коллекции недели") }
 
         hasAttemptedLoad = true
         if isEmpty, !failedBlocks.isEmpty {

@@ -8,9 +8,9 @@ struct RootView: View {
     @State private var homeNavigationRevision = 0
 
     enum Tab: Hashable, CaseIterable {
-        // The original app has exactly these five root tabs; catalogue browsing
+        // Four root sections plus search (the beta moved Профиль behind the avatar); catalogue browsing
         // belongs to Home/search/filter routes, never to an additional root tab.
-        case home, discover, bookmarks, feed, profile
+        case home, discover, bookmarks, feed, search
 
         var title: String {
             switch self {
@@ -18,7 +18,7 @@ struct RootView: View {
             case .discover: return "Обзор"
             case .bookmarks: return "Закладки"
             case .feed: return "Лента"
-            case .profile: return "Профиль"
+            case .search: return "Поиск"
             }
         }
 
@@ -28,7 +28,7 @@ struct RootView: View {
             case .discover: return "safari"
             case .bookmarks: return "bookmark"
             case .feed: return "rectangle.topthird.inset.filled"
-            case .profile: return "person.crop.circle"
+            case .search: return "magnifyingglass"
             }
         }
     }
@@ -46,6 +46,8 @@ struct RootView: View {
                 KodikProbeScreen(releaseID: id)
             case .profile where env.session.currentProfileID == nil:
                 NavigationStack { SampleProfileScreen() }
+            case .profile:
+                NavigationStack { ProfileTabView() }
             default:
                 tabs
             }
@@ -63,7 +65,29 @@ struct RootView: View {
         }
     }
 
+    /// The new Android bottom bar: four sections and a separate round search button.
+    /// iOS 18 and later draw the `.search` role as that detached button (and as part
+    /// of the floating glass bar on iOS 26); earlier systems get a plain fifth tab.
+    @ViewBuilder
     private var tabs: some View {
+        #if compiler(>=6.0)
+        if #available(iOS 18.0, *) {
+            TabView(selection: $selection) {
+                SwiftUI.Tab(Tab.home.title, systemImage: Tab.home.systemImage, value: Tab.home) { tabContent(.home) }
+                SwiftUI.Tab(Tab.discover.title, systemImage: Tab.discover.systemImage, value: Tab.discover) { tabContent(.discover) }
+                SwiftUI.Tab(Tab.bookmarks.title, systemImage: Tab.bookmarks.systemImage, value: Tab.bookmarks) { tabContent(.bookmarks) }
+                SwiftUI.Tab(Tab.feed.title, systemImage: Tab.feed.systemImage, value: Tab.feed) { tabContent(.feed) }
+                SwiftUI.Tab(Tab.search.title, systemImage: Tab.search.systemImage, value: Tab.search, role: .search) { tabContent(.search) }
+            }
+        } else {
+            legacyTabs
+        }
+        #else
+        legacyTabs
+        #endif
+    }
+
+    private var legacyTabs: some View {
         TabView(selection: $selection) {
             ForEach(Tab.allCases, id: \.self) { tab in
                 tabContent(tab)
@@ -92,7 +116,7 @@ struct RootView: View {
         case .discover: DiscoverView()
         case .bookmarks: BookmarksView()
         case .feed: FeedView()
-        case .profile: ProfileTabView().badge(env.session.unreadNotifications)
+        case .search: NavigationStack { HomeSearchView() }
         }
     }
 }
@@ -152,7 +176,7 @@ enum LaunchScreen: Equatable {
 
     var tab: RootView.Tab {
         switch self {
-        case .profile: return .profile
+        case .profile: return .home
         case .feed: return .feed
         default: return .home
         }

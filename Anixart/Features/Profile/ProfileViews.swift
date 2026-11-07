@@ -1261,6 +1261,10 @@ enum Plural {
         forms(count, one: "ответ", few: "ответа", many: "ответов")
     }
 
+    static func comments(_ count: Int) -> String {
+        forms(count, one: "комментарий", few: "комментария", many: "комментариев")
+    }
+
     static func episodes(_ count: Int) -> String {
         forms(count, one: "эпизод", few: "эпизода", many: "эпизодов")
     }

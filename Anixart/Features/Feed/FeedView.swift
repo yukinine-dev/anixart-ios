@@ -19,10 +19,8 @@ struct FeedView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                BrowsingHeader(onSearch: { showsSearch = true }, onSettings: { showsSettings = true },
-                               searchTitle: "Поиск записей и блогов")
-                tabs
-                Divider()
+                BrowsingHeader(onSettings: { showsSettings = true }, onSearch: { showsSearch = true })
+                tabs.floatingStrip()
                 Group {
                     if let model, model.hasCurrentViewer {
                         if model.viewer.account == nil {

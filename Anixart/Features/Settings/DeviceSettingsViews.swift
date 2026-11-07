@@ -4,6 +4,8 @@ enum DeviceAppearancePreferenceKey {
     static let colorScheme = "appearance.colorScheme"
     static let defaultBookmarks = "appearance.defaultBookmarks"
     static let resourceSaving = "appearance.resourceSaving"
+    static let continueWatching = "appearance.continueWatching"
+    static let continueWatchingDismissed = "appearance.continueWatching.dismissed"
     static let visualTheme = "appearance.visualTheme"
     static let accent = "appearance.accent"
 }
@@ -140,9 +142,13 @@ struct DeviceDataSettingsView: View {
 }
 
 struct DeviceAdditionalSettingsView: View {
+    @AppStorage(DeviceAppearancePreferenceKey.continueWatching) private var continueWatching = true
     @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
     var body: some View {
         Form {
+            Section { Toggle("Продолжить просмотр", isOn: $continueWatching) } footer: {
+                Text("Плашка с последней просмотренной серией на Главной и в Закладках.")
+            }
             Section { Toggle("Экономия ресурсов", isOn: $resourceSaving) } footer: {
                 Text("Приостанавливает анимацию витрины и GIF-аватаров. Системная настройка уменьшения движения также учитывается.")
             }

@@ -9,6 +9,7 @@ struct BookmarksView: View {
     @State private var tab = BookmarkTab.defaultSelection(storageKey: UserDefaults.standard.string(forKey: DeviceAppearancePreferenceKey.defaultBookmarks))
     @AppStorage(DeviceAppearancePreferenceKey.defaultBookmarks) private var defaultTab = BookmarkTab.favorites.storageKey
     @State private var sort: BookmarkSort = .addedDescending
+    @State private var isShowingSettings = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
     @Namespace private var tabIndicator
@@ -61,40 +62,28 @@ struct BookmarksView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if env.session.isSignedIn {
-                    signedInContent
-                } else {
-                    SignInPromptView(
-                        message: "Закладки, история и избранное привязаны к аккаунту."
-                    )
-                }
-            }
-            .navigationTitle("Закладки")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if env.session.isSignedIn {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        if tab.supportsSorting {
-                            Menu {
-                                Picker("Сортировка", selection: $sort) {
-                                    ForEach(BookmarkSort.allCases) { option in
-                                        Text(option.title).tag(option)
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "arrow.up.arrow.down")
-                            }
-                        }
+            VStack(spacing: 0) {
+                BrowsingHeader(onSettings: { isShowingSettings = true })
+                Group {
+                    if env.session.isSignedIn {
+                        signedInContent
+                    } else {
+                        SignInPromptView(
+                            message: "Закладки, история и избранное привязаны к аккаунту."
+                        )
                     }
                 }
             }
+            .navigationTitle("Закладки")
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $isShowingSettings) { SettingsView() }
             .onChange(of: defaultTab) { _, value in tab = BookmarkTab.defaultSelection(storageKey: value) }
         }
     }
 
     private var signedInContent: some View {
         VStack(spacing: 0) {
+            HStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Theme.Spacing.tabGap) {
@@ -125,8 +114,24 @@ struct BookmarksView: View {
                     selectionMotion.complete(selected)
                 }
             }
+            if tab.supportsSorting {
+                Menu {
+                    Picker("Сортировка", selection: $sort) {
+                        ForEach(BookmarkSort.allCases) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Сортировка")
+            }
+            }
+            .floatingStrip()
+            ContinueWatchingCard()
 
-            Divider()
 
             Group {
                 switch tab {
