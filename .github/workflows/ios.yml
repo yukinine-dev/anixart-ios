@@ -324,8 +324,10 @@ jobs:
           if [ -n "${status:-}" ]; then
             echo
             echo "--- player test failures ---"
-            failures=$(grep -E "error:|failed|Assertion|Test Case.*failed|Test Suite.*failed" "$RUNNER_TEMP/player-tests.log" \
-              | tail -80 || true)
+            failures=$(grep -E "error:|Assertion|Test Case.*failed" "$RUNNER_TEMP/player-tests.log" \
+              | grep -v "nw_socket" \
+              | sed -e "s|/Users/runner/work/anixart-ios/anixart-ios/||" \
+              | head -10 || true)
             printf '%s\n' "$failures"
             while IFS= read -r line; do
               [ -n "$line" ] && echo "::error::$line"
