@@ -250,16 +250,7 @@ struct CommentRow: View {
                 // `discover/comments` inlines the release the comment belongs to, which is
                 // what makes a comment legible outside its own release page.
                 if showsRelease, let target = releaseTarget {
-                    NavigationLink {
-                        ReleaseDetailView(releaseID: target.id, preloaded: target.release, viewer: nil)
-                    } label: {
-                        Label(target.title, systemImage: "play.rectangle")
-                            .font(.ax(.caption, .medium))
-                            .foregroundStyle(Theme.accent)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                    }
-                    .buttonStyle(.plain)
+                    CommentReleaseLink(releaseID: target.id, knownTitle: target.title, release: target.release)
                 }
 
                 if comment.isDeleted == true {
@@ -319,12 +310,10 @@ struct CommentRow: View {
         .padding(.vertical, 8)
     }
 
-    private var releaseTarget: (id: Int, title: String, release: Release?)? {
+    private var releaseTarget: (id: Int, title: String?, release: Release?)? {
         let embedded = comment.release
         guard let id = embedded?.value?.id ?? embedded?.id ?? comment.embeddableId, id > 0 else { return nil }
-        let title = embedded?.value?.displayTitle
-            ?? comment.embeddableTitle.flatMap { $0.isEmpty ? nil : $0 }
-            ?? "Открыть релиз"
+        let title = embedded?.value?.displayTitle ?? comment.embeddableTitle.flatMap { $0.isEmpty ? nil : $0 }
         return (id, title, embedded?.value)
     }
 
@@ -394,5 +383,43 @@ struct CommentThreadView: View {
         ProfileCommentDetailView(commentID: comment.id, category: .releases,
                                  preloaded: ProfileComment(releaseComment: comment),
                                  fallbackLocation: ProfileCommentLocation(category: .releases, parentID: releaseID), viewer: viewer)
+    }
+}
+
+
+/// "Release the comment belongs to". When the server sends only the id, the
+/// title is fetched once and remembered, so the row never says just "open".
+@MainActor
+struct CommentReleaseLink: View {
+    @Environment(AppEnvironment.self) private var env
+    let releaseID: Int
+    var knownTitle: String?
+    var release: Release?
+    @State private var fetchedTitle: String?
+
+    private static var titleCache: [Int: String] = [:]
+
+    private var title: String? { knownTitle ?? fetchedTitle ?? Self.titleCache[releaseID] }
+
+    var body: some View {
+        NavigationLink {
+            ReleaseDetailView(releaseID: releaseID, preloaded: release, viewer: nil)
+        } label: {
+            Label(title ?? "Загрузка названия…", systemImage: "play.rectangle")
+                .font(.ax(.caption, .medium))
+                .foregroundStyle(Theme.accent)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+        }
+        .buttonStyle(.plain)
+        .task(id: releaseID) {
+            guard knownTitle == nil, Self.titleCache[releaseID] == nil else { return }
+            let viewer = env.session.viewerKey
+            guard let response = try? await env.session.sendViewerRequest(
+                ReleaseEndpoints.release(id: releaseID, extended: false), for: viewer),
+                  let name = response.release?.displayTitle else { return }
+            Self.titleCache[releaseID] = name
+            fetchedTitle = name
+        }
     }
 }

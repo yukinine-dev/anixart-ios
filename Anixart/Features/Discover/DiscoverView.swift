@@ -238,24 +238,38 @@ struct BannerCarousel: View {
 
     /// True while any part of the carousel is on screen, below the header.
     private var isOnScreen: Bool {
-        isAppeared && frame.height > 0 && frame.maxY > 60 && frame.minY < UIScreen.main.bounds.height
+        isAppeared && (frame.height <= 0 || (frame.maxY > 60 && frame.minY < UIScreen.main.bounds.height))
     }
 
     var body: some View {
         VStack(spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: Theme.Spacing.row) {
-                    ForEach(0..<(count * Self.copies), id: \.self) { index in
-                        bannerCard(banners[index % count])
-                            .containerRelativeFrame(.horizontal)
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top, spacing: Theme.Spacing.row) {
+                        ForEach(0..<(count * Self.copies), id: \.self) { index in
+                            bannerCard(banners[index % count])
+                                .containerRelativeFrame(.horizontal)
+                                .id(index)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .contentMargins(.horizontal, 16, for: .scrollContent)
+                .scrollTargetBehavior(.viewAligned)
+                .scrollPosition(id: $position)
+                .onChange(of: position) { _, value in recenter(value) }
+                // Restarts after every page change (also manual swipes), so each
+                // page stays for a full interval. Visibility is checked when the
+                // timer fires, so the loop pauses while the carousel is scrolled
+                // away or the app is in the background and resumes by itself.
+                .task(id: position) {
+                    while !Task.isCancelled, count > 1 {
+                        try? await Task.sleep(for: Self.autoAdvanceInterval)
+                        guard !Task.isCancelled else { return }
+                        if isOnScreen, scenePhase == .active { advance(proxy) }
                     }
                 }
-                .scrollTargetLayout()
             }
-            .contentMargins(.horizontal, 16, for: .scrollContent)
-            .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $position)
-            .onChange(of: position) { _, value in recenter(value) }
 
             if count > 1 {
                 HStack(spacing: 6) {
@@ -279,28 +293,15 @@ struct BannerCarousel: View {
             if position == nil, count > 0 { position = count }
         }
         .onDisappear { isAppeared = false }
-        // Restarts after every page change (also manual swipes), so each page
-        // stays for a full interval. The checks run when the timer fires, which
-        // keeps the loop alive while the carousel is scrolled away or in the
-        // background and resumes it by itself when it comes back.
-        .task(id: position) {
-            while !Task.isCancelled, count > 1 {
-                try? await Task.sleep(for: Self.autoAdvanceInterval)
-                guard !Task.isCancelled else { return }
-                if isOnScreen, scenePhase == .active {
-                    advance()
-                    return
-                }
-            }
-        }
     }
 
-    private func advance() {
+    private func advance(_ proxy: ScrollViewProxy) {
         let next = (position ?? count) + 1
-        if reduceMotion {
+        // A short horizontal slide, kept even with Reduce Motion: the user asked
+        // for an animated carousel and it has no parallax or zoom.
+        withAnimation(.easeInOut(duration: reduceMotion ? 0.25 : 0.5)) {
+            proxy.scrollTo(next, anchor: .center)
             position = next
-        } else {
-            withAnimation(.easeInOut(duration: 0.45)) { position = next }
         }
     }
 

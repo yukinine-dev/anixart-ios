@@ -218,8 +218,8 @@ struct ProfileCommentDetailView: View {
                                     ProfileCommentRow(comment: reply, viewer: composer.viewer, onReply: { chooseReply(reply) },
                                                        onVote: { value in Task { await vote(reply, value) } },
                                                        isVoting: votingIDs.contains(reply.id), actionsEnabled: actionsEnabled,
-                                                       contextCategory: category)
-                                        .padding(.leading, 20)
+                                                       contextCategory: category, isReply: true)
+                                        .padding(.leading, 16)
                                 }
                             }
                         }
@@ -438,9 +438,73 @@ struct ProfileCommentRow: View {
     var isVoting = false
     var actionsEnabled = true
     var contextCategory: ProfileCommentCategory?
+    /// Reddit-style reply: indented under a thread line, compact header, actions below.
+    var isReply = false
     @State private var revealsSpoiler = false
 
     var body: some View {
+        if isReply { replyBody } else { fullBody }
+    }
+
+    private var replyBody: some View {
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(Color.secondary.opacity(0.35))
+                .frame(width: 2)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    if let profile = comment.profile {
+                        NavigationLink { ProfileView(profileID: profile.id, viewer: viewer) } label: {
+                            HStack(spacing: 8) {
+                                Avatar(url: AnixartURL.image(profile.avatar), size: 24)
+                                Text(profile.login ?? "Пользователь").font(.ax(.footnote, .medium))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        if profile.isSponsor == true { Image(systemName: "crown.fill").font(.ax(.caption2)).foregroundStyle(Theme.sponsorGold) }
+                    } else { Text("Пользователь").font(.ax(.footnote, .medium)) }
+                    Text("· " + (Format.relativeDate(comment.date) ?? ProfileDate.text(comment.timestamp)) + (comment.isEdited == true ? " · изменён" : ""))
+                        .font(.ax(.caption)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+                if comment.isDeleted == true {
+                    Text("Комментарий удалён").font(.ax(.subheadline)).foregroundStyle(.secondary)
+                } else if comment.isSpoiler == true, !revealsSpoiler {
+                    Button { revealsSpoiler = true } label: {
+                        Label("Спойлер — нажмите, чтобы прочитать", systemImage: "eye.slash")
+                            .font(.ax(.caption)).foregroundStyle(.secondary)
+                            .padding(8).background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text(comment.message ?? "").font(.ax(.subheadline))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if comment.isDeleted != true {
+                    HStack(spacing: 6) {
+                        voteButton(.positive, icon: "arrow.up")
+                        Text(Format.count(comment.voteCount)).monospacedDigit().foregroundStyle(.secondary)
+                        voteButton(.negative, icon: "arrow.down")
+                        if let onReply {
+                            Button(action: onReply) {
+                                Label("Ответить", systemImage: "arrowshape.turn.up.left")
+                                    .labelStyle(.titleAndIcon)
+                            }
+                            .buttonStyle(.plain).foregroundStyle(.secondary)
+                            .disabled(!actionsEnabled)
+                            .padding(.leading, 10)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .font(.ax(.caption, .medium))
+                }
+            }
+        }
+        .padding(.vertical, 6)
+        .profileCommentContext(comment, category: contextCategory ?? comment.category, viewer: viewer)
+    }
+
+    private var fullBody: some View {
         HStack(alignment: .top, spacing: 12) {
             if let profile = comment.profile {
                 NavigationLink { ProfileView(profileID: profile.id, viewer: viewer) } label: { Avatar(url: AnixartURL.image(profile.avatar), size: 40) }
