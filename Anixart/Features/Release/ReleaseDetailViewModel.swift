@@ -147,6 +147,18 @@ final class ReleaseDetailViewModel {
         }
     }
 
+    func voteComment(_ comment: ReleaseComment, _ vote: CommentVote) async {
+        guard hasCurrentViewer, comment.isDeleted != true, comment.canLike != false else { return }
+        guard let account = beginAction() else { return }
+        defer { isPerformingAction = false }
+        do {
+            try await session.sendConfirmedAccountRequest(CommentEndpoints.vote(commentID: comment.id, vote: vote), for: account)
+            await load(allowDuringAction: true)
+        } catch {
+            showActionError(error)
+        }
+    }
+
     func dismissActionError() {
         actionError = nil
     }

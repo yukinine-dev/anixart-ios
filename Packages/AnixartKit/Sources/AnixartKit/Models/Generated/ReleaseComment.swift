@@ -22,6 +22,8 @@ public struct ReleaseComment: Codable, Hashable, Sendable, Identifiable {
     public var isSpoiler: Bool?
     public var postedAtEpisode: Int?
     public var release: Embedded<Release>?
+    public var embeddableId: Int?
+    public var embeddableTitle: String?
 
     public enum CodingKeys: String, CodingKey {
         case canLike = "can_like"
@@ -41,5 +43,7 @@ public struct ReleaseComment: Codable, Hashable, Sendable, Identifiable {
         case isSpoiler = "is_spoiler"
         case postedAtEpisode
         case release
+        case embeddableId
+        case embeddableTitle
     }
 }

@@ -249,8 +249,17 @@ struct CommentRow: View {
 
                 // `discover/comments` inlines the release the comment belongs to, which is
                 // what makes a comment legible outside its own release page.
-                if showsRelease, let release = comment.release?.value {
-                    Text(release.displayTitle).font(.ax(.caption)).foregroundStyle(Theme.accent)
+                if showsRelease, let target = releaseTarget {
+                    NavigationLink {
+                        ReleaseDetailView(releaseID: target.id, preloaded: target.release, viewer: nil)
+                    } label: {
+                        Label(target.title, systemImage: "play.rectangle")
+                            .font(.ax(.caption, .medium))
+                            .foregroundStyle(Theme.accent)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 if comment.isDeleted == true {
@@ -308,6 +317,15 @@ struct CommentRow: View {
             }
         }
         .padding(.vertical, 8)
+    }
+
+    private var releaseTarget: (id: Int, title: String, release: Release?)? {
+        let embedded = comment.release
+        guard let id = embedded?.value?.id ?? embedded?.id ?? comment.embeddableId, id > 0 else { return nil }
+        let title = embedded?.value?.displayTitle
+            ?? comment.embeddableTitle.flatMap { $0.isEmpty ? nil : $0 }
+            ?? "Открыть релиз"
+        return (id, title, embedded?.value)
     }
 
     private func revealSpoiler(fromKeyboard: Bool = false) {

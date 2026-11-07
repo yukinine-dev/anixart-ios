@@ -22,6 +22,7 @@ struct ReleaseDetailView: View {
     @State private var isDescriptionExpanded = false
     @State private var screenshotGallery: ReleaseScreenshotPresentation?
     @State private var report: ProfileReportPresentation?
+    @State private var openComment: ReleaseComment?
 
     private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
@@ -60,6 +61,9 @@ struct ReleaseDetailView: View {
         .refreshable { await model?.load() }
         .sheet(isPresented: $isShowingTitles) {
             if let release = model?.release { ReleaseTitlesView(release: release) }
+        }
+        .navigationDestination(item: $openComment) { comment in
+            CommentThreadView(comment: comment, releaseID: releaseID, viewer: viewer)
         }
         .fullScreenCover(item: $screenshotGallery) { presentation in
             ReleaseScreenshotGalleryView(presentation: presentation)
@@ -685,8 +689,17 @@ struct ReleaseDetailView: View {
 
             if let comments = release.comments, !comments.isEmpty {
                 ForEach(comments.prefix(3)) { comment in
-                    CommentRow(comment: comment)
-                        .padding(.horizontal)
+                    CommentRow(
+                        comment: comment,
+                        onReply: { openComment = comment },
+                        onVote: { vote in
+                            guard let model else { return }
+                            Task { await model.voteComment(comment, vote) }
+                        },
+                        onOpenReplies: { openComment = comment },
+                        isVoting: model?.isPerformingAction ?? false
+                    )
+                    .padding(.horizontal)
                 }
             } else {
                 Text("Пока нет комментариев")

@@ -13,6 +13,9 @@ struct DiscoverView: View {
     @State private var opened: Release?
     @State private var actionTarget: Release?
     @State private var isShowingRecommendationHelp = false
+    @State private var openComment: ReleaseComment?
+    @State private var votingCommentIDs = Set<Int>()
+    @State private var commentError: String?
 
     var body: some View {
         NavigationStack {
@@ -36,6 +39,14 @@ struct DiscoverView: View {
             .navigationDestination(item: $appliedFilter) { request in
                 FilteredReleasesView(filter: request, title: "Результаты фильтра")
             }
+            .navigationDestination(item: $openComment) { comment in
+                CommentThreadView(comment: comment,
+                                  releaseID: comment.release?.value?.id ?? comment.release?.id ?? comment.embeddableId ?? 0,
+                                  viewer: model?.viewer)
+            }
+            .alert("Комментарии", isPresented: Binding(get: { commentError != nil }, set: { if !$0 { commentError = nil } })) {
+                Button("Понятно", role: .cancel) { commentError = nil }
+            } message: { Text(commentError ?? "") }
             .navigationDestination(item: $opened) { release in
                 ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
             }
@@ -139,13 +150,37 @@ struct DiscoverView: View {
                     VStack(alignment: .leading, spacing: Theme.Spacing.row) {
                         SectionHeader(title: "Комментарии недели")
                         ForEach(model.commentsOfTheWeek) { comment in
-                            CommentRow(comment: comment, showsRelease: true)
-                                .padding(.horizontal)
+                            CommentRow(
+                                comment: comment,
+                                showsRelease: true,
+                                onReply: { openComment = comment },
+                                onVote: { vote in Task { await voteComment(comment, vote, model: model) } },
+                                onOpenReplies: { openComment = comment },
+                                isVoting: votingCommentIDs.contains(comment.id)
+                            )
+                            .padding(.horizontal)
                         }
                     }
                 }
             }
             .padding(.vertical)
+        }
+    }
+
+    private func voteComment(_ comment: ReleaseComment, _ vote: CommentVote, model: DiscoverViewModel) async {
+        guard model.hasCurrentViewer, !votingCommentIDs.contains(comment.id),
+              comment.isDeleted != true, comment.canLike != false else { return }
+        guard let account = model.viewer.account else {
+            env.session.promptSignIn()
+            return
+        }
+        votingCommentIDs.insert(comment.id)
+        defer { votingCommentIDs.remove(comment.id) }
+        do {
+            try await env.session.sendConfirmedAccountRequest(CommentEndpoints.vote(commentID: comment.id, vote: vote), for: account)
+            await model.load()
+        } catch {
+            if !ProfileRequestFailure.isCancellation(error) { commentError = Paginator<Release>.message(for: error) }
         }
     }
 
@@ -190,21 +225,20 @@ struct BannerCarousel: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var position: Int?
-    @State private var isOnScreen = false
+    @State private var frame: CGRect = .zero
+    @State private var isAppeared = false
 
     private var count: Int { banners.count }
-
-    private struct PlaybackKey: Equatable {
-        let isPlaying: Bool
-        let position: Int?
-    }
-
-    private var isPlaying: Bool { count > 1 && isOnScreen && scenePhase == .active }
 
     /// Index into `banners` of the page that is currently shown.
     private var currentIndex: Int {
         guard count > 0 else { return 0 }
         return ((position ?? count) % count + count) % count
+    }
+
+    /// True while any part of the carousel is on screen, below the header.
+    private var isOnScreen: Bool {
+        isAppeared && frame.height > 0 && frame.maxY > 60 && frame.minY < UIScreen.main.bounds.height
     }
 
     var body: some View {
@@ -214,7 +248,6 @@ struct BannerCarousel: View {
                     ForEach(0..<(count * Self.copies), id: \.self) { index in
                         bannerCard(banners[index % count])
                             .containerRelativeFrame(.horizontal)
-                            .id(index)
                     }
                 }
                 .scrollTargetLayout()
@@ -240,20 +273,25 @@ struct BannerCarousel: View {
                 Color.clear.preference(key: BannerFramePreference.self, value: geometry.frame(in: .global))
             }
         )
-        .onPreferenceChange(BannerFramePreference.self) { frame in
-            // Visible once any part sits below the header and above the screen bottom.
-            let visible = frame.maxY > 60 && frame.minY < UIScreen.main.bounds.height
-            if visible != isOnScreen { isOnScreen = visible }
-        }
+        .onPreferenceChange(BannerFramePreference.self) { frame = $0 }
         .onAppear {
+            isAppeared = true
             if position == nil, count > 0 { position = count }
         }
-        .onDisappear { isOnScreen = false }
-        .task(id: PlaybackKey(isPlaying: isPlaying, position: position)) {
-            guard isPlaying else { return }
-            try? await Task.sleep(for: Self.autoAdvanceInterval)
-            guard !Task.isCancelled else { return }
-            advance()
+        .onDisappear { isAppeared = false }
+        // Restarts after every page change (also manual swipes), so each page
+        // stays for a full interval. The checks run when the timer fires, which
+        // keeps the loop alive while the carousel is scrolled away or in the
+        // background and resumes it by itself when it comes back.
+        .task(id: position) {
+            while !Task.isCancelled, count > 1 {
+                try? await Task.sleep(for: Self.autoAdvanceInterval)
+                guard !Task.isCancelled else { return }
+                if isOnScreen, scenePhase == .active {
+                    advance()
+                    return
+                }
+            }
         }
     }
 
