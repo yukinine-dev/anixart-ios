@@ -9,6 +9,8 @@ final class DiscoverViewModel {
     private(set) var banners: [Interesting] = []
     private(set) var discussing: [Release] = []
     private(set) var watchingNow: [Release] = []
+    /// Backwards-compatible name used by the existing Discover state contract.
+    var continueWatching: [Release] { watchingNow }
     private(set) var recommendations: [Release] = []
     private(set) var commentsOfTheWeek: [ReleaseComment] = []
 
