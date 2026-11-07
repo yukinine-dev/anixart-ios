@@ -90,6 +90,9 @@ final class ProfileTestAPI: @unchecked Sendable {
         // Session refreshes are deliberately boring. All feature endpoints
         // must be scripted explicitly, including intentional failures.
         if path == "/notification/count" { return .response(#"{"code":0,"count":0}"#, 200) }
+        // Обзор's collections-of-the-week block is decorative and loaded with every
+        // refresh; tests that care about it enqueue it explicitly above.
+        if path == "/collection/all/0" { return .response(#"{"code":0,"content":[]}"#, 200) }
         let parts = path.split(separator: "/")
         if parts.count == 2, parts[0] == "profile", let id = Int(parts[1]) {
             return .response("{\"code\":0,\"profile\":{\"id\":\(id)}}", 200)

@@ -99,8 +99,9 @@ final class DiscoverViewModel {
         if let value = recommendationResult.value { recommendations = Self.unique(value) }
         else { failedBlocks.append("Рекомендации") }
 
+        // A decorative block: when it fails the previous cards stay and Обзор does
+        // not report a partial failure for it.
         if let value = collectionResult.value { collectionsOfTheWeek = Self.unique(value) }
-        else { failedBlocks.append("Коллекции недели") }
 
         hasAttemptedLoad = true
         if isEmpty, !failedBlocks.isEmpty {
