@@ -42,6 +42,9 @@ struct DiscoverView: View {
             .navigationDestination(item: $opened) { release in
                 ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
             }
+            .navigationDestination(item: $commentsTarget) { release in
+                CommentsView(releaseID: release.id, releaseTitle: release.displayTitle, viewer: model?.viewer)
+            }
             .navigationDestination(isPresented: $isShowingWatchingNow) {
                 if let viewer = model?.viewer {
                     DiscoverWatchingView(viewer: viewer)
@@ -68,7 +71,7 @@ struct DiscoverView: View {
                 await env.session.refreshNotificationCount()
             }
             .onChange(of: env.session.viewerKey) { _, _ in
-                opened = nil; actionTarget = nil; isShowingWatchingNow = false; isShowingRecommendationHelp = false
+                opened = nil; commentsTarget = nil; actionTarget = nil; isShowingWatchingNow = false; isShowingRecommendationHelp = false
             }
         }
     }
@@ -193,7 +196,9 @@ struct DiscoverView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         SectionHeader(title: "Комментарии недели")
                         ForEach(model.commentsOfTheWeek) { comment in
-                            OverviewCommentCard(comment: comment)
+                            OverviewCommentCard(comment: comment,
+                                                onOpenRelease: { opened = $0 },
+                                                onOpenComments: { commentsTarget = $0 })
                                 .padding(.horizontal)
                         }
                     }

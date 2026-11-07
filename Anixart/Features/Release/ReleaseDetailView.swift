@@ -121,53 +121,12 @@ struct ReleaseDetailView: View {
 
     @ViewBuilder
     private func content(for release: Release, model: ReleaseDetailViewModel) -> some View {
+        // Three erased groups: one 17-child VStack made a generic type deep enough to
+        // overflow the main-thread stack while the Swift runtime demangled it.
         VStack(alignment: .leading, spacing: 0) {
-            ReleaseDetailHeader(release: release, onTitles: { isShowingTitles = true })
-            statusRow(release, model: model)
-            playBlock(release)
-            factLines(release)
-            genres(release)
-
-            if let description = release.description?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
-                ReleaseExpandableText(text: description, lineLimit: 5, isExpanded: $isDescriptionExpanded,
-                                      onExpand: { expandDescription(fromKeyboard: $0) })
-                    .padding(.horizontal)
-                    .padding(.top, Theme.Spacing.row)
-            }
-
-            if let banners = release.videoBanners, !banners.isEmpty {
-                sectionRule
-                videoSection(release, banners: banners)
-            }
-
-            sectionRule
-            ratingSection(release, model: model)
-
-            if release.listDistribution.contains(where: { $0.count > 0 }) {
-                sectionRule
-                listsSection(release)
-            }
-
-            if !release.screenshotURLs.isEmpty {
-                sectionRule
-                screenshots(release)
-            }
-
-            if !release.relatedPreviewReleases.isEmpty || release.hasMoreRelatedReleases {
-                sectionRule
-                relatedSection(release, releases: release.relatedPreviewReleases)
-            }
-
-            sectionRule
-            collectionLinks(release)
-
-            if let recommended = release.recommendedReleases, !recommended.isEmpty {
-                sectionRule
-                carousel("Рекомендуем также", releases: recommended)
-            }
-
-            sectionRule
-            commentsSection(release, model: model)
+            AnyView(detailTop(release, model: model))
+            AnyView(detailMiddle(release, model: model))
+            AnyView(detailBottom(release, model: model))
         }
         .padding(.bottom, Theme.Spacing.section)
         .sheet(isPresented: $isShowingListPicker) {
@@ -198,6 +157,63 @@ struct ReleaseDetailView: View {
             )
         }
     }
+
+    @ViewBuilder
+    private func detailTop(_ release: Release, model: ReleaseDetailViewModel) -> some View {
+            ReleaseDetailHeader(release: release, onTitles: { isShowingTitles = true })
+            statusRow(release, model: model)
+            playBlock(release)
+            factLines(release)
+            genres(release)
+
+            if let description = release.description?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
+                ReleaseExpandableText(text: description, lineLimit: 5, isExpanded: $isDescriptionExpanded,
+                                      onExpand: { expandDescription(fromKeyboard: $0) })
+                    .padding(.horizontal)
+                    .padding(.top, Theme.Spacing.row)
+            }
+    }
+
+    @ViewBuilder
+    private func detailMiddle(_ release: Release, model: ReleaseDetailViewModel) -> some View {
+            if let banners = release.videoBanners, !banners.isEmpty {
+                sectionRule
+                videoSection(release, banners: banners)
+            }
+
+            sectionRule
+            ratingSection(release, model: model)
+
+            if release.listDistribution.contains(where: { $0.count > 0 }) {
+                sectionRule
+                listsSection(release)
+            }
+
+            if !release.screenshotURLs.isEmpty {
+                sectionRule
+                screenshots(release)
+            }
+    }
+
+    @ViewBuilder
+    private func detailBottom(_ release: Release, model: ReleaseDetailViewModel) -> some View {
+            if !release.relatedPreviewReleases.isEmpty || release.hasMoreRelatedReleases {
+                sectionRule
+                relatedSection(release, releases: release.relatedPreviewReleases)
+            }
+
+            sectionRule
+            collectionLinks(release)
+
+            if let recommended = release.recommendedReleases, !recommended.isEmpty {
+                sectionRule
+                carousel("Рекомендуем также", releases: recommended)
+            }
+
+            sectionRule
+            commentsSection(release, model: model)
+    }
+
 
     private var sectionRule: some View {
         Divider()

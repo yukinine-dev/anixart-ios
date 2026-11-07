@@ -84,20 +84,26 @@ struct HomeView: View {
                     .font(.ax(.title3))
                     .foregroundStyle(.secondary)
                     .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.trailing, 12)
+            .zIndex(1)
             .accessibilityLabel("Настройки вкладок")
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Theme.Spacing.tabGap) {
+                    HStack(spacing: 4) {
                         ForEach(HomeTab.allCases) { tab in
                             tabButton(tab)
                                 .id(tab)
                         }
                     }
-                    .padding(.horizontal, Theme.Spacing.tabGap / 2)
+                    .padding(.leading, 12)
+                    .padding(.trailing, 8)
+                    .padding(.vertical, 4)
                 }
+                .clipped()
                 .onAppear {
                     proxy.scrollTo(selection ?? preferences.defaultTab, anchor: .center)
                 }
@@ -125,16 +131,17 @@ struct HomeView: View {
         let title = tab == .custom ? preferences.customTabTitle : tab.title
 
         return Button { select(tab) } label: {
-            VStack(spacing: 8) {
-                SelectionLabel(title: title, isSelected: isSelected)
-                    .foregroundStyle(isSelected ? Theme.selection : Color.secondary)
-                // The Android strip marks the active tab with a short rounded
-                // underline the width of the label.
-                SelectionUnderline(isSelected: isSelected, namespace: tabIndicator, height: 4)
-            }
-            .fixedSize()
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
+            // The beta marks the active tab with a tonal pill instead of an underline.
+            SelectionLabel(title: title, isSelected: isSelected)
+                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background {
+                    SelectionChipBackground(isSelected: isSelected, shape: Capsule(),
+                                            color: Theme.accent.opacity(0.3), namespace: tabIndicator)
+                }
+                .fixedSize()
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .onKeyPress(.return) { select(tab, fromKeyboard: true); return .handled }

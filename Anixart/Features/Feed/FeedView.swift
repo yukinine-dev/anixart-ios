@@ -20,7 +20,7 @@ struct FeedView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 BrowsingHeader(onSettings: { showsSettings = true }, onSearch: { showsSearch = true })
-                tabs.floatingStrip()
+                HStack(spacing: 0) { tabs.floatingStrip(); Spacer(minLength: 0) }
                 Group {
                     if let model, model.hasCurrentViewer {
                         if model.viewer.account == nil {
@@ -61,34 +61,45 @@ struct FeedView: View {
 
     private var loadKey: FeedLoadKey { FeedLoadKey(viewer: model?.viewer, tab: selection, onlySubscribed: onlySubscribedManaged) }
 
-    private var tabs: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.tabGap) {
-                    ForEach(FeedTab.visibleTabs(signedIn: env.session.isSignedIn)) { tab in
-                        Button { select(tab) } label: {
-                            VStack(spacing: 8) {
-                                if tab == .managed { Image(systemName: "star.circle").font(.ax(.title3)) }
-                                else { SelectionLabel(title: tab.title, isSelected: selection == tab) }
-                                SelectionUnderline(isSelected: selection == tab, namespace: tabIndicator)
-                            }
-                            .foregroundStyle(selection == tab ? Theme.selection : Color.secondary)
-                            .fixedSize().padding(.vertical, 10).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .onKeyPress(.return) { select(tab, fromKeyboard: true); return .handled }
-                        .onKeyPress(.space) { select(tab, fromKeyboard: true); return .handled }
-                        .accessibilityLabel(tab.title)
-                        .accessibilityAddTraits(selection == tab ? [.isSelected] : [])
-                        .id(tab)
+    private var tabRow: some View {
+        HStack(spacing: 4) {
+            ForEach(FeedTab.visibleTabs(signedIn: env.session.isSignedIn)) { tab in
+                Button { select(tab) } label: {
+                    Group {
+                        if tab == .managed { Image(systemName: "star").font(.ax(.title3)) }
+                        else { SelectionLabel(title: tab.title, isSelected: selection == tab) }
                     }
-                }.padding(.horizontal, 16)
+                    .foregroundStyle(selection == tab ? Color.primary : Color.secondary)
+                    .padding(.horizontal, 18).padding(.vertical, 10)
+                    .background {
+                        SelectionChipBackground(isSelected: selection == tab, shape: Capsule(),
+                                                color: Theme.accent.opacity(0.3), namespace: tabIndicator)
+                    }
+                    .fixedSize().contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .onKeyPress(.return) { select(tab, fromKeyboard: true); return .handled }
+                .onKeyPress(.space) { select(tab, fromKeyboard: true); return .handled }
+                .accessibilityLabel(tab.title)
+                .accessibilityAddTraits(selection == tab ? [.isSelected] : [])
+                .id(tab)
             }
-            .onAppear { proxy.scrollTo(selection, anchor: .center) }
-            .onChange(of: selection) { _, tab in
-                guard tab == selection else { return }
-                motion.perform(animated: selectionMotion.shouldAnimate(tab)) { proxy.scrollTo(tab, anchor: .center) }
-                selectionMotion.complete(tab)
+        }
+        .padding(4)
+    }
+
+    /// The panel hugs its tabs while they fit and scrolls once they do not.
+    private var tabs: some View {
+        ViewThatFits(in: .horizontal) {
+            tabRow
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) { tabRow }
+                    .onAppear { proxy.scrollTo(selection, anchor: .center) }
+                    .onChange(of: selection) { _, tab in
+                        guard tab == selection else { return }
+                        motion.perform(animated: selectionMotion.shouldAnimate(tab)) { proxy.scrollTo(tab, anchor: .center) }
+                        selectionMotion.complete(tab)
+                    }
             }
         }
     }
@@ -160,12 +171,16 @@ struct FeedView: View {
             }
             if model.subscriptionCount.value?.subscriptionCount == 0, model.subscriptionCount.errorMessage == nil,
                model.subscriptions.paginator.items.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Ой, а подписок-то нет!").font(.ax(.headline))
+                VStack(spacing: 12) {
+                    Image(systemName: "person.2.slash").font(.system(size: 64)).foregroundStyle(.tertiary)
+                        .padding(.bottom, 8)
+                    Text("Ой, а подписок-то нет!").font(.ax(.title3, .semibold))
                     Text("Но ничего страшного, Вы можете подписаться на популярные каналы из списка ниже")
-                        .font(.ax(.subheadline)).foregroundStyle(.secondary)
-                }.padding(.horizontal)
-                FeedChannelCarousel(channels: model.recommendations.paginator.items, viewer: model.viewer, actions: model.actions)
+                        .font(.ax(.title3)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity).padding(.horizontal, 24).padding(.vertical, 32)
+                OverviewDivider()
+                FeedChannelRows(channels: model.recommendations.paginator.items, viewer: model.viewer, actions: model.actions)
                 if let error = model.recommendations.paginator.errorMessage {
                     StatusMessageView(title: "Не удалось загрузить каналы", message: error, retry: { await model.recommendations.reload() })
                 }

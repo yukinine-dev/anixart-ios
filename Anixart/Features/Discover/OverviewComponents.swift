@@ -115,29 +115,44 @@ struct OverviewTile: View {
     }
 }
 
-/// «Комментарии недели»: a bordered card per comment, `<login> к релизу` over a
-/// tappable release title, the text, then the date and a green score chip.
+/// «Комментарии недели»: a bordered card per comment, `<login> [badge] к релизу`
+/// over a tappable release title, the text, then the date and a score chip.
+/// Tapping the title opens the release, tapping anywhere else opens its comments.
 @MainActor
 struct OverviewCommentCard: View {
     let comment: ReleaseComment
+    var onOpenRelease: (Release) -> Void = { _ in }
+    var onOpenComments: (Release) -> Void = { _ in }
     @State private var isSpoilerRevealed = false
+
+    private var release: Release? { comment.release?.value }
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             Avatar(url: comment.authorAvatarURL, size: 48)
             VStack(alignment: .leading, spacing: 6) {
-                (Text(comment.authorLogin).font(.ax(.headline, .medium))
-                    + Text(" к релизу").font(.ax(.subheadline)).foregroundColor(.secondary))
-                    .lineLimit(1)
-                if let release = comment.release?.value {
-                    HStack(spacing: 4) {
-                        Text(release.displayTitle).lineLimit(1)
-                        Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                HStack(spacing: 6) {
+                    Text(comment.authorLogin).font(.ax(.headline, .medium)).lineLimit(1)
+                    if let badge = comment.profile?.selectedBadge {
+                        ProfileBadgeImage(badge: badge, size: 22)
                     }
-                    .font(.ax(.subheadline))
-                    .foregroundStyle(.secondary)
+                    Text("к релизу").font(.ax(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
+                    Spacer(minLength: 0)
                 }
-                body(for: comment)
+                if let release {
+                    Button { onOpenRelease(release) } label: {
+                        HStack(spacing: 4) {
+                            Text(release.displayTitle).lineLimit(1)
+                            Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                            Spacer(minLength: 0)
+                        }
+                        .font(.ax(.subheadline))
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                messageBody
                 HStack(spacing: 8) {
                     if let date = Format.dateTime(comment.postedAt) {
                         Text(date).font(.ax(.subheadline)).foregroundStyle(.secondary)
@@ -154,10 +169,12 @@ struct OverviewCommentCard: View {
         .padding(16)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .onTapGesture { if let release { onOpenComments(release) } }
     }
 
     @ViewBuilder
-    private func body(for comment: ReleaseComment) -> some View {
+    private var messageBody: some View {
         if comment.isDeleted == true {
             Text("Комментарий удалён").font(.ax(.body)).foregroundStyle(.secondary)
         } else if comment.containsSpoiler && !isSpoilerRevealed {
@@ -180,15 +197,21 @@ struct OverviewCommentCard: View {
         }
     }
 
+    private var scoreColor: Color {
+        let votes = comment.voteCount ?? 0
+        if votes > 0 { return Color(red: 0.45, green: 0.78, blue: 0.47) }
+        if votes < 0 { return Theme.newBadge }
+        return .secondary
+    }
+
     private var scoreChip: some View {
         Text(Format.count(comment.voteCount))
             .font(.ax(.subheadline, .medium))
             .monospacedDigit()
-            .foregroundStyle(Color(red: 0.45, green: 0.78, blue: 0.47))
+            .foregroundStyle(scoreColor)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color(red: 0.45, green: 0.78, blue: 0.47).opacity(0.15),
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(scoreColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

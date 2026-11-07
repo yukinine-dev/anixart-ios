@@ -86,17 +86,19 @@ struct BookmarksView: View {
             HStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Theme.Spacing.tabGap) {
+                    HStack(spacing: 4) {
                         ForEach(BookmarkTab.allCases, id: \.self) { candidate in
                             Button { select(candidate) } label: {
-                                VStack(spacing: 8) {
-                                    SelectionLabel(title: candidate.title, isSelected: tab == candidate)
-                                        .foregroundStyle(tab == candidate ? Theme.selection : Color.secondary)
-                                    SelectionUnderline(isSelected: tab == candidate, namespace: tabIndicator)
-                                }
-                                .fixedSize()
-                                .padding(.vertical, 10)
-                                .contentShape(Rectangle())
+                                SelectionLabel(title: candidate.title, isSelected: tab == candidate)
+                                    .foregroundStyle(tab == candidate ? Color.primary : Color.secondary)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 10)
+                                    .background {
+                                        SelectionChipBackground(isSelected: tab == candidate, shape: Capsule(),
+                                                                color: Theme.accent.opacity(0.3), namespace: tabIndicator)
+                                    }
+                                    .fixedSize()
+                                    .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
                             .onKeyPress(.return) { select(candidate, fromKeyboard: true); return .handled }
