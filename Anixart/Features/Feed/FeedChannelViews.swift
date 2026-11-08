@@ -40,11 +40,20 @@ struct FeedChannelListContent: View {
     var observesMembershipChanges = true
     @State private var unsubscribeTarget: Channel?
 
+    private var isManagedList: Bool {
+        if case .managed = model.kind { return true }
+        return false
+    }
+
     var body: some View {
         List {
             if model.hasCurrentViewer, actions.viewer == model.viewer {
                 if let error = actions.errorMessage { Text(error).font(.ax(.subheadline)).foregroundStyle(.red) }
-                PaginatedContent(paginator: model.paginator, emptyTitle: "Похоже, нет ни одного канала") { source in
+                PaginatedContent(
+                    paginator: model.paginator,
+                    emptyTitle: isManagedList ? "Ой, а управлять-то нечем!" : "Похоже, нет ни одного канала",
+                    emptyMessage: isManagedList ? "Свой первый канал можно создать в веб-версии Anixart." : nil
+                ) { source in
                     let channel = actions.channel(source)
                     HStack(spacing: 8) {
                         NavigationLink(value: FeedRouteContext(route: FeedChannelNavigation.route(for: channel), viewer: model.viewer)) {

@@ -201,10 +201,6 @@ struct FeedTimelineView<Header: View>: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 header
-                if model.hasNewArticles {
-                    Button("Новые записи") { Task { await model.reload() } }
-                        .font(.ax(.subheadline, .medium)).frame(maxWidth: .infinity).padding(.vertical, 10)
-                }
                 if let error = actions.errorMessage {
                     Text(error).font(.ax(.subheadline)).foregroundStyle(.red).padding(.horizontal)
                 }
@@ -217,6 +213,24 @@ struct FeedTimelineView<Header: View>: View {
             }
         }
         .refreshable { await model.reload() }
+        // Android floats «Новые записи» over the top of the list as a pale pill.
+        .overlay(alignment: .top) {
+            if model.hasNewArticles {
+                Button { Task { await model.reload() } } label: {
+                    Label("Новые записи", systemImage: "arrow.up")
+                        .font(.ax(.subheadline, .medium))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.94), in: Capsule())
+                        .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 12)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: model.hasNewArticles)
         .task(id: ObjectIdentifier(model.paginator)) { if model.hasCurrentViewer { await model.paginator.loadFirstPageIfNeeded() } }
         .task(id: "\(isActive)-\(scenePhase == .active)") {
             guard isActive, scenePhase == .active, model.kind == .fresh else { return }

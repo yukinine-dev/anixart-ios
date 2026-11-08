@@ -88,20 +88,14 @@ struct ReleaseListRow: View {
                 }
 
                 if showsWatchHistory {
+                    // Android: a red tick with «1 серия • озвучка», a teal clock with the time.
                     if let episode = release.continueWatchingText {
-                        Label(episode, systemImage: "checkmark.circle")
-                            .labelStyle(.compact)
-                            .font(.ax(.caption))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                        historyLine(episode.replacingOccurrences(of: " · ", with: " • "),
+                                    icon: "checkmark.circle", tint: Theme.newBadge)
                             .padding(.top, 12)
                     }
                     if let date = Format.dateTime(release.lastViewedDate) {
-                        Label(date, systemImage: "clock")
-                            .labelStyle(.compact)
-                            .font(.ax(.caption))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        historyLine(date, icon: "clock", tint: Color(red: 0.31, green: 0.78, blue: 0.72))
                             .padding(.top, 4)
                     }
                 } else if let description = release.description, !description.isEmpty {
@@ -115,6 +109,13 @@ struct ReleaseListRow: View {
             }
 
             Spacer(minLength: 0)
+        }
+    }
+
+    private func historyLine(_ text: String, icon: String, tint: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: icon).font(.system(size: 17)).foregroundStyle(tint)
+            Text(text).font(.ax(.subheadline)).foregroundStyle(.secondary).lineLimit(2)
         }
     }
 
