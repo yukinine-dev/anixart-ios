@@ -248,7 +248,7 @@ struct ReleaseDetailView: View {
                 HStack(spacing: 8) {
                     Image(systemName: (release.isFavorite ?? false) ? "bookmark.fill" : "bookmark")
                         .font(.ax(.subheadline))
-                    Text(Format.count(release.favoriteCount))
+                    Text(Format.exact(release.favoriteCount))
                         .font(.ax(.subheadline))
                         .monospacedDigit()
                 }

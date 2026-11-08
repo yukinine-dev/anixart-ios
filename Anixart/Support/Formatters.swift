@@ -1,6 +1,13 @@
 import Foundation
 
 enum Format {
+    /// The whole number with thin-space grouping ("18 129"), never abbreviated.
+    /// The release page shows how many have it in favourites this way.
+    static func exact(_ value: Int?) -> String {
+        guard let value else { return "0" }
+        return number.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+
     /// 1 234 / 12,3 тыс. / 1,2 млн -- matches how the Android app abbreviates counts.
     static func count(_ value: Int?) -> String {
         guard let value else { return "0" }
