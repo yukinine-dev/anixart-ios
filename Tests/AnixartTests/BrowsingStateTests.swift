@@ -429,6 +429,7 @@ final class BrowsingStateTests: XCTestCase {
         try await rig.signIn()
         let release = try profileTestDecode(Release.self, #"{"id":71,"your_vote":2,"grade":4.66}"#)
         let model = ReleaseDetailViewModel(releaseID: 71, preloaded: release, session: rig.session)
+        rig.api.enqueue("/release/vote/delete/71", json: #"{"code":0}"#)
         rig.api.enqueue("/release/vote/add/71/5", json: #"{"code":0}"#)
         rig.api.enqueue("/release/71", json: #"{"code":2}"#)
         await model.vote(.five)
