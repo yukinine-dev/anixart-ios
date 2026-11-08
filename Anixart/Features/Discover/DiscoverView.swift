@@ -11,7 +11,8 @@ struct DiscoverView: View {
     @State private var filter = FilterRequest()
     @State private var appliedFilter: FilterRequest?
     @State private var opened: Release?
-    @State private var commentsTarget: Release?
+    @State private var commentsRoute: OverviewCommentsRoute?
+    @AppStorage(DeviceAppearancePreferenceKey.showsSocialLinks) private var showsSocialLinks = true
     @State private var actionTarget: Release?
     @State private var isShowingWatchingNow = false
     @State private var isShowingRecommendationHelp = false
@@ -43,8 +44,9 @@ struct DiscoverView: View {
             .navigationDestination(item: $opened) { release in
                 ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
             }
-            .navigationDestination(item: $commentsTarget) { release in
-                CommentsView(releaseID: release.id, releaseTitle: release.displayTitle, viewer: model?.viewer)
+            .navigationDestination(item: $commentsRoute) { route in
+                CommentsView(releaseID: route.release.id, releaseTitle: route.release.displayTitle,
+                             viewer: model?.viewer, initialReplyTo: route.replyTo)
             }
             .navigationDestination(isPresented: $isShowingWatchingNow) {
                 if let viewer = model?.viewer {
@@ -72,7 +74,7 @@ struct DiscoverView: View {
                 await env.session.refreshNotificationCount()
             }
             .onChange(of: env.session.viewerKey) { _, _ in
-                opened = nil; commentsTarget = nil; actionTarget = nil; isShowingWatchingNow = false; isShowingRecommendationHelp = false
+                opened = nil; commentsRoute = nil; actionTarget = nil; isShowingWatchingNow = false; isShowingRecommendationHelp = false
             }
         }
     }
@@ -105,7 +107,7 @@ struct DiscoverView: View {
     @ViewBuilder
     private func content(_ model: DiscoverViewModel) -> some View {
         if model.isLoading && model.isEmpty {
-            ProgressView().padding(.vertical, 60)
+            ProgressView().frame(maxWidth: .infinity, minHeight: 260)
         } else if let error = model.errorMessage, model.isEmpty {
             StatusMessageView(
                 title: "Не удалось загрузить",
@@ -142,8 +144,10 @@ struct DiscoverView: View {
                     }
                 }
 
-                OverviewDivider()
-                socialLinks
+                if showsSocialLinks {
+                    OverviewDivider()
+                    socialLinks
+                }
 
                 if !model.watchingNow.isEmpty {
                     OverviewDivider()
@@ -199,7 +203,10 @@ struct DiscoverView: View {
                         ForEach(model.commentsOfTheWeek) { comment in
                             OverviewCommentCard(comment: comment,
                                                 onOpenRelease: { opened = $0 },
-                                                onOpenComments: { commentsTarget = $0 })
+                                                onOpenComments: { commentsRoute = OverviewCommentsRoute(release: $0) },
+                                                onReply: { commentsRoute = OverviewCommentsRoute(release: $0, replyTo: comment) },
+                                                onVote: { vote in Task { await model.vote(comment, vote) } },
+                                                isVoting: model.votingIDs.contains(comment.id))
                                 .padding(.horizontal)
                         }
                     }
@@ -267,21 +274,22 @@ struct BannerCarousel: View {
     private let interval: Double = 6
 
     private var currentID: Interesting.ID? { current ?? banners.first?.id }
-    private var autoAdvances: Bool { !reduceMotion && !resourceSaving && banners.count > 1 }
+    @AppStorage(DeviceAppearancePreferenceKey.bannerAutoplay) private var autoplayEnabled = true
+    private var autoAdvances: Bool { autoplayEnabled && !reduceMotion && !resourceSaving && banners.count > 1 }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(alignment: .top, spacing: 12) {
+            LazyHStack(alignment: .top, spacing: 0) {
                 ForEach(banners) { banner in
                     bannerCard(banner)
-                        .containerRelativeFrame(.horizontal) { width, _ in width - 80 }
+                        .padding(.horizontal)
+                        .containerRelativeFrame(.horizontal)
                         .id(banner.id)
                 }
             }
             .scrollTargetLayout()
-            .padding(.horizontal)
         }
-        .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
+        .scrollTargetBehavior(.paging)
         .scrollPosition(id: $current)
         .simultaneousGesture(DragGesture(minimumDistance: 8).onChanged { _ in isInteracting = true })
         .task(id: TimerKey(id: currentID.map { "\($0)" } ?? "", interacting: isInteracting)) { await run() }
@@ -359,4 +367,12 @@ struct BannerCarousel: View {
             .padding(.horizontal, 6)
         }
     }
+}
+
+/// Where «Комментарии недели» sends the viewer: a release's comments, optionally
+/// with a reply to one comment already started.
+struct OverviewCommentsRoute: Hashable, Identifiable {
+    let release: Release
+    var replyTo: ReleaseComment?
+    var id: String { "\(release.id)-\(replyTo?.id ?? 0)" }
 }

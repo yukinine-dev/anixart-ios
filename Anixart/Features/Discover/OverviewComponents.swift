@@ -99,19 +99,19 @@ struct OverviewTile: View {
     let systemImage: String
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .font(.system(size: 22))
-                .frame(width: 28)
-            Text(title).font(.ax(.headline, .medium))
+                .font(.system(size: 17))
+                .frame(width: 22)
+            Text(title).font(.ax(.subheadline, .medium)).lineLimit(1)
             Spacer(minLength: 0)
         }
         .foregroundStyle(.primary)
-        .padding(.horizontal, 18)
-        .frame(height: 72)
+        .padding(.horizontal, 14)
+        .frame(height: 50)
         .frame(maxWidth: .infinity)
-        .background(Color.primary.opacity(0.09), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Color.primary.opacity(0.09), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -123,6 +123,9 @@ struct OverviewCommentCard: View {
     let comment: ReleaseComment
     var onOpenRelease: (Release) -> Void = { _ in }
     var onOpenComments: (Release) -> Void = { _ in }
+    var onReply: (Release) -> Void = { _ in }
+    var onVote: (CommentVote) -> Void = { _ in }
+    var isVoting = false
     @State private var isSpoilerRevealed = false
 
     private var release: Release? { comment.release?.value }
@@ -165,9 +168,18 @@ struct OverviewCommentCard: View {
                         Image(systemName: "pencil").font(.system(size: 13)).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
-                    scoreChip
                 }
                 .padding(.top, 2)
+                HStack(spacing: 14) {
+                    if comment.isDeleted != true, let release {
+                        Button("Ответить") { onReply(release) }
+                            .font(.ax(.subheadline))
+                            .foregroundStyle(.secondary)
+                            .buttonStyle(.plain)
+                    }
+                    Spacer(minLength: 0)
+                    voteControls
+                }
             }
         }
         .padding(16)
@@ -201,21 +213,42 @@ struct OverviewCommentCard: View {
         }
     }
 
-    private var scoreColor: Color {
-        let votes = comment.voteCount ?? 0
-        if votes > 0 { return Color(red: 0.45, green: 0.78, blue: 0.47) }
-        if votes < 0 { return Theme.newBadge }
-        return .secondary
+    private var voteColor: Color {
+        if CommentVote.positive.isSelected(currentVote: comment.vote) { return Theme.listColor(.watching) }
+        if CommentVote.negative.isSelected(currentVote: comment.vote) { return Theme.newBadge }
+        return (comment.voteCount ?? 0) > 0 ? Theme.listColor(.watching) : .secondary
     }
 
-    private var scoreChip: some View {
-        Text(Format.count(comment.voteCount))
-            .font(.ax(.subheadline, .medium))
-            .monospacedDigit()
-            .foregroundStyle(scoreColor)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(scoreColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    /// The down / score / up triple; the arrow the viewer pressed takes its colour.
+    private var voteControls: some View {
+        let disabled = isVoting || comment.isDeleted == true || comment.canLike == false
+        return HStack(spacing: 6) {
+            Button { onVote(.negative) } label: {
+                Image(systemName: "chevron.down")
+                    .foregroundStyle(CommentVote.negative.isSelected(currentVote: comment.vote) ? Theme.newBadge : Color.secondary)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(disabled)
+            .accessibilityLabel("Не нравится")
+
+            Text(Format.count(comment.voteCount))
+                .font(.ax(.subheadline, .medium))
+                .monospacedDigit()
+                .foregroundStyle(voteColor)
+                .frame(minWidth: 28)
+
+            Button { onVote(.positive) } label: {
+                Image(systemName: "chevron.up")
+                    .foregroundStyle(CommentVote.positive.isSelected(currentVote: comment.vote) ? Theme.listColor(.watching) : Color.secondary)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(disabled)
+            .accessibilityLabel("Нравится")
+        }
     }
 }
 

@@ -279,6 +279,16 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      # Xcode 26 caches compiled Swift by content, not by file time, so a fresh
+      # checkout still hits it; only files that really changed are compiled again.
+      - name: Restore compilation cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/CompilationCache.noindex
+          key: cc-app-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            cc-app-${{ runner.os }}-
+
       - name: Test player recovery and routing
         run: |
           set -o pipefail
@@ -297,6 +307,7 @@ jobs:
             -only-testing:AnixartTests \
             -parallel-testing-enabled NO \
             -resultBundlePath "$RUNNER_TEMP/PlayerTests.xcresult" \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee "$RUNNER_TEMP/player-tests.log" || status=$?
           if [ -n "${status:-}" ]; then
@@ -548,6 +559,14 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      - name: Restore compilation cache
+        uses: actions/cache@v4
+        with:
+          path: build-device/CompilationCache.noindex
+          key: cc-ipa-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            cc-ipa-${{ runner.os }}-
+
       # No Apple Developer certificate is available here, so this builds for a real
       # device with signing switched off. The result installs only after being
       # re-signed -- see README, "Installing the IPA".
@@ -562,6 +581,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build-device \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \

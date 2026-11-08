@@ -105,11 +105,11 @@ struct HomeView: View {
                 }
                 .clipped()
                 .onAppear {
-                    proxy.scrollTo(selection ?? preferences.defaultTab, anchor: .center)
+                    proxy.scrollTo(selection ?? preferences.defaultTab, anchor: UnitPoint(x: 0.25, y: 0.5))
                 }
                 .onChange(of: selection) { _, new in
                     guard let new, new == selection else { return }
-                    motion.perform(animated: selectionMotion.shouldAnimate(new)) { proxy.scrollTo(new, anchor: .center) }
+                    motion.perform(animated: selectionMotion.shouldAnimate(new)) { proxy.scrollTo(new, anchor: UnitPoint(x: 0.25, y: 0.5)) }
                     selectionMotion.complete(new)
                 }
             }

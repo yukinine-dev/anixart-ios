@@ -6,8 +6,16 @@ enum DeviceAppearancePreferenceKey {
     static let resourceSaving = "appearance.resourceSaving"
     static let continueWatching = "appearance.continueWatching"
     static let continueWatchingDismissed = "appearance.continueWatching.dismissed"
+    static let bannerAutoplay = "appearance.bannerAutoplay"
+    static let showsSocialLinks = "appearance.showsSocialLinks"
+    static let launchTab = "appearance.launchTab"
     static let visualTheme = "appearance.visualTheme"
     static let accent = "appearance.accent"
+}
+
+enum PlaybackPreferenceKey {
+    /// Picture height the built-in player opens at; 0 is the tallest available.
+    static let preferredQuality = "playback.preferredQuality"
 }
 
 enum AppColorSchemePreference: String, CaseIterable, Identifiable {
@@ -34,6 +42,7 @@ enum AppColorSchemePreference: String, CaseIterable, Identifiable {
 @MainActor
 struct DevicePlaybackSettingsView: View {
     @State private var preferences = PlaybackPreferences()
+    @AppStorage(PlaybackPreferenceKey.preferredQuality) private var preferredQuality = 0
     private var player: Binding<String> {
         Binding(get: { preferences.alwaysAsk ? "ask" : preferences.choice.rawValue }, set: { value in
             if value == "ask" { preferences.save(choice: preferences.choice, alwaysAsk: true) }
@@ -48,6 +57,15 @@ struct DevicePlaybackSettingsView: View {
                     ForEach(PlayerChoice.allCases) { Text($0.title).tag($0.rawValue) }
                 }
             } footer: { Text("АниксПлеер — отдельное Android-приложение; в клиенте iOS он не используется.") }
+            Section {
+                Picker("Качество по умолчанию", selection: $preferredQuality) {
+                    Text("Максимальное").tag(0)
+                    Text("1080p").tag(1080)
+                    Text("720p").tag(720)
+                    Text("480p").tag(480)
+                    Text("360p").tag(360)
+                }
+            } footer: { Text("Для источников, у которых есть несколько качеств (например, Kodik). Если выбранного нет, берётся ближайшее. Во время просмотра качество можно сменить в плеере.") }
             Section("Перемотка опенинга") {
                 Stepper("\(preferences.rewindSeconds) сек.", value: Binding(get: { min(600, max(0, preferences.rewindSeconds)) },
                                                                          set: { preferences.setRewindSeconds($0) }), in: 0...600, step: 5)
@@ -66,6 +84,9 @@ struct DeviceAppearanceSettingsView: View {
     @State private var home = HomePreferences()
     @AppStorage(DeviceAppearancePreferenceKey.visualTheme) private var visualTheme = AppVisualTheme.original.rawValue
     @AppStorage(DeviceAppearancePreferenceKey.accent) private var accent = AppAccentChoice.anixart.rawValue
+    @AppStorage(DeviceAppearancePreferenceKey.bannerAutoplay) private var bannerAutoplay = true
+    @AppStorage(DeviceAppearancePreferenceKey.showsSocialLinks) private var showsSocialLinks = true
+    @AppStorage(DeviceAppearancePreferenceKey.launchTab) private var launchTab = "home"
     var body: some View {
         Form {
             Section {
@@ -87,7 +108,17 @@ struct DeviceAppearanceSettingsView: View {
             Picker("Время просмотра в профиле", selection: $watchTime) {
                 ForEach(ProfileWatchTimeFormat.allCases) { Text($0.title).tag($0.rawValue) }
             }
+            Section("Обзор") {
+                Toggle("Автолистание баннеров", isOn: $bannerAutoplay)
+                Toggle("Ссылки на соцсети", isOn: $showsSocialLinks)
+            }
             Section("Вкладки по умолчанию") {
+                Picker("Открывать при запуске", selection: $launchTab) {
+                    Text("Главная").tag("home")
+                    Text("Обзор").tag("discover")
+                    Text("Закладки").tag("bookmarks")
+                    Text("Лента").tag("feed")
+                }
                 Picker("Главная", selection: Binding(get: { home.defaultTab.storageKey }, set: { key in
                     if let tab = HomeTab(storageKey: key) { home.setDefaultTab(tab) }
                 })) { ForEach(HomeTab.allCases) { Text($0.title).tag($0.storageKey) } }

@@ -128,6 +128,17 @@ final class EmbeddedPlayerModel {
         AVPictureInPictureController.isPictureInPictureSupported()
     }
 
+    /// The variant to open first: the tallest one not above the height chosen in
+    /// Настройки → Воспроизведение → Качество по умолчанию (0 means the tallest).
+    static func initialVariant(from variants: [StreamVariant]) -> StreamVariant? {
+        let preferred = UserDefaults.standard.integer(forKey: PlaybackPreferenceKey.preferredQuality)
+        guard preferred > 0, variants.count > 1 else { return variants.first }
+        let known = variants.filter { ($0.height ?? 0) > 0 }
+        return known.filter { ($0.height ?? 0) <= preferred }.max { ($0.height ?? 0) < ($1.height ?? 0) }
+            ?? known.min { ($0.height ?? 0) < ($1.height ?? 0) }
+            ?? variants.first
+    }
+
     // MARK: - Lifecycle
 
     func start(
@@ -157,7 +168,8 @@ final class EmbeddedPlayerModel {
             resumeAfterSeek = true
         }
 
-        let item = install(first.url)
+        let initial = Self.initialVariant(from: variants) ?? first
+        let item = install(initial.url)
 
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
@@ -172,7 +184,7 @@ final class EmbeddedPlayerModel {
             // A source that publishes one playlist per quality decides the menu
             // itself; there is no ladder inside the playlist to read.
             qualities = variants.map(VideoQuality.init(stream:))
-            quality = qualities[0]
+            quality = qualities.first { $0.id == initial.id } ?? qualities[0]
         } else if let asset {
             await loadQualities(from: asset)
         }

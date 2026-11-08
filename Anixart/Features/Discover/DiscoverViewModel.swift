@@ -16,6 +16,8 @@ final class DiscoverViewModel {
     private(set) var commentsOfTheWeek: [ReleaseComment] = []
 
     private(set) var isLoading = false
+    private(set) var votingIDs = Set<Int>()
+    private(set) var actionError: String?
     private(set) var errorMessage: String?
     private(set) var failedBlocks: [String] = []
 
@@ -41,6 +43,35 @@ final class DiscoverViewModel {
     var isEmpty: Bool {
         banners.isEmpty && discussing.isEmpty && watchingNow.isEmpty
             && recommendations.isEmpty && commentsOfTheWeek.isEmpty
+    }
+
+    /// Votes on a comment of the week. The server toggles repeated `1` / `2`
+    /// requests, as the Android arrows do, and the block is re-read afterwards so
+    /// the score and the arrow colour are the server's, not a guess.
+    func vote(_ comment: ReleaseComment, _ vote: CommentVote) async {
+        guard hasCurrentViewer, !votingIDs.contains(comment.id),
+              comment.isDeleted != true, comment.canLike != false else { return }
+        guard let account = viewer.account else {
+            session.promptSignIn()
+            return
+        }
+        votingIDs.insert(comment.id)
+        actionError = nil
+        defer { votingIDs.remove(comment.id) }
+        do {
+            try await session.sendConfirmedAccountRequest(CommentEndpoints.vote(commentID: comment.id, vote: vote), for: account)
+            AppHaptics.shared.play(.voteCast)
+            let viewer = self.viewer
+            if let fresh = try? await session.sendViewerRequest(DiscoverEndpoints.commentsOfTheWeek(), for: viewer).items,
+               hasCurrentViewer {
+                commentsOfTheWeek = Self.unique(fresh)
+            }
+        } catch {
+            if hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) {
+                actionError = Paginator<Release>.message(for: error)
+                AppHaptics.shared.play(.error)
+            }
+        }
     }
 
     func loadIfNeeded() async {

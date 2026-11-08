@@ -4,7 +4,7 @@ import AnixartKit
 @MainActor
 struct RootView: View {
     @Environment(AppEnvironment.self) private var env
-    @State private var selection: Tab = LaunchScreen.current.tab
+    @State private var selection: Tab = RootView.initialTab()
     @State private var homeNavigationRevision = 0
 
     enum Tab: Hashable, CaseIterable {
@@ -30,6 +30,18 @@ struct RootView: View {
             case .feed: return "rectangle.topthird.inset.filled"
             case .search: return "magnifyingglass"
             }
+        }
+    }
+
+    /// An explicit launch route wins; otherwise the section chosen in Настройки.
+    static func initialTab() -> Tab {
+        let route = LaunchScreen.current
+        if route != .home { return route.tab }
+        switch UserDefaults.standard.string(forKey: DeviceAppearancePreferenceKey.launchTab) {
+        case "discover": return .discover
+        case "bookmarks": return .bookmarks
+        case "feed": return .feed
+        default: return .home
         }
     }
 
