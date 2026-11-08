@@ -195,7 +195,17 @@ public actor AnixartClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
-        request.setValue(configuration.apiVersion, forHTTPHeaderField: "API-Version")
+        // Two switches for finding out why the server refuses writes (comments, votes)
+        // from this client; both are off unless the viewer turns them on in
+        // Настройки → Диагностика → Совместимость запросов.
+        let defaults = UserDefaults.standard
+        if !defaults.bool(forKey: "diagnostics.omitAPIVersion") {
+            request.setValue(configuration.apiVersion, forHTTPHeaderField: "API-Version")
+        }
+        if defaults.bool(forKey: "diagnostics.androidUserAgent") {
+            // What the Android app's HTTP library announces itself as.
+            request.setValue("okhttp/5.1.0", forHTTPHeaderField: "User-Agent")
+        }
         for (field, value) in endpoint.headers {
             request.setValue(value, forHTTPHeaderField: field)
         }

@@ -292,3 +292,25 @@ struct DeviceHapticsSettingsView: View {
         .navigationTitle("Вибро-отклик").navigationBarTitleDisplayMode(.inline)
     }
 }
+
+/// Experiments for the case where the server answers writes (a comment, a rating)
+/// with an error although reading works. They change how requests introduce
+/// themselves; nothing else.
+@MainActor
+struct RequestCompatibilityView: View {
+    @AppStorage("diagnostics.androidUserAgent") private var androidUserAgent = false
+    @AppStorage("diagnostics.omitAPIVersion") private var omitAPIVersion = false
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("User-Agent как у Android", isOn: $androidUserAgent)
+                Toggle("Не отправлять API-Version", isOn: $omitAPIVersion)
+            } footer: {
+                Text("Включайте по одному, затем попробуйте поставить оценку или написать комментарий. Если сервер отвечает ошибкой без причины («код 5», «аккаунт заблокирован» при чистом здоровье аккаунта), одно из этих значений может быть причиной. Сообщите, какая комбинация помогла. По умолчанию всё выключено.")
+            }
+        }
+        .navigationTitle("Совместимость запросов")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}

@@ -13,15 +13,9 @@ struct ReleaseDetailHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Android draws the blurred poster behind the whole top of the page, up
+            // under the status bar, and the poster over it; the bar above is transparent.
             ZStack {
-                CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: { Color.clear }
-                .frame(height: Self.backdropHeight)
-                .clipped()
-                .blur(radius: 28)
-                .overlay(.black.opacity(0.45))
-
                 CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
                     image.resizable().scaledToFit()
                 } placeholder: {
@@ -34,7 +28,17 @@ struct ReleaseDetailHeader: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: Self.backdropHeight)
-            .clipped()
+            .background(alignment: .top) {
+                CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: { Color.clear }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .blur(radius: 28)
+                .overlay(.black.opacity(0.55))
+                .clipped()
+                .ignoresSafeArea(edges: .top)
+            }
             .accessibilityHidden(true)
 
             Button(action: onTitles) {

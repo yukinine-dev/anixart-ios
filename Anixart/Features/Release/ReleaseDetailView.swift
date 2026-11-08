@@ -60,6 +60,8 @@ struct ReleaseDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        // The blurred poster runs under the bar, as on Android.
+        .toolbarBackground(.hidden, for: .navigationBar)
         .refreshable { await model?.load() }
         .sheet(isPresented: $isShowingTitles) {
             if let release = model?.release { ReleaseTitlesView(release: release) }
