@@ -8,6 +8,7 @@ struct ReleaseDetailView: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(\.returnToHome) private var returnToHome
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
     @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
 
     let releaseID: Int
