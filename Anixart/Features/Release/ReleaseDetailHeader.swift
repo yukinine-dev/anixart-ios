@@ -10,6 +10,8 @@ struct ReleaseDetailHeader: View {
 
     static let posterHeight: CGFloat = 372
     static let backdropHeight: CGFloat = 412
+    /// How far the blurred backdrop reaches above the page, behind the bars.
+    static let backdropExtension: CGFloat = 240
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -28,16 +30,18 @@ struct ReleaseDetailHeader: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: Self.backdropHeight)
-            .background(alignment: .top) {
+            .background(alignment: .bottom) {
+                // Inside a scroll view the safe area does not reach above the content,
+                // so the backdrop is simply made taller upwards, under status and nav bars.
                 CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
                     image.resizable().scaledToFill()
                 } placeholder: { Color.clear }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.backdropHeight + Self.backdropExtension)
                 .clipped()
                 .blur(radius: 28)
                 .overlay(.black.opacity(0.55))
                 .clipped()
-                .ignoresSafeArea(edges: .top)
             }
             .accessibilityHidden(true)
 
