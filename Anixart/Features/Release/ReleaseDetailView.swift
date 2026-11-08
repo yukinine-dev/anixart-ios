@@ -374,7 +374,10 @@ struct ReleaseDetailView: View {
         HStack(alignment: .top, spacing: 12) {
             Group {
                 if let flag { Text(flag).accessibilityHidden(true) }
-                else { Image(systemName: systemImage).foregroundStyle(.secondary).accessibilityHidden(true) }
+                else {
+                    Image(systemName: systemImage).resizable().scaledToFit()
+                        .frame(width: 24, height: 22).foregroundStyle(.secondary).accessibilityHidden(true)
+                }
             }
                 .font(.ax(.title3))
                 .frame(width: 26, alignment: .leading)

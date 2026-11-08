@@ -45,7 +45,10 @@ struct ReleaseCreditsLine: View {
         let entries = ReleaseCredit.entries(for: release)
         if !entries.isEmpty {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "person.3").font(.ax(.title3)).foregroundStyle(.secondary)
+                // Fitted into the icon column: at title3 the symbol is wider than 26 pt and
+                // ran into the word «Студия».
+                Image(systemName: "person.3").resizable().scaledToFit()
+                    .frame(width: 24, height: 22).foregroundStyle(.secondary)
                     .frame(width: 26, alignment: .leading).accessibilityHidden(true)
                 Text(ReleaseCredit.text(for: entries))
                     .font(.ax(.subheadline))
