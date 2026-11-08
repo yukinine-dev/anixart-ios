@@ -108,6 +108,8 @@ final class EmbeddedPlayerModel {
     @ObservationIgnored private var onProgress: ((TimeInterval) -> Void)?
     @ObservationIgnored private var onFinished: (() -> Void)?
     @ObservationIgnored private var hasReportedFinish = false
+    /// The release this plays, for `PlaybackMemory`; nil keeps nothing.
+    @ObservationIgnored var memoryKey: String?
     @ObservationIgnored private var asset: AVURLAsset?
     @ObservationIgnored private var referer: URL?
     @ObservationIgnored private var isStopped = false
@@ -130,9 +132,15 @@ final class EmbeddedPlayerModel {
 
     /// The variant to open first: the tallest one not above the height chosen in
     /// Настройки → Воспроизведение → Качество по умолчанию (0 means the tallest).
-    static func initialVariant(from variants: [StreamVariant]) -> StreamVariant? {
+    static func initialVariant(from variants: [StreamVariant], memoryKey: String? = nil) -> StreamVariant? {
+        guard variants.count > 1 else { return variants.first }
+        // What the viewer picked last time for this release wins over the default.
+        if let memoryKey, let remembered = PlaybackMemory.value("quality", release: memoryKey),
+           let exact = variants.first(where: { $0.height == Int(remembered) }) {
+            return exact
+        }
         let preferred = UserDefaults.standard.integer(forKey: PlaybackPreferenceKey.preferredQuality)
-        guard preferred > 0, variants.count > 1 else { return variants.first }
+        guard preferred > 0 else { return variants.first }
         let known = variants.filter { ($0.height ?? 0) > 0 }
         return known.filter { ($0.height ?? 0) <= preferred }.max { ($0.height ?? 0) < ($1.height ?? 0) }
             ?? known.min { ($0.height ?? 0) < ($1.height ?? 0) }
@@ -168,8 +176,11 @@ final class EmbeddedPlayerModel {
             resumeAfterSeek = true
         }
 
-        let initial = Self.initialVariant(from: variants) ?? first
+        let initial = Self.initialVariant(from: variants, memoryKey: memoryKey) ?? first
         let item = install(initial.url)
+        if let memoryKey, let saved = PlaybackMemory.value("rate", release: memoryKey), saved > 0 {
+            rate = Float(saved)
+        }
 
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
@@ -377,6 +388,7 @@ final class EmbeddedPlayerModel {
                       self.playbackError == nil else { return }
                 self.isPlaying = false
                 self.finish()
+                PlaybackEvents.shared.reportEnded()
             }
         }
 
@@ -437,6 +449,7 @@ final class EmbeddedPlayerModel {
 
     func setRate(_ newRate: Float) {
         rate = newRate
+        if let memoryKey { PlaybackMemory.store(Double(newRate), field: "rate", release: memoryKey) }
         applyRate()
         scheduleControlsHide()
     }
@@ -452,6 +465,9 @@ final class EmbeddedPlayerModel {
     func setQuality(_ newQuality: VideoQuality) {
         guard !isStopped, playbackError == nil, newQuality != quality else { return }
         quality = newQuality
+        if let memoryKey, let height = Int(newQuality.title.filter(\.isNumber)), height > 0 {
+            PlaybackMemory.store(Double(height), field: "quality", release: memoryKey)
+        }
 
         guard let url = newQuality.url else {
             player.currentItem?.preferredPeakBitRate = newQuality.peakBitRate

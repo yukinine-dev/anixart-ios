@@ -22,6 +22,9 @@ final class EpisodeLauncher {
     private(set) var stage: Stage = .idle
     let preferences: PlaybackPreferences
     @ObservationIgnored private var resolutionTask: Task<Void, Never>?
+    /// Set when an episode follows the previous one automatically, so the player
+    /// that was open is not asked about again.
+    @ObservationIgnored private var choiceOverride: PlayerChoice?
 
     init(preferences: PlaybackPreferences) {
         self.preferences = preferences
@@ -41,8 +44,9 @@ final class EpisodeLauncher {
         return false
     }
 
-    func open(_ episode: Episode) {
+    func open(_ episode: Episode, choiceOverride: PlayerChoice? = nil) {
         resolutionTask?.cancel()
+        self.choiceOverride = choiceOverride
         AppHaptics.shared.play(.episodeChanged)
         preferences.reload()
         if preferences.hasAcceptedDisclaimer {
@@ -75,9 +79,11 @@ final class EpisodeLauncher {
         resolutionTask = Task { [weak self] in
             let target = await PlaybackResolver.shared.target(for: episode)
             guard let self, case .resolving(let pending) = self.stage, pending.id == episode.id else { return }
-            self.stage = self.preferences.alwaysAsk
+            let override = self.choiceOverride
+            self.choiceOverride = nil
+            self.stage = (override == nil && self.preferences.alwaysAsk)
                 ? .picking(episode, target)
-                : .playing(episode, self.preferences.choice, target)
+                : .playing(episode, override ?? self.preferences.choice, target)
             self.resolutionTask = nil
         }
     }

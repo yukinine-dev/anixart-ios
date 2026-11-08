@@ -5,6 +5,7 @@ import AnixartKit
 struct RootView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var selection: Tab = RootView.initialTab()
+    @AppStorage(DeviceAppearancePreferenceKey.hidesTabLabels) private var hidesTabLabels = false
     @State private var homeNavigationRevision = 0
 
     enum Tab: Hashable, CaseIterable {
@@ -85,11 +86,11 @@ struct RootView: View {
         #if compiler(>=6.0)
         if #available(iOS 18.0, *) {
             TabView(selection: $selection) {
-                SwiftUI.Tab(Tab.home.title, systemImage: Tab.home.systemImage, value: Tab.home) { tabContent(.home) }
-                SwiftUI.Tab(Tab.discover.title, systemImage: Tab.discover.systemImage, value: Tab.discover) { tabContent(.discover) }
-                SwiftUI.Tab(Tab.bookmarks.title, systemImage: Tab.bookmarks.systemImage, value: Tab.bookmarks) { tabContent(.bookmarks) }
-                SwiftUI.Tab(Tab.feed.title, systemImage: Tab.feed.systemImage, value: Tab.feed) { tabContent(.feed) }
-                SwiftUI.Tab(Tab.search.title, systemImage: Tab.search.systemImage, value: Tab.search, role: .search) { tabContent(.search) }
+                SwiftUI.Tab(value: Tab.home) { tabContent(.home) } label: { tabLabel(.home) }
+                SwiftUI.Tab(value: Tab.discover) { tabContent(.discover) } label: { tabLabel(.discover) }
+                SwiftUI.Tab(value: Tab.bookmarks) { tabContent(.bookmarks) } label: { tabLabel(.bookmarks) }
+                SwiftUI.Tab(value: Tab.feed) { tabContent(.feed) } label: { tabLabel(.feed) }
+                SwiftUI.Tab(value: Tab.search, role: .search) { tabContent(.search) } label: { tabLabel(.search) }
             }
         } else {
             legacyTabs
@@ -99,11 +100,21 @@ struct RootView: View {
         #endif
     }
 
+    /// Icon and name, or the icon alone when «Скрывать подписи вкладок» is on.
+    @ViewBuilder
+    private func tabLabel(_ tab: Tab) -> some View {
+        if hidesTabLabels {
+            Label(tab.title, systemImage: tab.systemImage).labelStyle(.iconOnly)
+        } else {
+            Label(tab.title, systemImage: tab.systemImage)
+        }
+    }
+
     private var legacyTabs: some View {
         TabView(selection: $selection) {
             ForEach(Tab.allCases, id: \.self) { tab in
                 tabContent(tab)
-                    .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                    .tabItem { tabLabel(tab) }
                     .tag(tab)
             }
         }

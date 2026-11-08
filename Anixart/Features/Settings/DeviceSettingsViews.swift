@@ -9,6 +9,9 @@ enum DeviceAppearancePreferenceKey {
     static let bannerAutoplay = "appearance.bannerAutoplay"
     static let showsSocialLinks = "appearance.showsSocialLinks"
     static let launchTab = "appearance.launchTab"
+    static let hidesTabLabels = "appearance.hidesTabLabels"
+    static let scheduleStart = "appearance.scheduleStart"
+    static let scheduleEnd = "appearance.scheduleEnd"
     static let visualTheme = "appearance.visualTheme"
     static let accent = "appearance.accent"
 }
@@ -16,10 +19,13 @@ enum DeviceAppearancePreferenceKey {
 enum PlaybackPreferenceKey {
     /// Picture height the built-in player opens at; 0 is the tallest available.
     static let preferredQuality = "playback.preferredQuality"
+    static let autoNext = "playback.autoNext"
+    static let remembersPerRelease = "playback.remembersPerRelease"
+    static let smartSkip = "playback.smartSkip"
 }
 
 enum AppColorSchemePreference: String, CaseIterable, Identifiable {
-    case system, light, dark, lowPower
+    case system, light, dark, lowPower, schedule
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -27,14 +33,24 @@ enum AppColorSchemePreference: String, CaseIterable, Identifiable {
         case .light: return "Выключена"
         case .dark: return "Включена"
         case .lowPower: return "В режиме энергосбережения"
+        case .schedule: return "По расписанию"
         }
     }
-    func colorScheme(lowPower: Bool) -> ColorScheme? {
+    func colorScheme(lowPower: Bool, now: Date = .now) -> ColorScheme? {
         switch self {
         case .system: return nil
         case .light: return .light
         case .dark: return .dark
         case .lowPower: return lowPower ? .dark : .light
+        case .schedule:
+            // Dark from the start hour until the end hour, across midnight when the
+            // start is later than the end (20:00 to 07:00 by default).
+            let defaults = UserDefaults.standard
+            let start = defaults.object(forKey: DeviceAppearancePreferenceKey.scheduleStart) as? Int ?? 20
+            let end = defaults.object(forKey: DeviceAppearancePreferenceKey.scheduleEnd) as? Int ?? 7
+            let hour = Calendar.current.component(.hour, from: now)
+            let dark = start > end ? (hour >= start || hour < end) : (hour >= start && hour < end)
+            return dark ? .dark : .light
         }
     }
 }
@@ -43,6 +59,9 @@ enum AppColorSchemePreference: String, CaseIterable, Identifiable {
 struct DevicePlaybackSettingsView: View {
     @State private var preferences = PlaybackPreferences()
     @AppStorage(PlaybackPreferenceKey.preferredQuality) private var preferredQuality = 0
+    @AppStorage(PlaybackPreferenceKey.autoNext) private var autoNext = false
+    @AppStorage(PlaybackPreferenceKey.remembersPerRelease) private var remembersPerRelease = true
+    @AppStorage(PlaybackPreferenceKey.smartSkip) private var smartSkip = true
     private var player: Binding<String> {
         Binding(get: { preferences.alwaysAsk ? "ask" : preferences.choice.rawValue }, set: { value in
             if value == "ask" { preferences.save(choice: preferences.choice, alwaysAsk: true) }
@@ -66,6 +85,11 @@ struct DevicePlaybackSettingsView: View {
                     Text("360p").tag(360)
                 }
             } footer: { Text("Для источников, у которых есть несколько качеств (например, Kodik). Если выбранного нет, берётся ближайшее. Во время просмотра качество можно сменить в плеере.") }
+            Section {
+                Toggle("Следующая серия автоматически", isOn: $autoNext)
+                Toggle("Запоминать скорость и качество", isOn: $remembersPerRelease)
+                Toggle("Умный пропуск заставки", isOn: $smartSkip)
+            } footer: { Text("Автопереход открывает следующую серию, когда текущая досмотрена до конца (встроенный плеер). Скорость и качество запоминаются для каждого релиза. Кнопка пропуска заставки появляется там, где вы пропускали её в прошлый раз, а в первый раз — в первые две с половиной минуты.") }
             Section("Перемотка опенинга") {
                 Stepper("\(preferences.rewindSeconds) сек.", value: Binding(get: { min(600, max(0, preferences.rewindSeconds)) },
                                                                          set: { preferences.setRewindSeconds($0) }), in: 0...600, step: 5)
@@ -87,6 +111,9 @@ struct DeviceAppearanceSettingsView: View {
     @AppStorage(DeviceAppearancePreferenceKey.bannerAutoplay) private var bannerAutoplay = true
     @AppStorage(DeviceAppearancePreferenceKey.showsSocialLinks) private var showsSocialLinks = true
     @AppStorage(DeviceAppearancePreferenceKey.launchTab) private var launchTab = "home"
+    @AppStorage(DeviceAppearancePreferenceKey.hidesTabLabels) private var hidesTabLabels = false
+    @AppStorage(DeviceAppearancePreferenceKey.scheduleStart) private var scheduleStart = 20
+    @AppStorage(DeviceAppearancePreferenceKey.scheduleEnd) private var scheduleEnd = 7
     var body: some View {
         Form {
             Section {
@@ -104,10 +131,23 @@ struct DeviceAppearanceSettingsView: View {
                 ForEach(AppColorSchemePreference.allCases) { Text($0.title).tag($0.rawValue) }
             }
             .disabled(AppVisualTheme.stored(visualTheme) == .oled)
+            if colorScheme == AppColorSchemePreference.schedule.rawValue, AppVisualTheme.stored(visualTheme) != .oled {
+                Section("Расписание тёмной темы") {
+                    Picker("Включать в", selection: $scheduleStart) {
+                        ForEach(0..<24, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+                    }
+                    Picker("Выключать в", selection: $scheduleEnd) {
+                        ForEach(0..<24, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+                    }
+                }
+            }
             AppTypefacePickerRow()
             Picker("Время просмотра в профиле", selection: $watchTime) {
                 ForEach(ProfileWatchTimeFormat.allCases) { Text($0.title).tag($0.rawValue) }
             }
+            Section {
+                Toggle("Скрывать подписи вкладок", isOn: $hidesTabLabels)
+            } footer: { Text("В нижнем меню остаются только значки.") }
             Section("Обзор") {
                 Toggle("Автолистание баннеров", isOn: $bannerAutoplay)
                 Toggle("Ссылки на соцсети", isOn: $showsSocialLinks)

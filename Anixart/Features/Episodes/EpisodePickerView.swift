@@ -296,6 +296,23 @@ struct EpisodeListView: View {
 
     private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
+    private func playNext(model: EpisodePickerViewModel, launcher: EpisodeLauncher) {
+        guard UserDefaults.standard.bool(forKey: PlaybackPreferenceKey.autoNext),
+              case .playing(let current, let choice, _) = launcher.stage,
+              let position = current.position else { return }
+        let next = model.episodes
+            .filter { ($0.position ?? 0) > position && $0.playbackURL != nil }
+            .min { ($0.position ?? 0) < ($1.position ?? 0) }
+        guard let next else { return }
+        Task {
+            // A beat for the end of the episode to register before the next opens.
+            try? await Task.sleep(for: .seconds(1))
+            // Only if the viewer has not left the player in the meantime.
+            guard launcher.pendingEpisode?.id == current.id else { return }
+            launcher.open(next, choiceOverride: choice)
+        }
+    }
+
     init(release: Release, type: EpisodeType, viewer: ProfileViewerKey? = nil) {
         self.release = release
         self.type = type
@@ -319,6 +336,11 @@ struct EpisodeListView: View {
                             Task { await model.markWatched(episode, watched: true) }
                         }
                     )
+                    // The built-in player reports a natural end here; with
+                    // «Следующая серия автоматически» on, the next one opens.
+                    .onChange(of: PlaybackEvents.shared.endedCount) { _, _ in
+                        playNext(model: model, launcher: launcher)
+                    }
             } else {
                 ProgressView()
             }
