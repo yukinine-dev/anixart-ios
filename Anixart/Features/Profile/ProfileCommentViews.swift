@@ -462,7 +462,7 @@ struct ProfileCommentRow: View {
                     Spacer(minLength: 0)
                 }
                 .font(.ax(.subheadline, .medium))
-                Text((Format.relativeDate(comment.date) ?? ProfileDate.text(comment.timestamp)) + (comment.isEdited == true ? " • изменён" : ""))
+                Text((Format.commentDate(comment.date) ?? ProfileDate.text(comment.timestamp)) + (comment.isEdited == true ? " • изменён" : ""))
                     .font(.ax(.caption)).foregroundStyle(.secondary)
                 if comment.isDeleted == true {
                     Text("Комментарий удалён").font(.ax(.subheadline)).foregroundStyle(.secondary)

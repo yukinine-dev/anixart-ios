@@ -254,7 +254,7 @@ struct CommentRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
                     Text(comment.authorLogin).font(.ax(.subheadline, .medium))
-                    if let date = Format.relativeDate(comment.postedAt) {
+                    if let date = Format.commentDate(comment.postedAt) {
                         Text(date).font(.ax(.subheadline)).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)

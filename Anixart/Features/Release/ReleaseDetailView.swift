@@ -283,8 +283,9 @@ struct ReleaseDetailView: View {
 
     @ViewBuilder
     private func playBlock(_ release: Release) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 12) {
+        let caption: String? = release.isDeleted == true ? nil : (release.lastEpisodeAddedLine ?? release.continueWatchingText)
+        return HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 0) {
                 if release.isDeleted == true {
                     Label("Релиз удалён", systemImage: "exclamationmark.triangle")
                         .font(.ax(.headline))
@@ -294,25 +295,23 @@ struct ReleaseDetailView: View {
                         .background(Color.primary.opacity(0.07), in: Capsule())
                 } else {
                     ReleasePlaybackButton(release: release, viewer: viewer)
+                        .zIndex(1)
                 }
-                releaseMenu(release)
-            }
-
-            if release.isDeleted != true {
-                if let added = release.lastEpisodeAddedLine {
-                    Text(added)
+                // Android tucks the caption into a dark panel under the button.
+                if let caption {
+                    Text(caption)
                         .font(.ax(.caption))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                        .padding(.horizontal, 24)
-                } else if let continueText = release.continueWatchingText {
-                    Text(continueText)
-                        .font(.ax(.caption))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 30)
+                        .padding(.bottom, 10)
+                        .background(Color.primary.opacity(0.08),
+                                    in: UnevenRoundedRectangle(bottomLeadingRadius: 22, bottomTrailingRadius: 22, style: .continuous))
+                        .padding(.top, -24)
                 }
             }
+            releaseMenu(release)
         }
         .padding(.horizontal)
         .padding(.top, Theme.Spacing.row + 4)
@@ -406,8 +405,11 @@ struct ReleaseDetailView: View {
                     NavigationLink {
                         GenreReleasesView(genres: [genre], viewer: viewer)
                     } label: {
-                        Text(genre + (index < list.count - 1 ? "," : ""))
-                            .underline().font(.ax(.subheadline)).foregroundStyle(.primary)
+                        HStack(spacing: 0) {
+                            Text(genre).underline()
+                            if index < list.count - 1 { Text(",") }
+                        }
+                        .font(.ax(.subheadline)).foregroundStyle(.primary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -427,10 +429,6 @@ struct ReleaseDetailView: View {
 
     private func videoSection(_ release: Release, banners: [ReleaseVideoBanner]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
-            SectionHeader(title: "Видео") {
-                NavigationLink("Показать все") { ReleaseVideosView(release: release, viewer: viewer) }
-                    .font(.ax(.subheadline))
-            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.row) {
                     ForEach(Array(banners.enumerated()), id: \.offset) { _, banner in
@@ -477,9 +475,7 @@ struct ReleaseDetailView: View {
 
             HStack(alignment: .center, spacing: Theme.Spacing.section) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(release.ratingDetailText ?? "—")
-                        .font(.ax(fixed: 54, .bold))
-                        .monospacedDigit()
+                    ratingNumber(release)
                     Text(Plural.votes(release.voteCount ?? 0))
                         .font(.ax(.caption))
                         .foregroundStyle(.secondary)
@@ -504,6 +500,20 @@ struct ReleaseDetailView: View {
         }
     }
 
+    /// «4.56»: the last digit is drawn smaller, as the Android page does.
+    @ViewBuilder
+    private func ratingNumber(_ release: Release) -> some View {
+        if let text = release.ratingDetailText, text.count >= 3 {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text(String(text.dropLast())).font(.ax(fixed: 54, .bold))
+                Text(String(text.suffix(1))).font(.ax(fixed: 38, .bold))
+            }
+            .monospacedDigit()
+        } else {
+            Text(release.ratingDetailText ?? "—").font(.ax(fixed: 54, .bold)).monospacedDigit()
+        }
+    }
+
     // MARK: - Lists
 
     private func listsSection(_ release: Release) -> some View {
@@ -524,18 +534,28 @@ struct ReleaseDetailView: View {
             .frame(height: 10)
             .padding(.horizontal)
 
-            FlowRow(spacing: 14) {
-                ForEach(distribution, id: \.status) { slice in
-                    HStack(spacing: 6) {
-                        Circle().fill(Theme.listColor(slice.status)).frame(width: 9, height: 9)
-                        Text(slice.status.title).font(.ax(.caption))
-                        Text(Format.count(slice.count))
-                            .font(.ax(.caption, .medium))
-                            .monospacedDigit()
-                    }
-                }
+            // Android lays the legend out in two columns: watching, planned and
+            // completed on the left; on hold and dropped on the right.
+            let counts = distribution.reduce(into: [ProfileListStatus: Int]()) { $0[$1.status] = $1.count }
+            Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 14) {
+                GridRow { legendItem(.watching, counts); legendItem(.holdOn, counts) }
+                GridRow { legendItem(.plan, counts); legendItem(.dropped, counts) }
+                GridRow { legendItem(.completed, counts); Color.clear.frame(width: 1, height: 1) }
             }
             .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder
+    private func legendItem(_ status: ProfileListStatus, _ counts: [ProfileListStatus: Int]) -> some View {
+        if let count = counts[status] {
+            HStack(spacing: 10) {
+                Circle().fill(Theme.listColor(status)).frame(width: 16, height: 16)
+                Text(status.title).font(.ax(.body)).foregroundStyle(.secondary).lineLimit(1)
+                Text(Format.exact(count)).font(.ax(.body, .semibold)).monospacedDigit().lineLimit(1)
+            }
+        } else {
+            Color.clear.frame(width: 1, height: 1)
         }
     }
 
@@ -544,7 +564,6 @@ struct ReleaseDetailView: View {
     private func screenshots(_ release: Release) -> some View {
         let urls = release.screenshotURLs
         return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
-            SectionHeader(title: "Кадры")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(urls.enumerated()), id: \.offset) { index, url in
@@ -784,41 +803,51 @@ struct StarRatingRow: View {
     }
 }
 
-/// A related release, as the Android list draws it: poster, title, year, score, category.
+/// A related release, as the Android list draws it: poster, title, then the year,
+/// the score and a filled category chip; the row of the open release says «Вы здесь»
+/// on the right behind a thin divider.
 @MainActor
 struct RelatedReleaseRow: View {
     let release: Release
     var isCurrent = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.row) {
+        HStack(alignment: .center, spacing: Theme.Spacing.row) {
             ReleasePoster(url: release.posterURL, width: 64)
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(release.displayTitle)
-                    .font(.ax(.subheadline))
+                    .font(.ax(.body))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                if isCurrent {
-                    Text("Вы здесь").font(.ax(.caption, .medium)).foregroundStyle(Theme.accent)
-                }
-                HStack(spacing: 8) {
+                FlowRow(spacing: 10) {
                     if let year = release.year, !year.isEmpty {
-                        Text("\(year) год")
-                            .font(.ax(.subheadline))
-                            .foregroundStyle(.secondary)
-                        Text("•").foregroundStyle(.secondary)
+                        Text("\(year) год").font(.ax(.body)).foregroundStyle(.secondary)
                     }
                     if let rating = release.ratingText {
                         HStack(spacing: 3) {
-                            Text(rating).font(.ax(.subheadline)).foregroundStyle(.secondary)
-                            Image(systemName: "star.fill").font(.ax(.caption2)).foregroundStyle(.secondary)
+                            Text("•").foregroundStyle(.secondary)
+                            Text(rating).font(.ax(.body)).foregroundStyle(.secondary)
+                            Image(systemName: "star.fill").font(.ax(.caption)).foregroundStyle(.secondary)
                         }
                     }
+                    if let category = release.category?.name, !category.isEmpty {
+                        Text(category)
+                            .font(.ax(.body))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
                 }
-                ReleaseMetadataBadges(release: release)
             }
             Spacer(minLength: 0)
+            if isCurrent {
+                HStack(spacing: 14) {
+                    Rectangle().fill(Color.primary.opacity(0.15)).frame(width: 1, height: 44)
+                    Text("Вы\nздесь").font(.ax(.body)).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                }
+            }
         }
         .contentShape(Rectangle())
     }

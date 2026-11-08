@@ -1254,7 +1254,7 @@ enum Plural {
     }
 
     static func votes(_ count: Int) -> String {
-        forms(count, one: "голос", few: "голоса", many: "голосов")
+        forms(count, one: "голос", few: "голоса", many: "голосов", exact: true)
     }
 
     static func replies(_ count: Int) -> String {
@@ -1276,8 +1276,8 @@ enum Plural {
     static func days(_ count: Int) -> String { forms(count, one: "день", few: "дня", many: "дней") }
     static func hours(_ count: Int) -> String { forms(count, one: "час", few: "часа", many: "часов") }
 
-    private static func forms(_ count: Int, one: String, few: String, many: String) -> String {
-        let value = "\(Format.count(count)) "
+    private static func forms(_ count: Int, one: String, few: String, many: String, exact: Bool = false) -> String {
+        let value = "\(exact ? Format.exact(count) : Format.count(count)) "
         let mod100 = count % 100
         if (11...14).contains(mod100) { return value + many }
         switch count % 10 {

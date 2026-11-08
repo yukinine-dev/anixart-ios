@@ -31,6 +31,37 @@ enum Format {
         }
     }
 
+    /// «сегодня в 03:11», «вчера в 01:13», «22 авг. в 11:24», and with the year when
+    /// it is not this one -- how Android dates a comment.
+    static func commentDate(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        let calendar = Calendar.current
+        let time = commentTime.string(from: date)
+        if calendar.isDateInToday(date) { return "сегодня в \(time)" }
+        if calendar.isDateInYesterday(date) { return "вчера в \(time)" }
+        let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: .now)
+        return (sameYear ? commentDay : commentDayYear).string(from: date) + " в " + time
+    }
+
+    private static let commentTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+    private static let commentDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "d MMM"
+        return formatter
+    }()
+    private static let commentDayYear: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "d MMM yyyy 'г.'"
+        return formatter
+    }()
+
     static func relativeDate(_ date: Date?) -> String? {
         guard let date else { return nil }
         return relative.localizedString(for: date, relativeTo: .now)
