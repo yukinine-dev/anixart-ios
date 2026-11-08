@@ -207,7 +207,7 @@ struct ReleaseDetailView: View {
 
             if let recommended = release.recommendedReleases, !recommended.isEmpty {
                 sectionRule
-                carousel("Рекомендуем также", releases: recommended)
+                recommendedCarousel(releases: recommended)
             }
 
             sectionRule
@@ -236,7 +236,7 @@ struct ReleaseDetailView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 12)
-                .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
+                .overlay(Capsule().stroke(release.listStatus.map { Theme.listColor($0) } ?? Color.primary.opacity(0.25), lineWidth: 1.5))
                 .foregroundStyle(release.listStatus.map { Theme.listColor($0) } ?? .primary)
             }
             .buttonStyle(.plain)
@@ -254,8 +254,8 @@ struct ReleaseDetailView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 12)
-                .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
-                .foregroundStyle((release.isFavorite ?? false) ? Theme.accent : .primary)
+                .overlay(Capsule().stroke((release.isFavorite ?? false) ? Theme.favoriteYellow : Color.primary.opacity(0.25), lineWidth: 1.5))
+                .foregroundStyle((release.isFavorite ?? false) ? Theme.favoriteYellow : .primary)
             }
             .buttonStyle(.plain)
             .disabled(model.isPerformingAction)
@@ -268,7 +268,7 @@ struct ReleaseDetailView: View {
                     .frame(width: 24, height: 24)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
+                    .overlay(Capsule().stroke(Color.primary.opacity(0.25), lineWidth: 1.5))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
@@ -621,12 +621,13 @@ struct ReleaseDetailView: View {
                 HStack {
                     Text("Показать в коллекциях").font(.ax(.title3, .medium))
                     if let count = release.collectionCount, count > 0 {
-                        Text("\(count)")
-                            .font(.ax(.caption, .medium))
+                        Text(verbatim: String(count))
+                            .font(.ax(.subheadline))
+                            .foregroundStyle(.secondary)
                             .monospacedDigit()
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color.primary.opacity(0.08), in: Capsule())
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     Spacer()
                     Image(systemName: "chevron.right").foregroundStyle(.secondary)
@@ -666,6 +667,35 @@ struct ReleaseDetailView: View {
                             ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
                         } label: {
                             ReleaseCard(release: item)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+
+    /// «Рекомендуем также» as Android draws it: tall posters, no score badge, the
+    /// title in bold on two lines and nothing under it.
+    private func recommendedCarousel(releases: [Release]) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.row) {
+            SectionHeader(title: "Рекомендуем также")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 16) {
+                    ForEach(releases) { item in
+                        NavigationLink {
+                            ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ReleasePoster(url: item.posterURL, width: 118, cornerRadius: 22, aspectRatio: 2.0 / 3.0)
+                                Text(item.displayTitle)
+                                    .font(.ax(.subheadline, .semibold))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(width: 118, alignment: .leading)
+                            }
                         }
                         .buttonStyle(.plain)
                     }

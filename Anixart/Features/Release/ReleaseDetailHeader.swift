@@ -8,8 +8,8 @@ struct ReleaseDetailHeader: View {
     let release: Release
     let onTitles: () -> Void
 
-    static let posterHeight: CGFloat = 340
-    static let backdropHeight: CGFloat = 380
+    static let posterHeight: CGFloat = 372
+    static let backdropHeight: CGFloat = 412
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -25,11 +25,11 @@ struct ReleaseDetailHeader: View {
                 CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
                     image.resizable().scaledToFit()
                 } placeholder: {
-                    RoundedRectangle(cornerRadius: 14).fill(.quaternary)
+                    RoundedRectangle(cornerRadius: 28).fill(.quaternary)
                         .frame(width: Self.posterHeight * 2 / 3)
                 }
                 .frame(height: Self.posterHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
             }
             .frame(maxWidth: .infinity)

@@ -249,11 +249,11 @@ struct CommentRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Avatar(url: comment.authorAvatarURL, size: 40)
+            Avatar(url: comment.authorAvatarURL, size: 44)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
-                    Text(comment.authorLogin).font(.ax(.subheadline, .medium))
+                    Text(comment.authorLogin).font(.ax(.body, .medium))
                     if let date = Format.commentDate(comment.postedAt) {
                         Text(date).font(.ax(.subheadline)).foregroundStyle(.secondary)
                     }
@@ -282,7 +282,7 @@ struct CommentRow: View {
                     .onKeyPress(.space) { revealSpoiler(fromKeyboard: true); return .handled }
                 } else {
                     Text(comment.message ?? "")
-                        .font(.ax(.subheadline))
+                        .font(.ax(.body))
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
