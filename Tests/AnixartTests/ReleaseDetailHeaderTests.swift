@@ -7,7 +7,8 @@ import AnixartKit
 final class ReleaseDetailHeaderTests: XCTestCase {
     @MainActor
     func testDetailRestoresTheLargePosterNotAListThumbnail() {
-        XCTAssertEqual(ReleaseDetailHeader.posterHeight, 340)
+        // The Android page draws the poster at about 60% of the screen width.
+        XCTAssertEqual(ReleaseDetailHeader.posterHeight, 372)
         XCTAssertGreaterThan(ReleaseDetailHeader.backdropHeight, ReleaseDetailHeader.posterHeight)
     }
 
