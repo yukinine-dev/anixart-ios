@@ -69,14 +69,21 @@ struct ReleaseDetailView: View {
         .fullScreenCover(item: $screenshotGallery) { presentation in
             ReleaseScreenshotGalleryView(presentation: presentation)
         }
-        .toolbar { ToolbarItem(placement: .topBarTrailing) {
-            if model?.release != nil, viewer == env.session.viewerKey {
-                Button { isShowingCollectionPicker = true } label: {
-                    Label("Выбрать коллекцию", systemImage: "rectangle.stack.badge.plus")
-                }
-                .accessibilityLabel("Выбрать коллекцию")
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            if #available(iOS 26, *) {
+                ToolbarItem(placement: .topBarLeading) { backButton }
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .topBarLeading) { backButton }
             }
-        } }
+            if #available(iOS 26, *) {
+                ToolbarItem(placement: .topBarTrailing) { collectionButton }
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .topBarTrailing) { collectionButton }
+            }
+        }
         .task {
             if viewer == nil { viewer = env.session.viewerKey }
             guard let viewer, viewer == env.session.viewerKey else { return }
@@ -707,6 +714,27 @@ struct ReleaseDetailView: View {
                 }
                 .padding(.horizontal)
             }
+        }
+    }
+
+    /// Android draws the bar buttons as rounded squares, not circles.
+    private func barButtonLabel(_ systemImage: String) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(width: 44, height: 44)
+            .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var backButton: some View {
+        Button { dismiss() } label: { barButtonLabel("chevron.left") }
+            .accessibilityLabel("Назад")
+    }
+
+    @ViewBuilder private var collectionButton: some View {
+        if model?.release != nil, viewer == env.session.viewerKey {
+            Button { isShowingCollectionPicker = true } label: { barButtonLabel("rectangle.stack.badge.plus") }
+                .accessibilityLabel("Выбрать коллекцию")
         }
     }
 
