@@ -18,8 +18,11 @@ extension ReleaseCollection {
     }
 
     public init(from decoder: any Decoder) throws {
+        // Assigned directly rather than through `init(referenceID:)`: a delegating
+        // path would make this a delegating initializer and forbid the assignments
+        // below. The other properties are optional and start as nil.
         if let single = try? decoder.singleValueContainer(), let reference = try? single.decode(Int.self) {
-            self.init(referenceID: reference)
+            id = reference
             return
         }
         let container = try decoder.container(keyedBy: CodingKeys.self)
