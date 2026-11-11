@@ -67,8 +67,14 @@ struct ReleaseScreenshotGalleryView: View {
 
     private var header: some View {
         HStack {
-            Text("Кадры").font(.ax(.headline))
+            Text(presentation.title).font(.ax(.headline))
             Spacer()
+            if let model, let image = model.images[model.selectedIndex] {
+                ShareLink(item: Image(uiImage: image), preview: SharePreview(presentation.title, image: Image(uiImage: image))) {
+                    Image(systemName: "square.and.arrow.up").font(.ax(.headline)).frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Поделиться или сохранить")
+            }
             Button { model?.invalidate(); dismiss() } label: {
                 Image(systemName: "xmark").font(.ax(.headline)).frame(width: 44, height: 44)
             }
@@ -103,6 +109,7 @@ struct ReleaseScreenshotGalleryView: View {
         Group {
             if let image = model.images[index] {
                 Image(uiImage: image).resizable().scaledToFit()
+                    .pinchToZoom()
                     .accessibilityLabel("Кадр \(index + 1) из \(model.urls.count)")
             } else if case .some(.failed(let problem)) = model.pageStates[index] {
                 VStack(spacing: 16) {

@@ -7,6 +7,8 @@ struct ReleaseDetailHeader: View {
     @Environment(\.appThemePalette) private var palette
     let release: Release
     let onTitles: () -> Void
+    /// Opens the poster full screen, where it can be zoomed and saved.
+    var onPoster: (() -> Void)?
 
     static let posterHeight: CGFloat = 372
     static let backdropHeight: CGFloat = 412
@@ -27,6 +29,10 @@ struct ReleaseDetailHeader: View {
                 .frame(height: Self.posterHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
+                .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .onTapGesture { onPoster?() }
+                .accessibilityAddTraits(onPoster == nil ? [] : .isButton)
+                .accessibilityLabel("Постер")
             }
             .frame(maxWidth: .infinity)
             .frame(height: Self.backdropHeight)

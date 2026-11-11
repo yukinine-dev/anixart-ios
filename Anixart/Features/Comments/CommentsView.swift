@@ -52,7 +52,7 @@ struct CommentsView: View {
             .listStyle(.plain)
             .refreshable { await paginator?.reload() }
 
-            composerView
+            CommentComposerBar(composer: composer) { await send() }
         }
         .navigationTitle("Комментарии")
         .navigationBarTitleDisplayMode(.inline)
@@ -98,97 +98,6 @@ struct CommentsView: View {
         }
     }
 
-    /// The composer, laid out as the Android one is: the field, a Спойлер toggle
-    /// and a Правила link, and a round send button on the right.
-    private var composerView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Divider()
-            if let viewer = composer.viewer, viewer != env.session.viewerKey {
-                Text("Сессия изменилась. Откройте комментарии заново.")
-                    .font(.ax(.subheadline)).foregroundStyle(.secondary).padding()
-            } else if composer.viewer?.account != nil {
-                if let replyingTo = composer.replyingTo {
-                    HStack(spacing: 8) {
-                        Text("Ответ \(replyingTo.profile?.login ?? "Пользователь")")
-                            .font(.ax(.caption))
-                            .foregroundStyle(.secondary)
-                        Button {
-                            composer.replyingTo = nil
-                        } label: {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(composer.isSending)
-                    }
-                    .padding(.horizontal)
-                }
-
-                TextField("Ваш комментарий", text: $composer.message, axis: .vertical)
-                    .font(.ax(.title3))
-                    .lineLimit(1...4)
-                    .padding(.horizontal)
-                    .disabled(composer.isSending)
-
-                HStack(spacing: 12) {
-                    Button {
-                        composer.isSpoiler.toggle()
-                    } label: {
-                        Label("Спойлер", systemImage: composer.isSpoiler ? "eye.slash.fill" : "eye.slash")
-                            .font(.ax(.subheadline))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .background {
-                                if composer.isSpoiler {
-                                    Capsule().fill(Theme.accent.opacity(0.22))
-                                } else {
-                                    Capsule().stroke(.quaternary, lineWidth: 1)
-                                }
-                            }
-                            .foregroundStyle(composer.isSpoiler ? Theme.accent : .primary)
-                    }
-                    .buttonStyle(.plain)
-
-                    Link(destination: URL(string: "https://anixart-app.com/rules/")!) {
-                        Label("Правила", systemImage: "list.clipboard")
-                            .font(.ax(.subheadline))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
-                            .foregroundStyle(.primary)
-                    }
-
-                    Spacer()
-
-                    Button {
-                        Task { await send() }
-                    } label: {
-                        Group {
-                            if composer.isSending {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "arrow.up").font(.ax(.headline))
-                            }
-                        }
-                        .frame(width: 44, height: 44)
-                        .background(Color.primary.opacity(0.12), in: Circle())
-                        .foregroundStyle(.primary)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(composer.isSending || composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .disabled(composer.isSending)
-            } else {
-                Button("Войдите, чтобы комментировать") { env.session.promptSignIn() }
-                    .font(.ax(.subheadline))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-        }
-        .background(.bar)
-    }
-
     /// The server toggles repeated `1` / `2` requests, as the Android arrows do.
     private func vote(_ comment: ReleaseComment, _ vote: CommentVote) async {
         guard hasCurrentViewer, !votingIDs.contains(comment.id), comment.isDeleted != true, comment.canLike != false else { return }
@@ -228,6 +137,109 @@ struct CommentsView: View {
     private func clearError() { actionError = nil; composer.errorMessage = nil }
 }
 
+/// The comment field with its Спойлер / Правила chips and send button.
+@MainActor
+struct CommentComposerBar: View {
+    @Environment(AppEnvironment.self) private var env
+    @Bindable var composer: ProfileCommentDraft
+    var showsDivider = true
+    let onSend: () async -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if showsDivider { Divider() }
+            if let viewer = composer.viewer, viewer != env.session.viewerKey {
+                Text("Сессия изменилась. Откройте комментарии заново.")
+                    .font(.ax(.subheadline)).foregroundStyle(.secondary).padding()
+            } else if composer.viewer?.account != nil {
+                if let replyingTo = composer.replyingTo {
+                    HStack(spacing: 8) {
+                        Text("Ответ \(replyingTo.profile?.login ?? "Пользователь")")
+                            .font(.ax(.caption))
+                            .foregroundStyle(.secondary)
+                        Button {
+                            composer.replyingTo = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(composer.isSending)
+                    }
+                    .padding(.horizontal)
+                }
+
+                TextField("Ваш комментарий", text: $composer.message, axis: .vertical)
+                    .font(.ax(.title3))
+                    .lineLimit(1...4)
+                    .padding(.horizontal)
+                    .disabled(composer.isSending)
+
+                if !showsDivider, let message = composer.errorMessage {
+                    // The full-screen list shows this in an alert; inline there is none.
+                    Text(message).font(.ax(.caption)).foregroundStyle(.red).padding(.horizontal)
+                }
+
+                HStack(spacing: 12) {
+                    Button {
+                        composer.isSpoiler.toggle()
+                    } label: {
+                        Label("Спойлер", systemImage: composer.isSpoiler ? "eye.slash.fill" : "eye.slash")
+                            .font(.ax(.subheadline))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background {
+                                if composer.isSpoiler {
+                                    Capsule().fill(Theme.accent.opacity(0.22))
+                                } else {
+                                    Capsule().stroke(.quaternary, lineWidth: 1)
+                                }
+                            }
+                            .foregroundStyle(composer.isSpoiler ? Theme.accent : .primary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Link(destination: URL(string: "https://anixart-app.com/rules/")!) {
+                        Label("Правила", systemImage: "list.clipboard")
+                            .font(.ax(.subheadline))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
+                            .foregroundStyle(.primary)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        Task { await onSend() }
+                    } label: {
+                        Group {
+                            if composer.isSending {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "arrow.up").font(.ax(.headline))
+                            }
+                        }
+                        .frame(width: 44, height: 44)
+                        .background(Color.primary.opacity(0.12), in: Circle())
+                        .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(composer.isSending || composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                .disabled(composer.isSending)
+            } else {
+                Button("Войдите, чтобы комментировать") { env.session.promptSignIn() }
+                    .font(.ax(.subheadline))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+        }
+        .background(showsDivider ? AnyShapeStyle(.bar) : AnyShapeStyle(Color.clear))
+    }
+}
+
 /// One comment, laid out as the Android list lays it out: avatar beside the
 /// author and time, the message, the episode it was written at, then the reply
 /// action and the vote arrows. Spoilers stay hidden until tapped.
@@ -252,10 +264,26 @@ struct CommentRow: View {
             Avatar(url: comment.authorAvatarURL, size: 44)
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 10) {
-                    Text(comment.authorLogin).font(.ax(.body, .medium))
+                HStack(spacing: 8) {
+                    Text(comment.authorLogin).font(.ax(.body, .medium)).lineLimit(1)
+                    if comment.profile?.isVerified == true {
+                        Image(systemName: "checkmark.seal.fill").font(.ax(.subheadline)).foregroundStyle(Theme.newBadge)
+                    }
+                    if comment.profile?.isSponsor == true {
+                        Image(systemName: "crown.fill").font(.ax(.subheadline)).foregroundStyle(Theme.sponsorGold)
+                    }
+                    // Flat badges only; animated (non-zero type) ones are Lottie on Android.
+                    if let url = AnixartURL.image(comment.profile?.badgeUrl), (comment.profile?.badgeType ?? 0) == 0 {
+                        CachedAsyncImage(url: url, maxPixelSize: 66) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
+                            .frame(width: 22, height: 22)
+                            .accessibilityHidden(true)
+                    }
                     if let date = Format.commentDate(comment.postedAt) {
-                        Text(date).font(.ax(.subheadline)).foregroundStyle(.secondary)
+                        Text(date).font(.ax(.subheadline)).foregroundStyle(.secondary).lineLimit(1).fixedSize()
+                    }
+                    if comment.isEdited == true {
+                        Image(systemName: "pencil").font(.ax(.caption)).foregroundStyle(.secondary)
+                            .accessibilityLabel("Изменён")
                     }
                     Spacer(minLength: 0)
                 }
@@ -316,11 +344,29 @@ struct CommentRow: View {
                             .foregroundStyle(.primary)
                     }
                     .buttonStyle(.plain)
+                    .frame(height: 28)
                     .disabled(onOpenReplies == nil)
                 }
             }
         }
         .padding(.vertical, 8)
+        // A thread line leaves the avatar and curves into «Показать N ответов».
+        .background(alignment: .topLeading) {
+            if (comment.replyCount ?? 0) > 0 {
+                GeometryReader { geometry in
+                    Path { path in
+                        let radius: CGFloat = 14
+                        let endY = geometry.size.height - 8 - 14
+                        path.move(to: CGPoint(x: 22, y: 8 + 44 + 4))
+                        path.addLine(to: CGPoint(x: 22, y: endY - radius))
+                        path.addQuadCurve(to: CGPoint(x: 22 + radius, y: endY), control: CGPoint(x: 22, y: endY))
+                        path.addLine(to: CGPoint(x: 50, y: endY))
+                    }
+                    .stroke(Color.primary.opacity(0.2), lineWidth: 2)
+                }
+                .accessibilityHidden(true)
+            }
+        }
     }
 
     private func revealSpoiler(fromKeyboard: Bool = false) {

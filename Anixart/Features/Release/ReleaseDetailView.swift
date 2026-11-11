@@ -24,6 +24,8 @@ struct ReleaseDetailView: View {
     @State private var screenshotGallery: ReleaseScreenshotPresentation?
     @State private var report: ProfileReportPresentation?
     @State private var inlineReply: ReleaseComment?
+    @State private var inlineComposer = ProfileCommentDraft()
+    @State private var inlineThread: ReleaseComment?
     @State private var inlineVotingIDs = Set<Int>()
     @State private var inlineCommentError: String?
 
@@ -170,7 +172,10 @@ struct ReleaseDetailView: View {
 
     @ViewBuilder
     private func detailTop(_ release: Release, model: ReleaseDetailViewModel) -> some View {
-            ReleaseDetailHeader(release: release, onTitles: { isShowingTitles = true })
+            ReleaseDetailHeader(release: release, onTitles: { isShowingTitles = true }, onPoster: {
+                guard let viewer, viewer == env.session.viewerKey, let url = release.posterURL else { return }
+                screenshotGallery = ReleaseScreenshotPresentation(urls: [url], initialIndex: 0, viewer: viewer, title: "Постер")
+            })
             statusRow(release, model: model)
             playBlock(release)
             factLines(release)
@@ -518,8 +523,8 @@ struct ReleaseDetailView: View {
     private func ratingNumber(_ release: Release) -> some View {
         if let text = release.ratingDetailText, text.count >= 3 {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text(String(text.dropLast())).font(.ax(fixed: 54, .bold))
-                Text(String(text.suffix(1))).font(.ax(fixed: 38, .bold))
+                Text(verbatim: String(text.dropLast())).font(.ax(fixed: 56, .bold))
+                Text(verbatim: String(text.suffix(1))).font(.ax(fixed: 42, .bold))
             }
             .monospacedDigit()
         } else {
@@ -544,13 +549,13 @@ struct ReleaseDetailView: View {
                 }
                 .clipShape(Capsule())
             }
-            .frame(height: 10)
+            .frame(height: 26)
             .padding(.horizontal)
 
             // Android lays the legend out in two columns: watching, planned and
             // completed on the left; on hold and dropped on the right.
             let counts = distribution.reduce(into: [ProfileListStatus: Int]()) { $0[$1.status] = $1.count }
-            Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 14) {
+            Grid(alignment: .leading, horizontalSpacing: 22, verticalSpacing: 9) {
                 GridRow { legendItem(.watching, counts); legendItem(.holdOn, counts) }
                 GridRow { legendItem(.plan, counts); legendItem(.dropped, counts) }
                 GridRow { legendItem(.completed, counts); Color.clear.frame(width: 1, height: 1) }
@@ -562,10 +567,10 @@ struct ReleaseDetailView: View {
     @ViewBuilder
     private func legendItem(_ status: ProfileListStatus, _ counts: [ProfileListStatus: Int]) -> some View {
         if let count = counts[status] {
-            HStack(spacing: 10) {
-                Circle().fill(Theme.listColor(status)).frame(width: 16, height: 16)
-                Text(status.title).font(.ax(.body)).foregroundStyle(.secondary).lineLimit(1)
-                Text(Format.exact(count)).font(.ax(.body, .semibold)).monospacedDigit().lineLimit(1)
+            HStack(spacing: 8) {
+                Circle().fill(Theme.listColor(status)).frame(width: 13, height: 13)
+                Text(status.title).font(.ax(fixed: 14.5)).foregroundStyle(.secondary).lineLimit(1)
+                Text(Format.exact(count)).font(.ax(fixed: 14.5, .semibold)).monospacedDigit().lineLimit(1)
             }
         } else {
             Color.clear.frame(width: 1, height: 1)
@@ -613,13 +618,17 @@ struct ReleaseDetailView: View {
             }
             VStack(spacing: Theme.Spacing.row) {
                 ForEach(releases) { item in
-                    NavigationLink {
-                        ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
-                    } label: {
-                        RelatedReleaseRow(release: item, isCurrent: item.id == release.id)
+                    if item.id == release.id {
+                        // Not a disabled link: that would dim the open release to grey.
+                        RelatedReleaseRow(release: item, isCurrent: true)
+                    } else {
+                        NavigationLink {
+                            ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
+                        } label: {
+                            RelatedReleaseRow(release: item, isCurrent: false)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(item.id == release.id)
                 }
             }
             .padding(.horizontal)
@@ -628,6 +637,7 @@ struct ReleaseDetailView: View {
 
     private func collectionLinks(_ release: Release) -> some View {
         VStack(spacing: 0) {
+            Divider().padding(.horizontal)
             NavigationLink {
                 ReleaseCollectionsView(releaseID: release.id, title: release.displayTitle, viewer: viewer)
             } label: {
@@ -659,7 +669,7 @@ struct ReleaseDetailView: View {
                 HStack {
                     Text("Добавить к себе в коллекцию").font(.ax(.title3, .medium))
                     Spacer()
-                    Image(systemName: "plus").foregroundStyle(.secondary)
+                    Image(systemName: "plus").font(.system(size: 22, weight: .light)).foregroundStyle(.secondary)
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 14)
@@ -667,6 +677,8 @@ struct ReleaseDetailView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
+
+            Divider().padding(.horizontal)
         }
     }
 
@@ -787,10 +799,11 @@ struct ReleaseDetailView: View {
             .padding(.horizontal)
 
             if let comments = release.comments, !comments.isEmpty {
-                ForEach(comments.prefix(3)) { comment in
+                ForEach(comments.prefix(5)) { comment in
                     CommentRow(
                         comment: comment,
-                        onReply: { inlineReply = comment },
+                        onReply: { inlineComposer.replyingTo = ProfileComment(releaseComment: comment) },
+                        onOpenReplies: { inlineThread = comment },
                         onVote: { vote in
                             Task { await voteInlineComment(comment, vote, model: model) }
                         },
@@ -805,6 +818,20 @@ struct ReleaseDetailView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
             }
+
+            CommentComposerBar(composer: inlineComposer, showsDivider: false) {
+                let location = ProfileCommentLocation(category: .releases, parentID: release.id)
+                if await inlineComposer.send(at: location, parentCommentID: inlineComposer.replyingTo?.threadRootID, session: env.session) {
+                    AppHaptics.shared.play(.commentSent)
+                    await model.load()
+                } else {
+                    AppHaptics.shared.play(.commentFailed)
+                }
+            }
+            .onAppear { inlineComposer.captureViewer(env.session.viewerKey) }
+        }
+        .navigationDestination(item: $inlineThread) { comment in
+            CommentThreadView(comment: comment, releaseID: release.id, viewer: viewer)
         }
     }
 }
@@ -815,25 +842,29 @@ struct ReleaseDetailView: View {
 struct VoteHistogram: View {
     let distribution: [(score: Int, count: Int)]
 
-    private var maximum: Int { max(1, distribution.map(\.count).max() ?? 1) }
+    /// Bars show each score's share of all votes, so a 4.7 release does not
+    /// draw a full «5» bar next to empty ones.
+    private var total: Int { max(1, distribution.reduce(0) { $0 + $1.count }) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 7) {
             ForEach(distribution, id: \.score) { row in
-                HStack(spacing: 8) {
-                    Text("\(row.score)")
-                        .font(.ax(.caption))
+                HStack(spacing: 12) {
+                    Text(verbatim: String(row.score))
+                        .font(.ax(.subheadline))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        .frame(width: 14, alignment: .trailing)
                     GeometryReader { geometry in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(Color.primary.opacity(0.12))
+                            Capsule().fill(Color.primary.opacity(0.18))
                             Capsule()
-                                .fill(Color.primary.opacity(0.85))
-                                .frame(width: max(8, geometry.size.width * CGFloat(row.count) / CGFloat(maximum)))
+                                .fill(Color.primary.opacity(0.88))
+                                .frame(width: max(geometry.size.height,
+                                                  geometry.size.width * CGFloat(row.count) / CGFloat(total)))
                         }
                     }
-                    .frame(height: 9)
+                    .frame(height: 11)
                 }
             }
         }
@@ -877,31 +908,31 @@ struct RelatedReleaseRow: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: Theme.Spacing.row) {
-            ReleasePoster(url: release.posterURL, width: 64)
-            VStack(alignment: .leading, spacing: 8) {
+            ReleasePoster(url: release.posterURL, width: 52)
+            VStack(alignment: .leading, spacing: 6) {
                 Text(release.displayTitle)
-                    .font(.ax(.body))
+                    .font(.ax(fixed: 15))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                FlowRow(spacing: 10) {
+                FlowRow(spacing: 8) {
                     if let year = release.year, !year.isEmpty {
-                        Text("\(year) год").font(.ax(.body)).foregroundStyle(.secondary)
+                        Text("\(year) год").font(.ax(fixed: 14)).foregroundStyle(.secondary)
                     }
                     if let rating = release.ratingText {
                         HStack(spacing: 3) {
                             Text("•").foregroundStyle(.secondary)
-                            Text(rating).font(.ax(.body)).foregroundStyle(.secondary)
-                            Image(systemName: "star.fill").font(.ax(.caption)).foregroundStyle(.secondary)
+                            Text(rating).font(.ax(fixed: 14)).foregroundStyle(.secondary)
+                            Image(systemName: "star.fill").font(.ax(fixed: 12)).foregroundStyle(.secondary)
                         }
                     }
                     if let category = release.category?.name, !category.isEmpty {
                         Text(category)
-                            .font(.ax(.body))
+                            .font(.ax(fixed: 14))
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                 }
             }
@@ -909,7 +940,7 @@ struct RelatedReleaseRow: View {
             if isCurrent {
                 HStack(spacing: 14) {
                     Rectangle().fill(Color.primary.opacity(0.15)).frame(width: 1, height: 44)
-                    Text("Вы\nздесь").font(.ax(.body)).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                    Text("Вы\nздесь").font(.ax(fixed: 14)).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                 }
             }
         }
