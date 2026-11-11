@@ -803,10 +803,10 @@ struct ReleaseDetailView: View {
                     CommentRow(
                         comment: comment,
                         onReply: { inlineComposer.replyingTo = ProfileComment(releaseComment: comment) },
-                        onOpenReplies: { inlineThread = comment },
                         onVote: { vote in
                             Task { await voteInlineComment(comment, vote, model: model) }
                         },
+                        onOpenReplies: { inlineThread = comment },
                         isVoting: inlineVotingIDs.contains(comment.id),
                         actionsEnabled: !model.isPerformingAction
                     )
