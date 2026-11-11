@@ -7,7 +7,7 @@ import AnixartKit
 /// whichever it was in -- so this is a single choice, not a set of toggles.
 @MainActor
 struct ListPickerSheet: View {
-    @Environment(.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
 
     let current: ProfileListStatus?
     let onSelect: (ProfileListStatus?) -> Void
@@ -19,7 +19,7 @@ struct ListPickerSheet: View {
         VStack(spacing: 0) {
             row(title: "Не смотрю", color: .gray, selected: current == nil) { onSelect(nil) }
             Divider().padding(.vertical, 6)
-            ForEach(order, id: .self) { status in
+            ForEach(order, id: \.self) { status in
                 row(title: status.title, color: Theme.listColor(status), selected: status == current) {
                     onSelect(status)
                 }
