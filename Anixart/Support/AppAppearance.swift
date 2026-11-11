@@ -161,11 +161,14 @@ private struct AppColorSchemeModifier: ViewModifier {
     @AppStorage(DeviceAppearancePreferenceKey.colorScheme) private var preference = AppColorSchemePreference.system.rawValue
     @AppStorage(DeviceAppearancePreferenceKey.visualTheme) private var theme = AppVisualTheme.original.rawValue
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+    /// Ticks once a minute so a schedule switches on time without a relaunch.
+    @State private var now = Date()
 
     func body(content: Content) -> some View {
         content
             .preferredColorScheme(AppVisualTheme.stored(theme).colorScheme(
-                normal: (AppColorSchemePreference(rawValue: preference) ?? .system).colorScheme(lowPower: lowPower)))
+                normal: (AppColorSchemePreference(rawValue: preference) ?? .system).colorScheme(lowPower: lowPower, now: now)))
+            .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { now = $0 }
             .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
                 lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
             }

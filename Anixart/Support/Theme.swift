@@ -35,6 +35,9 @@ enum Theme {
     /// The outline of the НОВИНКА badge in the voice-over picker (`colors.xml`: red).
     static let newBadge = Color(red: 0xff / 255, green: 0x60 / 255, blue: 0x5b / 255)
 
+    /// The bookmark chip once a release is in the favourites (Android's amber).
+    static let favoriteYellow = Color(red: 0.98, green: 0.72, blue: 0.05)
+
     /// The crown next to a sponsor's login.
     static let sponsorGold = Color(red: 0.97, green: 0.79, blue: 0.16)
 

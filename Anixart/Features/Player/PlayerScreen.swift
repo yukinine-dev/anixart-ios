@@ -29,6 +29,8 @@ struct PlayerScreen: View {
 
     /// What the Kodik advert screen handed over, once it has.
     @State private var kodikStream: StreamVariant?
+    /// Every quality Kodik has for the episode (see `KodikQuality`), tallest first.
+    @State private var kodikVariants: [StreamVariant] = []
     /// Set when the advert screen gives up or is left for the source's player,
     /// so the web player takes over and late advert results cannot undo it.
     @State private var kodikGaveUp = false
@@ -41,7 +43,7 @@ struct PlayerScreen: View {
                 kodikGate
             case .embedded:
                 EmbeddedPlayerView(
-                    variants: kodikStream.map { [$0] } ?? target.variants,
+                    variants: kodikStream.map { stream in kodikVariants.isEmpty ? [stream] : kodikVariants } ?? target.variants,
                     referer: kodikStream == nil ? target.referer : KodikWrapper.referer,
                     streamSourceName: kodikStream == nil ? target.streamSourceName : "Kodik",
                     releaseTitle: releaseTitle,
@@ -150,7 +152,15 @@ struct PlayerScreen: View {
                     onResolved: { media, _ in
                         guard resolvedChoice == .kodik else { return }
                         if let url = KodikAdView.episodeStream(from: media) {
-                            kodikStream = StreamVariant(url: url)
+                            guard kodikStream == nil else { return }
+                            // Look for the other heights before the player opens, so
+                            // the quality menu is there from the first frame.
+                            Task { @MainActor in
+                                let all = await KodikQuality.variants(for: url)
+                                guard resolvedChoice == .kodik, kodikStream == nil else { return }
+                                kodikVariants = all
+                                kodikStream = all.first ?? StreamVariant(url: url)
+                            }
                         } else {
                             kodikGaveUp = true
                         }
@@ -164,11 +174,14 @@ struct PlayerScreen: View {
 
                 VStack(spacing: 14) {
                     Spacer()
-                    Text("Реклама источника. Серия откроется во встроенном плеере.")
-                        .font(.ax(.caption))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
+                    HStack(spacing: 10) {
+                        ProgressView().tint(.white)
+                        Text("Загружаем рекламу источника. Если она не отвечает, серия откроется сама, это может занять до полуминуты.")
+                            .font(.ax(.caption))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .multilineTextAlignment(.leading)
+                    }
+                    .padding(.horizontal, 24)
 
                     // A waterfall of ad networks can take a while before one
                     // fills, and nobody should be held in it with no way out.

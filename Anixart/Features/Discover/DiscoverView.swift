@@ -11,6 +11,8 @@ struct DiscoverView: View {
     @State private var filter = FilterRequest()
     @State private var appliedFilter: FilterRequest?
     @State private var opened: Release?
+    @State private var commentsRoute: OverviewCommentsRoute?
+    @AppStorage(DeviceAppearancePreferenceKey.showsSocialLinks) private var showsSocialLinks = true
     @State private var actionTarget: Release?
     @State private var isShowingWatchingNow = false
     @State private var isShowingRecommendationHelp = false
@@ -18,7 +20,7 @@ struct DiscoverView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                BrowsingHeader(onSearch: { isShowingSearch = true }, onSettings: { isShowingSettings = true })
+                BrowsingHeader(onSettings: { isShowingSettings = true })
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Theme.Spacing.section) {
                         if let model, model.hasCurrentViewer, !model.banners.isEmpty {
@@ -27,7 +29,9 @@ struct DiscoverView: View {
                         shortcuts
                         if let model, model.hasCurrentViewer { content(model) }
                     }
-                    .padding(.vertical)
+                    .padding(.top, 8)
+                    // Room for the floating tab bar.
+                    .padding(.bottom, 120)
                 }
                 .refreshable { await model?.load() }
             }
@@ -39,6 +43,10 @@ struct DiscoverView: View {
             }
             .navigationDestination(item: $opened) { release in
                 ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model?.viewer)
+            }
+            .navigationDestination(item: $commentsRoute) { route in
+                CommentsView(releaseID: route.release.id, releaseTitle: route.release.displayTitle,
+                             viewer: model?.viewer, initialReplyTo: route.replyTo)
             }
             .navigationDestination(isPresented: $isShowingWatchingNow) {
                 if let viewer = model?.viewer {
@@ -66,38 +74,40 @@ struct DiscoverView: View {
                 await env.session.refreshNotificationCount()
             }
             .onChange(of: env.session.viewerKey) { _, _ in
-                opened = nil; actionTarget = nil; isShowingWatchingNow = false; isShowingRecommendationHelp = false
+                opened = nil; commentsRoute = nil; actionTarget = nil; isShowingWatchingNow = false; isShowingRecommendationHelp = false
             }
         }
     }
 
     private var shortcuts: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            NavigationLink {
-                PopularReleasesView()
-            } label: { shortcutLabel("Популярное", systemImage: "flame") }
-            NavigationLink { ScheduleView() } label: { shortcutLabel("Расписание", systemImage: "calendar") }
-            NavigationLink { PublicCollectionsView() } label: { shortcutLabel("Коллекции", systemImage: "rectangle.stack") }
-            Button { isShowingFilter = true } label: { shortcutLabel("Фильтр", systemImage: "slider.horizontal.3") }
-            NavigationLink { RandomReleaseScreen() } label: { shortcutLabel("Рандом", systemImage: "shuffle") }
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
+            NavigationLink { PopularReleasesView() } label: { OverviewTile(title: "Популярное", systemImage: "flame") }
+            NavigationLink { ScheduleView() } label: { OverviewTile(title: "Расписание", systemImage: "calendar") }
+            NavigationLink { PublicCollectionsView() } label: { OverviewTile(title: "Коллекции", systemImage: "rectangle.stack") }
+            Button { isShowingFilter = true } label: { OverviewTile(title: "Фильтр", systemImage: "slider.horizontal.3") }
+            NavigationLink { RandomReleaseScreen() } label: { OverviewTile(title: "Рандом", systemImage: "shuffle") }
         }
         .buttonStyle(.plain)
         .padding(.horizontal)
     }
 
-    private func shortcutLabel(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
-            .font(.ax(.subheadline, .medium))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
-            .foregroundStyle(.primary)
+    private var socialLinks: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
+            Link(destination: URL(string: "https://vk.com/anixart_app")!) {
+                OverviewTile(title: "Мы ВКонтакте", systemImage: "person.2.fill")
+            }
+            Link(destination: URL(string: "https://t.me/anixart_app")!) {
+                OverviewTile(title: "Мы в Telegram", systemImage: "paperplane.fill")
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal)
     }
 
     @ViewBuilder
     private func content(_ model: DiscoverViewModel) -> some View {
         if model.isLoading && model.isEmpty {
-            ProgressView().padding(.vertical, 60)
+            ProgressView().frame(maxWidth: .infinity, minHeight: 260)
         } else if let error = model.errorMessage, model.isEmpty {
             StatusMessageView(
                 title: "Не удалось загрузить",
@@ -113,11 +123,39 @@ struct DiscoverView: View {
                 } else if model.isEmpty, model.viewer.account == nil {
                     StatusMessageView(title: "Пока ничего нет", message: "Обновите обзор позже")
                 }
+
+                if !model.recommendations.isEmpty {
+                    OverviewDivider()
+                    carousel("Рекомендации", subtitle: "На основе ваших оценок", releases: model.recommendations, viewer: model.viewer)
+                } else if model.showsRecommendationExplanation {
+                    OverviewDivider()
+                    recommendationExplanation
+                }
+
+                if !model.discussing.isEmpty {
+                    OverviewDivider()
+                    VStack(alignment: .leading, spacing: 20) {
+                        SectionHeader(title: "Обсуждаемое сегодня")
+                        ForEach(model.discussing) { release in
+                            OverviewDiscussionRow(release: release) { actionTarget = release }
+                                .onTapGesture { opened = release }
+                                .padding(.horizontal)
+                        }
+                    }
+                }
+
+                if showsSocialLinks {
+                    OverviewDivider()
+                    socialLinks
+                }
+
                 if !model.watchingNow.isEmpty {
+                    OverviewDivider()
                     VStack(alignment: .leading, spacing: Theme.Spacing.row) {
                         SectionHeader(title: "Смотрят сейчас") {
                             Button("Показать все") { isShowingWatchingNow = true }
                                 .font(.ax(.subheadline, .medium))
+                                .foregroundStyle(.primary)
                         }
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(alignment: .top, spacing: Theme.Spacing.row) {
@@ -125,7 +163,7 @@ struct DiscoverView: View {
                                     NavigationLink {
                                         ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: model.viewer)
                                     } label: {
-                                        ReleaseCard(release: release)
+                                        ReleaseCard(release: release, width: 132)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -135,55 +173,81 @@ struct DiscoverView: View {
                     }
                 }
 
-                if !model.recommendations.isEmpty {
-                    carousel("Рекомендации", subtitle: "На основе ваших оценок", releases: model.recommendations, viewer: model.viewer)
-                } else if model.showsRecommendationExplanation {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SectionHeader(title: "Рекомендации")
-                        Text("На основе ваших оценок").font(.ax(.subheadline)).foregroundStyle(.secondary).padding(.horizontal)
-                        Text("Продолжайте смотреть и оценивать аниме. Чем честнее выставлены оценки, тем точнее будут подобраны рекомендации.")
-                            .font(.ax(.subheadline)).foregroundStyle(.secondary).padding(.horizontal)
-                        Button("Узнать подробнее") { isShowingRecommendationHelp = true }
-                            .font(.ax(.subheadline, .medium)).padding(.horizontal)
-                    }
-                }
-
-                if !model.discussing.isEmpty {
+                if !model.collectionsOfTheWeek.isEmpty {
+                    OverviewDivider()
                     VStack(alignment: .leading, spacing: Theme.Spacing.row) {
-                        SectionHeader(title: "Обсуждаемое сегодня")
-                        ForEach(model.discussing) { release in
-                            ReleaseListRow(release: release, showsDailyDiscussion: true) { actionTarget = release }
-                                .onTapGesture { opened = release }
-                                .padding(.horizontal)
+                        SectionHeader(title: "Коллекции недели") {
+                            NavigationLink { PublicCollectionsView() } label: {
+                                Text("Показать все").font(.ax(.subheadline, .medium))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(spacing: Theme.Spacing.row) {
+                                ForEach(model.collectionsOfTheWeek) { collection in
+                                    NavigationLink {
+                                        CollectionByIDView(collectionID: collection.id, viewer: model.viewer)
+                                    } label: { OverviewCollectionCard(collection: collection) }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal)
                         }
                     }
                 }
 
                 if !model.commentsOfTheWeek.isEmpty {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.row) {
+                    OverviewDivider()
+                    VStack(alignment: .leading, spacing: 16) {
                         SectionHeader(title: "Комментарии недели")
                         ForEach(model.commentsOfTheWeek) { comment in
-                            CommentRow(comment: comment, showsRelease: true)
+                            OverviewCommentCard(comment: comment,
+                                                onOpenRelease: { opened = $0 },
+                                                onOpenComments: { commentsRoute = OverviewCommentsRoute(release: $0) },
+                                                onReply: { commentsRoute = OverviewCommentsRoute(release: $0, replyTo: comment) },
+                                                onVote: { vote in Task { await model.vote(comment, vote) } },
+                                                isVoting: model.votingIDs.contains(comment.id))
                                 .padding(.horizontal)
                         }
                     }
                 }
             }
-            .padding(.vertical)
+        }
+    }
+
+    private var recommendationExplanation: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Рекомендации")
+            Text("На основе ваших оценок")
+                .font(.ax(.body)).foregroundStyle(.secondary).padding(.horizontal)
+            VStack(spacing: 16) {
+                Text("Продолжайте смотреть и оценивать аниме. Чем честнее выставлены оценки, тем точнее будут подобраны рекомендации.")
+                    .font(.ax(.body)).foregroundStyle(.secondary)
+                Button { isShowingRecommendationHelp = true } label: {
+                    Text("Узнать подробнее")
+                        .font(.ax(.headline, .medium))
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Color.primary.opacity(0.09), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(18)
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+            .padding(.horizontal)
         }
     }
 
     private func carousel(_ title: String, subtitle: String? = nil, releases: [Release], viewer: ProfileViewerKey) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             SectionHeader(title: title)
-            if let subtitle { Text(subtitle).font(.ax(.subheadline)).foregroundStyle(.secondary).padding(.horizontal) }
+            if let subtitle { Text(subtitle).font(.ax(.body)).foregroundStyle(.secondary).padding(.horizontal) }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: Theme.Spacing.row) {
                     ForEach(releases) { release in
                         NavigationLink {
                             ReleaseDetailView(releaseID: release.id, preloaded: release, viewer: viewer)
                         } label: {
-                            ReleaseCard(release: release)
+                            ReleaseCard(release: release, width: 132)
                         }
                         .buttonStyle(.plain)
                     }
@@ -194,21 +258,60 @@ struct DiscoverView: View {
     }
 }
 
-/// Editorial banners from `discover/interesting`.
+/// Editorial banners from `discover/interesting`. The new Android beta shows a
+/// wide card with its title and text underneath, advances on its own and draws the
+/// time to the next banner as a line along the bottom of the card.
 @MainActor
 struct BannerCarousel: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
     let banners: [Interesting]
     let viewer: ProfileViewerKey
 
+    @State private var current: Interesting.ID?
+    @State private var progress: CGFloat = 0
+    @State private var isInteracting = false
+    private let interval: Double = 6
+
+    private var currentID: Interesting.ID? { current ?? banners.first?.id }
+    @AppStorage(DeviceAppearancePreferenceKey.bannerAutoplay) private var autoplayEnabled = true
+    private var autoAdvances: Bool { autoplayEnabled && !reduceMotion && !resourceSaving && banners.count > 1 }
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Spacing.row) {
+            LazyHStack(alignment: .top, spacing: 0) {
                 ForEach(banners) { banner in
                     bannerCard(banner)
+                        .padding(.horizontal)
+                        .containerRelativeFrame(.horizontal)
+                        .id(banner.id)
                 }
             }
-            .padding(.horizontal)
+            .scrollTargetLayout()
         }
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $current)
+        .simultaneousGesture(DragGesture(minimumDistance: 8).onChanged { _ in isInteracting = true })
+        .task(id: TimerKey(id: currentID.map { "\($0)" } ?? "", interacting: isInteracting)) { await run() }
+    }
+
+    private struct TimerKey: Hashable { let id: String; let interacting: Bool }
+
+    private func run() async {
+        progress = 0
+        guard autoAdvances else { return }
+        if isInteracting {
+            // Give a manual swipe time to settle before the timer restarts.
+            try? await Task.sleep(for: .seconds(1.2))
+            isInteracting = false
+            return
+        }
+        withAnimation(.linear(duration: interval)) { progress = 1 }
+        try? await Task.sleep(for: .seconds(interval))
+        guard !Task.isCancelled,
+              let position = banners.firstIndex(where: { $0.id == currentID }) else { return }
+        let next = banners[(position + 1) % banners.count].id
+        withAnimation(.easeInOut(duration: 0.45)) { current = next }
     }
 
     @ViewBuilder
@@ -228,36 +331,48 @@ struct BannerCarousel: View {
     }
 
     private func bannerContent(_ banner: Interesting) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Rectangle().fill(.quaternary)
-            }
-            .frame(width: 300, height: 150)
-            .clipped()
+        let isCurrent = banner.id == currentID
+        return VStack(alignment: .leading, spacing: 10) {
+            Color.clear
+                .aspectRatio(2.2, contentMode: .fit)
+                .overlay {
+                    CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 900) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Rectangle().fill(.quaternary)
+                    }
+                }
+                .overlay(alignment: .bottomLeading) {
+                    GeometryReader { geometry in
+                        Capsule().fill(.white)
+                            .frame(width: geometry.size.width * (isCurrent && autoAdvances ? progress : 0), height: 4)
+                            .frame(maxHeight: .infinity, alignment: .bottom)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
 
-            LinearGradient(
-                colors: [.black.opacity(0.75), .clear],
-                startPoint: .bottom,
-                endPoint: .top
-            )
-
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(banner.title ?? "")
                     .font(.ax(.headline))
-                    .foregroundStyle(.white)
                     .lineLimit(2)
                 if let description = banner.description, !description.isEmpty {
                     Text(description)
-                        .font(.ax(.caption))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .font(.ax(.subheadline))
+                        .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
             }
-            .padding(12)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, 6)
         }
-        .frame(width: 300, height: 150)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
+}
+
+/// Where «Комментарии недели» sends the viewer: a release's comments, optionally
+/// with a reply to one comment already started.
+struct OverviewCommentsRoute: Hashable, Identifiable {
+    let release: Release
+    var replyTo: ReleaseComment?
+    var id: String { "\(release.id)-\(replyTo?.id ?? 0)" }
 }

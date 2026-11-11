@@ -9,6 +9,7 @@ struct BookmarksView: View {
     @State private var tab = BookmarkTab.defaultSelection(storageKey: UserDefaults.standard.string(forKey: DeviceAppearancePreferenceKey.defaultBookmarks))
     @AppStorage(DeviceAppearancePreferenceKey.defaultBookmarks) private var defaultTab = BookmarkTab.favorites.storageKey
     @State private var sort: BookmarkSort = .addedDescending
+    @State private var isShowingSettings = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
     @Namespace private var tabIndicator
@@ -61,53 +62,43 @@ struct BookmarksView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if env.session.isSignedIn {
-                    signedInContent
-                } else {
-                    SignInPromptView(
-                        message: "Закладки, история и избранное привязаны к аккаунту."
-                    )
-                }
-            }
-            .navigationTitle("Закладки")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if env.session.isSignedIn {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        if tab.supportsSorting {
-                            Menu {
-                                Picker("Сортировка", selection: $sort) {
-                                    ForEach(BookmarkSort.allCases) { option in
-                                        Text(option.title).tag(option)
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "arrow.up.arrow.down")
-                            }
-                        }
+            VStack(spacing: 0) {
+                BrowsingHeader(onSettings: { isShowingSettings = true })
+                Group {
+                    if env.session.isSignedIn {
+                        signedInContent
+                    } else {
+                        SignInPromptView(
+                            message: "Закладки, история и избранное привязаны к аккаунту."
+                        )
                     }
                 }
             }
+            .navigationTitle("Закладки")
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $isShowingSettings) { SettingsView() }
             .onChange(of: defaultTab) { _, value in tab = BookmarkTab.defaultSelection(storageKey: value) }
         }
     }
 
     private var signedInContent: some View {
         VStack(spacing: 0) {
+            HStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Theme.Spacing.tabGap) {
+                    HStack(spacing: 4) {
                         ForEach(BookmarkTab.allCases, id: \.self) { candidate in
                             Button { select(candidate) } label: {
-                                VStack(spacing: 8) {
-                                    SelectionLabel(title: candidate.title, isSelected: tab == candidate)
-                                        .foregroundStyle(tab == candidate ? Theme.selection : Color.secondary)
-                                    SelectionUnderline(isSelected: tab == candidate, namespace: tabIndicator)
-                                }
-                                .fixedSize()
-                                .padding(.vertical, 10)
-                                .contentShape(Rectangle())
+                                SelectionLabel(title: candidate.title, isSelected: tab == candidate)
+                                    .foregroundStyle(tab == candidate ? Color.primary : Color.secondary)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 10)
+                                    .background {
+                                        SelectionChipBackground(isSelected: tab == candidate, shape: Capsule(),
+                                                                color: Theme.accent.opacity(0.3), namespace: tabIndicator)
+                                    }
+                                    .fixedSize()
+                                    .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
                             .onKeyPress(.return) { select(candidate, fromKeyboard: true); return .handled }
@@ -125,8 +116,10 @@ struct BookmarksView: View {
                     selectionMotion.complete(selected)
                 }
             }
+            }
+            .floatingStrip()
+            ContinueWatchingCard()
 
-            Divider()
 
             Group {
                 switch tab {
@@ -135,9 +128,9 @@ struct BookmarksView: View {
                 case .history:
                     BookmarkReleaseList(kind: .history, sort: sort)
                 case .favorites:
-                    BookmarkReleaseList(kind: .favorites, sort: sort)
+                    BookmarkReleaseList(kind: .favorites, sort: sort, sortSelection: $sort)
                 case .list(let status):
-                    BookmarkReleaseList(kind: .list(status), sort: sort)
+                    BookmarkReleaseList(kind: .list(status), sort: sort, sortSelection: $sort)
                 }
             }
             .transaction {
@@ -168,6 +161,8 @@ struct BookmarkReleaseList: View {
 
     let kind: Kind
     let sort: BookmarkSort
+    /// When set, the list header offers the sort menu (favourites and watch lists).
+    var sortSelection: Binding<BookmarkSort>?
 
     @State private var model: BookmarkReleaseListModel?
     @State private var opened: Release?
@@ -180,6 +175,10 @@ struct BookmarkReleaseList: View {
     var body: some View {
         List {
             if let model, model.hasCurrentViewer, model.kind == kind, model.sort == sort {
+                listHeader(model)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 if let error = model.actionError {
                     Text(error).font(.ax(.subheadline)).foregroundStyle(.red)
                 }
@@ -223,6 +222,52 @@ struct BookmarkReleaseList: View {
         .onChange(of: env.session.viewerKey) { _, _ in opened = nil; actionTarget = nil }
     }
 
+    /// «N всего», the sort pill and the shuffle button, as the Android list opens.
+    private func listHeader(_ model: BookmarkReleaseListModel) -> some View {
+        HStack(spacing: 12) {
+            Text(model.paginator.totalCount.map { "\(Format.count($0)) всего" } ?? " ")
+                .font(.ax(.subheadline))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            Spacer(minLength: 0)
+            if let sortSelection {
+                Menu {
+                    ForEach(BookmarkSortField.allCases) { field in
+                        Menu(field.title) {
+                            Picker(field.title, selection: sortSelection) {
+                                ForEach(field.options) { option in Text(option.directionTitle).tag(option) }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                        Text(BookmarkSortField(sortSelection.wrappedValue).title).lineLimit(1)
+                        Image(systemName: "chevron.down").font(.system(size: 12, weight: .semibold))
+                    }
+                    .font(.ax(.subheadline, .medium))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 16)
+                    .frame(height: 44)
+                    .background(Color.primary.opacity(0.09), in: Capsule())
+                }
+                .accessibilityLabel("Сортировка")
+            }
+            Button {
+                if let random = model.paginator.items.randomElement() { opened = random }
+            } label: {
+                Image(systemName: "shuffle")
+                    .font(.system(size: 17))
+                    .foregroundStyle(.primary)
+                    .frame(width: 56, height: 44)
+                    .background(Color.primary.opacity(0.09), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(model.paginator.items.isEmpty)
+            .accessibilityLabel("Случайный релиз из списка")
+        }
+    }
+
     private var emptyTitle: String {
         switch kind {
         case .favorites: return "В избранном пусто"
@@ -263,5 +308,54 @@ struct SignInPromptView: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Android groups the eight sort orders into four fields, each with a direction.
+enum BookmarkSortField: CaseIterable, Identifiable {
+    case added, year, alphabet, rating
+    var id: Self { self }
+
+    init(_ sort: BookmarkSort) {
+        switch sort {
+        case .addedDescending, .addedAscending: self = .added
+        case .releaseDateDescending, .releaseDateAscending: self = .year
+        case .titleDescending, .titleAscending: self = .alphabet
+        case .ratingDescending, .ratingAscending: self = .rating
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .added: return "По добавлению"
+        case .year: return "По году"
+        case .alphabet: return "По алфавиту"
+        case .rating: return "По рейтингу"
+        }
+    }
+
+    var options: [BookmarkSort] {
+        switch self {
+        case .added: return [.addedDescending, .addedAscending]
+        case .year: return [.releaseDateDescending, .releaseDateAscending]
+        case .alphabet: return [.titleDescending, .titleAscending]
+        case .rating: return [.ratingDescending, .ratingAscending]
+        }
+    }
+}
+
+extension BookmarkSort {
+    /// The direction alone, once the field is named by the submenu.
+    var directionTitle: String {
+        switch self {
+        case .addedDescending: return "Сначала новые"
+        case .addedAscending: return "Сначала старые"
+        case .releaseDateDescending: return "Сначала новые"
+        case .releaseDateAscending: return "Сначала старые"
+        case .titleDescending: return "А–Я"
+        case .titleAscending: return "Я–А"
+        case .ratingDescending: return "Сначала высокий"
+        case .ratingAscending: return "Сначала низкий"
+        }
     }
 }

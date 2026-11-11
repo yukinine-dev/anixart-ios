@@ -6,9 +6,9 @@ import AnixartKit
 final class SearchBookmarksPresentationTests: XCTestCase {
     @MainActor
     func testBookmarksAreTheThirdRootTab() {
-        XCTAssertEqual(RootView.Tab.allCases, [.home, .discover, .bookmarks, .feed, .profile])
+        XCTAssertEqual(RootView.Tab.allCases, [.home, .discover, .bookmarks, .feed, .search])
         XCTAssertEqual(RootView.Tab.allCases[2].title, "Закладки")
-        XCTAssertEqual(RootView.Tab.allCases.map(\.title), ["Главная", "Обзор", "Закладки", "Лента", "Профиль"])
+        XCTAssertEqual(RootView.Tab.allCases.map(\.title), ["Главная", "Обзор", "Закладки", "Лента", "Поиск"])
     }
 
     @MainActor

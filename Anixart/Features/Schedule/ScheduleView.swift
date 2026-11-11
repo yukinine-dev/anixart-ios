@@ -30,9 +30,11 @@ struct ScheduleView: View {
                             explanation
                         }
 
-                        ForEach(Array(days.enumerated()), id: \.offset) { index, day in
-                            if !day.releases.isEmpty {
-                                daySection(day, index: index)
+                        // The beta starts the week at today rather than on Monday:
+                        // today first, then the days that follow, wrapping around.
+                        ForEach(startingFromToday, id: \.index) { entry in
+                            if !entry.day.releases.isEmpty {
+                                daySection(entry.day, index: entry.index)
                             }
                         }
                     }
@@ -101,6 +103,16 @@ struct ScheduleView: View {
             }
         }
     }
+
+    private var startingFromToday: [(index: Int, day: (title: String, releases: [Release]))] {
+        guard !days.isEmpty else { return [] }
+        let start = todayIndex() % days.count
+        return (0..<days.count).map { offset in
+            let index = (start + offset) % days.count
+            return (index: index, day: days[index])
+        }
+    }
+
 
     private func load() async {
         guard days.isEmpty else { return }

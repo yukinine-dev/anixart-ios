@@ -12,40 +12,45 @@ struct ListPickerSheet: View {
     let current: ProfileListStatus?
     let onSelect: (ProfileListStatus?) -> Void
 
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(ProfileListStatus.allCases) { status in
-                    Button {
-                        onSelect(status == current ? nil : status)
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Label(status.title, systemImage: status.systemImage)
-                            Spacer()
-                            if status == current {
-                                Image(systemName: "checkmark").foregroundStyle(Theme.accent)
-                            }
-                        }
-                    }
-                    .foregroundStyle(.primary)
-                }
+    /// Android's order: not watching, a divider, then the five lists.
+    private let order: [ProfileListStatus] = [.watching, .plan, .completed, .holdOn, .dropped]
 
-                if current != nil {
-                    Button("Убрать из списков", role: .destructive) {
-                        onSelect(nil)
-                        dismiss()
-                    }
+    var body: some View {
+        VStack(spacing: 0) {
+            row(title: "Не смотрю", color: .gray, selected: current == nil) { onSelect(nil) }
+            Divider().padding(.vertical, 6)
+            ForEach(order, id: \.self) { status in
+                row(title: status.title, color: Theme.listColor(status), selected: status == current) {
+                    onSelect(status)
                 }
             }
-            .navigationTitle("В список")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
-                }
-            }
+            Spacer(minLength: 0)
         }
-        .presentationDetents([.medium])
+        .padding(.top, 20)
+        .presentationDetents([.height(440)])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func row(title: String, color: Color, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            dismiss()
+        } label: {
+            HStack(spacing: 18) {
+                Circle().fill(color).frame(width: 12, height: 12)
+                Text(title).font(.ax(.title3))
+                Spacer()
+                if selected {
+                    Image(systemName: "checkmark").font(.ax(.headline)).foregroundStyle(color)
+                }
+            }
+            .padding(.horizontal, 24)
+            .frame(height: 54)
+            .background(selected ? color.opacity(0.28) : Color.clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
     }
 }
 

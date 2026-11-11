@@ -7,6 +7,7 @@ struct ReleaseScreenshotPresentation: Identifiable {
     let urls: [URL]
     let initialIndex: Int
     let viewer: ProfileViewerKey
+    var title = "Кадры"
 }
 
 protocol GalleryImageLoading: Sendable {

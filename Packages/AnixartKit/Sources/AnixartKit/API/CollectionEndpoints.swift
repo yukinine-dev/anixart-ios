@@ -28,6 +28,12 @@ public enum CollectionEndpoints {
         )
     }
 
+    /// «Коллекции недели» in Обзор: the same feed with `where=2` (week) and `sort=4`.
+    /// Found by matching the beta's on-screen cards against the server's responses.
+    public static func ofTheWeek(page: Int = 0) -> Endpoint<PageableResponse<ReleaseCollection>> {
+        all(page: page, previousPage: 0, where: 2, sort: 4)
+    }
+
     public static func byProfile(_ profileID: Int, page: Int) -> Endpoint<PageableResponse<ReleaseCollection>> {
         Endpoint(path: "collection/all/profile/\(profileID)/\(page)")
     }

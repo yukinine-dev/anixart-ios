@@ -124,6 +124,18 @@ final class ReleaseDetailViewModel {
     }
 
     func vote(_ score: ReleaseVote) async {
+        // The server refuses a second score on top of an existing one (code 5);
+        // Android's «Изменить» first deletes the old score, so do the same.
+        if let old = release?.yourVote, (1...5).contains(old), let account = beginAction() {
+            defer { isPerformingAction = false }
+            do {
+                try await session.sendConfirmedAccountRequest(ReleaseEndpoints.deleteVote(releaseID: releaseID), for: account)
+                release?.yourVote = nil
+            } catch {
+                showActionError(error)
+                return
+            }
+        }
         await changeVote(ReleaseEndpoints.vote(releaseID: releaseID, score: score), value: score.rawValue)
     }
 

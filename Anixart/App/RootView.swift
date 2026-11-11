@@ -4,13 +4,14 @@ import AnixartKit
 @MainActor
 struct RootView: View {
     @Environment(AppEnvironment.self) private var env
-    @State private var selection: Tab = LaunchScreen.current.tab
+    @State private var selection: Tab = RootView.initialTab()
+    @AppStorage(DeviceAppearancePreferenceKey.hidesTabLabels) private var hidesTabLabels = false
     @State private var homeNavigationRevision = 0
 
     enum Tab: Hashable, CaseIterable {
-        // The original app has exactly these five root tabs; catalogue browsing
+        // Four root sections plus search (the beta moved Профиль behind the avatar); catalogue browsing
         // belongs to Home/search/filter routes, never to an additional root tab.
-        case home, discover, bookmarks, feed, profile
+        case home, discover, bookmarks, feed, search
 
         var title: String {
             switch self {
@@ -18,7 +19,7 @@ struct RootView: View {
             case .discover: return "Обзор"
             case .bookmarks: return "Закладки"
             case .feed: return "Лента"
-            case .profile: return "Профиль"
+            case .search: return "Поиск"
             }
         }
 
@@ -28,8 +29,20 @@ struct RootView: View {
             case .discover: return "safari"
             case .bookmarks: return "bookmark"
             case .feed: return "rectangle.topthird.inset.filled"
-            case .profile: return "person.crop.circle"
+            case .search: return "magnifyingglass"
             }
+        }
+    }
+
+    /// An explicit launch route wins; otherwise the section chosen in Настройки.
+    static func initialTab() -> Tab {
+        let route = LaunchScreen.current
+        if route != .home { return route.tab }
+        switch UserDefaults.standard.string(forKey: DeviceAppearancePreferenceKey.launchTab) {
+        case "discover": return .discover
+        case "bookmarks": return .bookmarks
+        case "feed": return .feed
+        default: return .home
         }
     }
 
@@ -46,6 +59,8 @@ struct RootView: View {
                 KodikProbeScreen(releaseID: id)
             case .profile where env.session.currentProfileID == nil:
                 NavigationStack { SampleProfileScreen() }
+            case .profile:
+                NavigationStack { ProfileTabView() }
             default:
                 tabs
             }
@@ -63,11 +78,43 @@ struct RootView: View {
         }
     }
 
+    /// The new Android bottom bar: four sections and a separate round search button.
+    /// iOS 18 and later draw the `.search` role as that detached button (and as part
+    /// of the floating glass bar on iOS 26); earlier systems get a plain fifth tab.
+    @ViewBuilder
     private var tabs: some View {
+        #if compiler(>=6.0)
+        if #available(iOS 18.0, *) {
+            TabView(selection: $selection) {
+                SwiftUI.Tab(value: Tab.home) { tabContent(.home) } label: { tabLabel(.home) }
+                SwiftUI.Tab(value: Tab.discover) { tabContent(.discover) } label: { tabLabel(.discover) }
+                SwiftUI.Tab(value: Tab.bookmarks) { tabContent(.bookmarks) } label: { tabLabel(.bookmarks) }
+                SwiftUI.Tab(value: Tab.feed) { tabContent(.feed) } label: { tabLabel(.feed) }
+                SwiftUI.Tab(value: Tab.search, role: .search) { tabContent(.search) } label: { tabLabel(.search) }
+            }
+        } else {
+            legacyTabs
+        }
+        #else
+        legacyTabs
+        #endif
+    }
+
+    /// Icon and name, or the icon alone when «Скрывать подписи вкладок» is on.
+    @ViewBuilder
+    private func tabLabel(_ tab: Tab) -> some View {
+        if hidesTabLabels {
+            Label(tab.title, systemImage: tab.systemImage).labelStyle(.iconOnly)
+        } else {
+            Label(tab.title, systemImage: tab.systemImage)
+        }
+    }
+
+    private var legacyTabs: some View {
         TabView(selection: $selection) {
             ForEach(Tab.allCases, id: \.self) { tab in
                 tabContent(tab)
-                    .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                    .tabItem { tabLabel(tab) }
                     .tag(tab)
             }
         }
@@ -92,7 +139,7 @@ struct RootView: View {
         case .discover: DiscoverView()
         case .bookmarks: BookmarksView()
         case .feed: FeedView()
-        case .profile: ProfileTabView().badge(env.session.unreadNotifications)
+        case .search: NavigationStack { HomeSearchView() }
         }
     }
 }
@@ -152,7 +199,7 @@ enum LaunchScreen: Equatable {
 
     var tab: RootView.Tab {
         switch self {
-        case .profile: return .profile
+        case .profile: return .home
         case .feed: return .feed
         default: return .home
         }

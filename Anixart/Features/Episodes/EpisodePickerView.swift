@@ -14,6 +14,7 @@ struct EpisodePickerView: View {
     @State private var viewer: ProfileViewerKey?
     @State private var model: EpisodePickerViewModel?
     @State private var isHintVisible = true
+    @AppStorage("episodePicker.pinnedVoiceovers") private var pinnedRaw = ""
     @Namespace private var kindHighlight
     @State private var kindMotion = SelectionMotionIntent<EpisodePickerViewModel.Kind>()
 
@@ -83,13 +84,36 @@ struct EpisodePickerView: View {
                                 .padding(.bottom, 8)
                         }
 
-                        ForEach(model.visibleTypes) { type in
+                        ForEach(pinnedFirst(model.visibleTypes)) { type in
                             NavigationLink {
                                 EpisodeListView(release: release, type: type, viewer: viewer)
                             } label: {
                                 typeRow(type, model: model)
+                                    .overlay(alignment: .topTrailing) {
+                                        if isPinned(type) {
+                                            Image(systemName: "pin.fill")
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(.secondary)
+                                                .padding(10)
+                                        }
+                                    }
                             }
                             .buttonStyle(.plain)
+                            // Swipe the row to the left to pin or unpin the voice-over.
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 40)
+                                    .onEnded { value in
+                                        guard value.translation.width < -80,
+                                              abs(value.translation.height) < 40 else { return }
+                                        withAnimation { togglePin(type) }
+                                    }
+                            )
+                            .contextMenu {
+                                Button(isPinned(type) ? "Открепить" : "Закрепить",
+                                       systemImage: isPinned(type) ? "pin.slash" : "pin") {
+                                    withAnimation { togglePin(type) }
+                                }
+                            }
                             Divider().padding(.leading, 96)
                         }
                     }
@@ -101,6 +125,20 @@ struct EpisodePickerView: View {
                 }
             }
         }
+    }
+
+    private var pinnedIDs: Set<String> { Set(pinnedRaw.split(separator: ",").map(String.init)) }
+    private func isPinned(_ type: EpisodeType) -> Bool { pinnedIDs.contains("(type.id)") }
+
+    private func togglePin(_ type: EpisodeType) {
+        var ids = pinnedIDs
+        if !ids.insert("(type.id)").inserted { ids.remove("(type.id)") }
+        pinnedRaw = ids.sorted().joined(separator: ",")
+    }
+
+    /// Pinned voice-overs first; the server order is otherwise kept.
+    private func pinnedFirst(_ types: [EpisodeType]) -> [EpisodeType] {
+        types.filter(isPinned) + types.filter { !isPinned($0) }
     }
 
     private func kindChips(_ model: EpisodePickerViewModel) -> some View {
@@ -258,6 +296,23 @@ struct EpisodeListView: View {
 
     private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
+    private func playNext(model: EpisodePickerViewModel, launcher: EpisodeLauncher) {
+        guard UserDefaults.standard.bool(forKey: PlaybackPreferenceKey.autoNext),
+              case .playing(let current, let choice, _) = launcher.stage,
+              let position = current.position else { return }
+        let next = model.episodes
+            .filter { ($0.position ?? 0) > position && $0.playbackURL != nil }
+            .min { ($0.position ?? 0) < ($1.position ?? 0) }
+        guard let next else { return }
+        Task {
+            // A beat for the end of the episode to register before the next opens.
+            try? await Task.sleep(for: .seconds(1))
+            // Only if the viewer has not left the player in the meantime.
+            guard launcher.pendingEpisode?.id == current.id else { return }
+            launcher.open(next, choiceOverride: choice)
+        }
+    }
+
     init(release: Release, type: EpisodeType, viewer: ProfileViewerKey? = nil) {
         self.release = release
         self.type = type
@@ -281,6 +336,11 @@ struct EpisodeListView: View {
                             Task { await model.markWatched(episode, watched: true) }
                         }
                     )
+                    // The built-in player reports a natural end here; with
+                    // «Следующая серия автоматически» on, the next one opens.
+                    .onChange(of: PlaybackEvents.shared.endedCount) { _, _ in
+                        playNext(model: model, launcher: launcher)
+                    }
             } else {
                 ProgressView()
             }

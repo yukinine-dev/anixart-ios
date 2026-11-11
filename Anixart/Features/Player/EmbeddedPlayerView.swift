@@ -29,6 +29,7 @@ struct EmbeddedPlayerView: View {
 
     @State private var model = EmbeddedPlayerModel()
     @State private var isShowingEnhanceExplainer = false
+    @AppStorage(PlaybackPreferenceKey.smartSkip) private var smartSkip = true
 
     var body: some View {
         ZStack {
@@ -59,7 +60,9 @@ struct EmbeddedPlayerView: View {
                 .ignoresSafeArea()
                 .onTapGesture { model.toggleControls() }
 
-            if model.isBuffering, model.playbackError == nil {
+            // With the controls up the spinner takes the place of the play button;
+            // otherwise it floats over the picture.
+            if model.isBuffering, model.playbackError == nil, !model.areControlsVisible || model.isLocked {
                 ProgressView()
                     .controlSize(.large)
                     .tint(.white)
@@ -73,6 +76,14 @@ struct EmbeddedPlayerView: View {
                 lockButton
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding()
+            }
+
+            if showsSkipPill {
+                skipPill
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 24)
+                    .padding(.bottom, 96)
+                    .transition(.opacity)
             }
 
             if let note = model.enhancementNote {
@@ -120,6 +131,7 @@ struct EmbeddedPlayerView: View {
             }
         }
         .task {
+            model.memoryKey = releaseTitle
             await model.start(
                 variants: variants,
                 referer: referer,
@@ -129,6 +141,33 @@ struct EmbeddedPlayerView: View {
             )
         }
         .onDisappear { model.stop() }
+    }
+
+    /// «Пропустить заставку» where it is likely to be wanted: around the spot the
+    /// viewer pressed it in an earlier episode of this release, or, the first time,
+    /// early in the episode.
+    private var showsSkipPill: Bool {
+        guard smartSkip, model.playbackError == nil, !model.isBuffering, !model.isLocked else { return false }
+        if let learned = PlaybackMemory.value("skip", release: releaseTitle) {
+            return abs(model.position - learned) < 25
+        }
+        return model.position >= 5 && model.position <= 150
+    }
+
+    private var skipPill: some View {
+        Button {
+            PlaybackMemory.store(model.position, field: "skip", release: releaseTitle)
+            model.seek(by: TimeInterval(preferences.rewindSeconds), isIntroSkip: true)
+        } label: {
+            Label("Пропустить заставку", systemImage: "forward.end.fill")
+                .font(.ax(.subheadline, .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.black.opacity(0.6), in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.35)))
+        }
+        .buttonStyle(.plain)
     }
 
     private func playbackError(_ message: String) -> some View {
@@ -343,10 +382,18 @@ struct EmbeddedPlayerView: View {
             Button { model.seek(by: -10) } label: {
                 Image(systemName: "gobackward.10").font(.ax(fixed: 34)).playerHitArea(64)
             }
-            Button { model.togglePlayback() } label: {
-                Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.ax(fixed: 44))
-                    .playerHitArea(72)
+            if model.isBuffering {
+                // Loading: the play/pause button gives way to a spinner.
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+                    .frame(width: 72, height: 72)
+            } else {
+                Button { model.togglePlayback() } label: {
+                    Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.ax(fixed: 44))
+                        .playerHitArea(72)
+                }
             }
             Button { model.seek(by: 10) } label: {
                 Image(systemName: "goforward.10").font(.ax(fixed: 34)).playerHitArea(64)

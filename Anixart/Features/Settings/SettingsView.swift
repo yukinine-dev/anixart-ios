@@ -79,6 +79,11 @@ struct SettingsView: View {
                     } label: {
                         Label("Проверить Kodik", systemImage: "stethoscope")
                     }
+                    NavigationLink {
+                        RequestCompatibilityView()
+                    } label: {
+                        Label("Совместимость запросов", systemImage: "arrow.left.arrow.right")
+                    }
                 }
 
                 Section {

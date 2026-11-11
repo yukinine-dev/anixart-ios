@@ -149,9 +149,11 @@ final class ReleaseActionScopeTests: XCTestCase {
                 let model = try model(rig)
                 let path = removing ? "/release/vote/delete/71" : "/release/vote/add/71/5"
                 let refreshes = rig.api.requests(to: "/profile/42").count
+                // A new score replaces an old one by deleting it first, as Android does.
+                if !removing { rig.api.enqueue("/release/vote/delete/71", json: #"{"code":0}"#) }
                 rig.api.enqueue(path, json: json)
                 if removing { await model.removeVote() } else { await model.vote(.five) }
-                XCTAssertEqual(model.release?.yourVote, 2)
+                XCTAssertEqual(model.release?.yourVote, removing ? 2 : nil)
                 XCTAssertNotNil(model.actionError)
                 XCTAssertFalse(model.isPerformingAction)
                 XCTAssertEqual(rig.api.requests(to: path).count, 1)
@@ -220,6 +222,7 @@ final class ReleaseActionScopeTests: XCTestCase {
         let rig = ProfileTestRig()
         try await rig.signIn()
         let model = try model(rig)
+        rig.api.enqueue("/release/vote/delete/71", json: #"{"code":0}"#)
         rig.api.enqueue("/release/vote/add/71/5", json: #"{"code":0}"#)
         let detail = rig.api.hold("/release/71")
         defer { detail.respond("{}", status: 500) }

@@ -7,34 +7,48 @@ struct ReleaseDetailHeader: View {
     @Environment(\.appThemePalette) private var palette
     let release: Release
     let onTitles: () -> Void
+    /// Opens the poster full screen, where it can be zoomed and saved.
+    var onPoster: (() -> Void)?
 
-    static let posterHeight: CGFloat = 340
-    static let backdropHeight: CGFloat = 380
+    static let posterHeight: CGFloat = 372
+    static let backdropHeight: CGFloat = 412
+    /// How far the blurred backdrop reaches above the page, behind the bars.
+    static let backdropExtension: CGFloat = 240
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Android draws the blurred poster behind the whole top of the page, up
+            // under the status bar, and the poster over it; the bar above is transparent.
             ZStack {
-                CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: { Color.clear }
-                .frame(height: Self.backdropHeight)
-                .clipped()
-                .blur(radius: 28)
-                .overlay(.black.opacity(0.45))
-
                 CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
                     image.resizable().scaledToFit()
                 } placeholder: {
-                    RoundedRectangle(cornerRadius: 14).fill(.quaternary)
+                    RoundedRectangle(cornerRadius: 28).fill(.quaternary)
                         .frame(width: Self.posterHeight * 2 / 3)
                 }
                 .frame(height: Self.posterHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
+                .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .onTapGesture { onPoster?() }
+                .accessibilityAddTraits(onPoster == nil ? [] : .isButton)
+                .accessibilityLabel("Постер")
             }
             .frame(maxWidth: .infinity)
             .frame(height: Self.backdropHeight)
-            .clipped()
+            .background(alignment: .bottom) {
+                // Inside a scroll view the safe area does not reach above the content,
+                // so the backdrop is simply made taller upwards, under status and nav bars.
+                CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: { Color.clear }
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.backdropHeight + Self.backdropExtension)
+                .clipped()
+                .blur(radius: 28)
+                .overlay(.black.opacity(0.55))
+                .clipped()
+            }
             .accessibilityHidden(true)
 
             Button(action: onTitles) {

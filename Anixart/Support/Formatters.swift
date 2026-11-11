@@ -1,6 +1,16 @@
 import Foundation
 
 enum Format {
+    /// The whole number with thin-space grouping ("18 129"), never abbreviated.
+    /// The release page shows how many have it in favourites this way.
+    static func exact(_ value: Int?) -> String {
+        guard let value else { return "0" }
+        // A regular-width (non-breaking) space: Android's «18 129». The thin space the
+        // short counts use read as no gap at all next to larger type.
+        let grouped = number.string(from: NSNumber(value: value)) ?? "\(value)"
+        return grouped.replacingOccurrences(of: "\u{2009}", with: "\u{00A0}")
+    }
+
     /// 1 234 / 12,3 тыс. / 1,2 млн -- matches how the Android app abbreviates counts.
     static func count(_ value: Int?) -> String {
         guard let value else { return "0" }
@@ -23,6 +33,37 @@ enum Format {
         default: return "\(value / 1_000_000)M"
         }
     }
+
+    /// «сегодня в 03:11», «вчера в 01:13», «22 авг. в 11:24», and with the year when
+    /// it is not this one -- how Android dates a comment.
+    static func commentDate(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        let calendar = Calendar.current
+        let time = commentTime.string(from: date)
+        if calendar.isDateInToday(date) { return "сегодня в \(time)" }
+        if calendar.isDateInYesterday(date) { return "вчера в \(time)" }
+        let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: .now)
+        return (sameYear ? commentDay : commentDayYear).string(from: date) + " в " + time
+    }
+
+    private static let commentTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+    private static let commentDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "d MMM"
+        return formatter
+    }()
+    private static let commentDayYear: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "d MMM yyyy 'г.'"
+        return formatter
+    }()
 
     static func relativeDate(_ date: Date?) -> String? {
         guard let date else { return nil }
