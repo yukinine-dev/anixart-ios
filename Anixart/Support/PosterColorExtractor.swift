@@ -24,7 +24,7 @@ enum PosterColorExtractor {
         let ciImage = CIImage(cgImage: cgImage)
         let top = average(of: ciImage, in: CGRect(x: 0, y: 0, width: 1, height: 1.0 / 3))
         let bottom = average(of: ciImage, in: CGRect(x: 0, y: 2.0 / 3, width: 1, height: 1.0 / 3))
-        return PosterTint(top: top ?? .neutral.top, bottom: bottom ?? .neutral.bottom)
+        return PosterTint(top: top ?? PosterTint.neutral.top, bottom: bottom ?? PosterTint.neutral.bottom)
     }
 
     /// `unitRect` is top-down (y=0 at the visual top), matching `UIImage`'s own
