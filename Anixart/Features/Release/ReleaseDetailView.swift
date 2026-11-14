@@ -205,7 +205,14 @@ struct ReleaseDetailView: View {
                 ratingSection(release, model: model)
             }
 
-            if release.listDistribution.contains(where: { $0.count > 0 }) {
+            if release.isAnnouncement {
+                // An unreleased title has no bar of list statuses on Android, just how
+                // many people plan to watch it.
+                if let planned = release.planCount, planned > 0 {
+                    sectionRule
+                    plannedSection(planned)
+                }
+            } else if release.listDistribution.contains(where: { $0.count > 0 }) {
                 sectionRule
                 listsSection(release)
             }
@@ -324,7 +331,10 @@ struct ReleaseDetailView: View {
                         .foregroundStyle(palette.text.color.opacity(0.9))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(palette.accent.color.opacity(0.4), in: Capsule())
+                        // Measured on Android: left #4D485D to right #8C869F, i.e. the
+                        // lavender accent at ~33% rising to ~60%.
+                        .background(LinearGradient(colors: [palette.accent.color.opacity(0.33), palette.accent.color.opacity(0.6)],
+                                                   startPoint: .leading, endPoint: .trailing), in: Capsule())
                         .accessibilityLabel("Выйдет: \(release.announcementPillText.lowercased())")
                 } else {
                     ReleasePlaybackButton(release: release, viewer: viewer)
@@ -620,6 +630,40 @@ struct ReleaseDetailView: View {
         }
     }
 
+    /// «31 145 пользователей планируют смотреть этот релиз» with the ticking clock.
+    private func plannedSection(_ planned: Int) -> some View {
+        let verb = Self.plannedVerb(planned)
+        return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
+            SectionHeader(title: "В списках у людей")
+            HStack(spacing: 14) {
+                TickingClock().frame(width: 34, height: 34).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(Format.exact(planned)) \(verb.noun) \(verb.verb)")
+                        .font(.ax(.subheadline))
+                        .foregroundStyle(palette.accent.color)
+                        .contentTransition(.numericText())
+                        .animation(.default, value: planned)
+                    Text("смотреть этот релиз")
+                        .font(.ax(.subheadline))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private static func plannedVerb(_ count: Int) -> (noun: String, verb: String) {
+        let tens = count % 100, ones = count % 10
+        if (11...14).contains(tens) { return ("пользователей", "планируют") }
+        switch ones {
+        case 1: return ("пользователь", "планирует")
+        case 2...4: return ("пользователя", "планируют")
+        default: return ("пользователей", "планируют")
+        }
+    }
+
     @ViewBuilder
     private func legendItem(_ status: ProfileListStatus, _ counts: [ProfileListStatus: Int]) -> some View {
         if let count = counts[status] {
@@ -691,10 +735,14 @@ struct ReleaseDetailView: View {
         }
     }
 
+    private static let collectionRowHeight: CGFloat = 58
+
     private func collectionLinks(_ release: Release) -> some View {
         // The outer section rules already draw the top and bottom lines, so only
         // the one between the two rows lives here (no doubled strokes).
         VStack(spacing: 0) {
+            // Both rows have one fixed height with their content centred in it, so the
+            // count chip no longer makes the first row taller than the second.
             NavigationLink {
                 ReleaseCollectionsView(releaseID: release.id, title: release.displayTitle, viewer: viewer)
             } label: {
@@ -706,14 +754,14 @@ struct ReleaseDetailView: View {
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 4)
                             .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     Spacer()
                     Image(systemName: "chevron.right").foregroundStyle(.secondary)
                 }
                 .padding(.horizontal)
-                .padding(.vertical, 14)
+                .frame(minHeight: Self.collectionRowHeight)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -729,7 +777,7 @@ struct ReleaseDetailView: View {
                     Image(systemName: "plus").font(.system(size: 22, weight: .light)).foregroundStyle(.secondary)
                 }
                 .padding(.horizontal)
-                .padding(.vertical, 14)
+                .frame(minHeight: Self.collectionRowHeight)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -1010,38 +1058,67 @@ struct RelatedReleaseRow: View {
     }
 }
 
-/// Wraps its children onto as many lines as they need.
+/// The clock beside «пользователей планируют»: a face with a minute hand that
+/// sweeps round and an hour hand that follows slowly.
+struct TickingClock: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(paused: reduceMotion)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            let minute = t.truncatingRemainder(dividingBy: 6) / 6 * 360   // one lap every 6 seconds
+            ZStack {
+                Circle().stroke(Color.secondary, lineWidth: 2.5)
+                Capsule().fill(Color.secondary).frame(width: 2.5, height: 10)
+                    .offset(y: -5).rotationEffect(.degrees(minute / 12))
+                Capsule().fill(Color.secondary).frame(width: 2.5, height: 13)
+                    .offset(y: -6.5).rotationEffect(.degrees(minute))
+            }
+        }
+    }
+}
+
+/// Wraps its children onto as many lines as they need, each child centred on
+/// its line so items of different heights (text next to a chip) share a midline.
 struct FlowRow: Layout {
     var spacing: CGFloat = 8
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
-        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0
-        for subview in subviews {
+    private struct Line { var items: [(index: Int, size: CGSize)] = []; var height: CGFloat = 0 }
+
+    private func lines(_ subviews: Subviews, width: CGFloat) -> [Line] {
+        var result: [Line] = [Line()]
+        var x: CGFloat = 0
+        for (index, subview) in subviews.enumerated() {
             let size = subview.sizeThatFits(.unspecified)
             if x > 0, x + size.width > width {
+                result.append(Line())
                 x = 0
-                y += lineHeight + spacing
-                lineHeight = 0
             }
+            result[result.count - 1].items.append((index, size))
+            result[result.count - 1].height = max(result[result.count - 1].height, size.height)
             x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
         }
-        return CGSize(width: proposal.width ?? x, height: y + lineHeight)
+        return result
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        let rows = lines(subviews, width: width)
+        let height = rows.reduce(0) { $0 + $1.height } + spacing * CGFloat(max(0, rows.count - 1))
+        let natural = rows.map { $0.items.reduce(0) { $0 + $1.size.width } + spacing * CGFloat(max(0, $0.items.count - 1)) }.max() ?? 0
+        return CGSize(width: proposal.width ?? natural, height: height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, lineHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += lineHeight + spacing
-                lineHeight = 0
+        var y = bounds.minY
+        for line in lines(subviews, width: bounds.width) {
+            var x = bounds.minX
+            for item in line.items {
+                subviews[item.index].place(at: CGPoint(x: x, y: y + (line.height - item.size.height) / 2),
+                                           proposal: ProposedViewSize(item.size))
+                x += item.size.width + spacing
             }
-            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
+            y += line.height + spacing
         }
     }
 }

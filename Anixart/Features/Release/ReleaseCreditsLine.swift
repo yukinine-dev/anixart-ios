@@ -23,7 +23,9 @@ struct ReleaseCredit: Hashable {
     static func text(for entries: [ReleaseCredit]) -> AttributedString {
         var result = AttributedString()
         for (index, entry) in entries.enumerated() {
-            result += AttributedString((index == 0 ? "" : ", ") + entry.title + " ")
+            // The line opens a sentence, so only its first credit is capitalised.
+            let title = index == 0 ? entry.title.prefix(1).uppercased() + entry.title.dropFirst() : entry.title
+            result += AttributedString((index == 0 ? "" : ", ") + title + " ")
             var value = AttributedString(entry.value)
             value.underlineStyle = .single
             value.link = entry.url
@@ -44,14 +46,14 @@ struct ReleaseCreditsLine: View {
     var body: some View {
         let entries = ReleaseCredit.entries(for: release)
         if !entries.isEmpty {
-            HStack(alignment: .top, spacing: 12) {
-                // Fitted into the icon column: at title3 the symbol is wider than 26 pt and
-                // ran into the word «Студия».
+            // Same icon column and text size as the other fact lines, so the text
+            // starts on exactly the same x.
+            HStack(alignment: .center, spacing: 10) {
                 Image(systemName: "person.3").resizable().scaledToFit()
-                    .frame(width: 24, height: 22).foregroundStyle(.secondary)
-                    .frame(width: 26, alignment: .leading).accessibilityHidden(true)
+                    .frame(width: 18, height: 16).foregroundStyle(.secondary)
+                    .frame(width: 22, alignment: .center).accessibilityHidden(true)
                 Text(ReleaseCredit.text(for: entries))
-                    .font(.ax(.subheadline))
+                    .font(.ax(.footnote))
                     .tint(.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)

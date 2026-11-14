@@ -47,6 +47,9 @@ final class ReleaseDetailHeaderTests: XCTestCase {
         let links = text.runs.compactMap { $0.link }
         XCTAssertEqual(links, entries.map(\.url))
         XCTAssertEqual(text.runs.filter { $0.underlineStyle == .single }.count, 3)
+        // A line that opens with the author is a sentence start: «Автор …», not «автор …».
+        let authorOnly = try profileTestDecode(Release.self, #"{"id":73,"author":"Author"}"#)
+        XCTAssertEqual(String(ReleaseCredit.text(for: ReleaseCredit.entries(for: authorOnly)).characters), "Автор Author")
         let empty = try profileTestDecode(Release.self, #"{"id":72,"studio":"  ","author":"\n"}"#)
         XCTAssertTrue(ReleaseCredit.entries(for: empty).isEmpty)
     }

@@ -130,6 +130,9 @@ struct ReleaseExpandableText: View {
     @Binding var isExpanded: Bool
     var onExpand: ((Bool) -> Void)?
     @State private var isTruncated = false
+    /// Latched once the text has been seen truncated, so «Скрыть» stays after opening.
+    @State private var canCollapse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var fullText: some View {
         Text(text).font(.ax(.subheadline)).lineSpacing(3)
@@ -157,8 +160,12 @@ struct ReleaseExpandableText: View {
                             }
                         }
                 }
-            if !isExpanded && isTruncated {
-                Button("Подробнее") { expand(fromKeyboard: false) }
+            // Once the text is known to be longer than its collapsed height, the
+            // same spot offers «Подробнее…» to open it and «Скрыть» to close it again.
+            if isTruncated || canCollapse {
+                Button(isExpanded ? "Скрыть" : "Подробнее…") {
+                    if isExpanded { collapse() } else { expand(fromKeyboard: false) }
+                }
                     .font(.ax(.headline, .semibold))
                     .foregroundStyle(Theme.accent)
                     .padding(.horizontal, 22)
@@ -166,16 +173,23 @@ struct ReleaseExpandableText: View {
                     .contentShape(Rectangle())
                     .frame(maxWidth: .infinity, alignment: .center)
                     .buttonStyle(.plain)
-                    .onKeyPress(.return) { expand(fromKeyboard: true); return .handled }
-                    .onKeyPress(.space) { expand(fromKeyboard: true); return .handled }
+                    .onKeyPress(.return) { if isExpanded { collapse() } else { expand(fromKeyboard: true) }; return .handled }
+                    .onKeyPress(.space) { if isExpanded { collapse() } else { expand(fromKeyboard: true) }; return .handled }
             }
         }
+        .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.86), value: isExpanded)
         .onPreferenceChange(ReleaseTextHeightPreference.self) { heights in
-            isTruncated = ReleaseTextTruncation.needsExpansion(fullHeight: heights["full"] ?? 0, visibleHeight: heights["visible"] ?? 0)
+            let needs = ReleaseTextTruncation.needsExpansion(fullHeight: heights["full"] ?? 0, visibleHeight: heights["visible"] ?? 0)
+            isTruncated = needs
+            if needs { canCollapse = true }
         }
     }
 
     private func expand(fromKeyboard: Bool) {
         if let onExpand { onExpand(fromKeyboard) } else { isExpanded = true }
+    }
+
+    private func collapse() {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.86)) { isExpanded = false }
     }
 }
