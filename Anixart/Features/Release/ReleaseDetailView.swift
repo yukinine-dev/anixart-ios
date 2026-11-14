@@ -10,6 +10,7 @@ struct ReleaseDetailView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appThemePalette) private var palette
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
 
     let releaseID: Int
@@ -179,6 +180,7 @@ struct ReleaseDetailView: View {
             })
             statusRow(release, model: model)
             playBlock(release)
+            noteBlock(release)
             factLines(release)
             genres(release)
 
@@ -314,6 +316,16 @@ struct ReleaseDetailView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(Color.primary.opacity(0.07), in: Capsule())
+                } else if release.resolvedStatusId == AiringStatus.announced.rawValue {
+                    // Android swaps the play button for an inert season pill.
+                    Text(release.announcementPillText)
+                        .font(.ax(.headline, .semibold))
+                        .tracking(1.5)
+                        .foregroundStyle(palette.text.color.opacity(0.9))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(palette.accent.color.opacity(0.4), in: Capsule())
+                        .accessibilityLabel("Выйдет: \(release.announcementPillText.lowercased())")
                 } else {
                     ReleasePlaybackButton(release: release, viewer: viewer)
                         .zIndex(1)
@@ -336,6 +348,42 @@ struct ReleaseDetailView: View {
         }
         .padding(.horizontal)
         .padding(.top, Theme.Spacing.row + 4)
+    }
+
+    /// The server-supplied note («Премьера в апреле…»), in its own panel. It comes
+    /// with per-theme colors; the plain surface is the fallback when they are absent.
+    @ViewBuilder
+    private func noteBlock(_ release: Release) -> some View {
+        if let note = release.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
+            let isDark = colorScheme == .dark
+            let background = Self.noteColor(isDark ? release.noteBackgroundColorDark : release.noteBackgroundColorLight)
+            let foreground = Self.noteColor(isDark ? release.noteTextColorDark : release.noteTextColorLight)
+            Text(note)
+                .font(.ax(.body))
+                .foregroundStyle(foreground ?? .primary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(background ?? Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(.horizontal)
+                .padding(.top, Theme.Spacing.row)
+        }
+    }
+
+    /// "#RRGGBB" or Android-style "#AARRGGBB".
+    private static func noteColor(_ hex: String?) -> Color? {
+        guard var text = hex?.trimmingCharacters(in: .whitespaces), !text.isEmpty else { return nil }
+        if text.hasPrefix("#") { text.removeFirst() }
+        guard let value = UInt32(text, radix: 16) else { return nil }
+        switch text.count {
+        case 6:
+            return Color(red: Double((value >> 16) & 0xFF) / 255, green: Double((value >> 8) & 0xFF) / 255, blue: Double(value & 0xFF) / 255)
+        case 8:
+            return Color(red: Double((value >> 16) & 0xFF) / 255, green: Double((value >> 8) & 0xFF) / 255,
+                         blue: Double(value & 0xFF) / 255, opacity: Double((value >> 24) & 0xFF) / 255)
+        default: return nil
+        }
     }
 
     private func releaseMenu(_ release: Release) -> some View {

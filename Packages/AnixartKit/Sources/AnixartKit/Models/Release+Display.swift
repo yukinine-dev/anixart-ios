@@ -74,10 +74,21 @@ extension Release {
     /// The branch order matters. A finished run, or an announcement, shows the total
     /// alone rather than `N из N`; otherwise either side can be unknown and is printed
     /// as `?`. `nil` means the Android app hides the label entirely.
+    /// The release payload carries the airing status as a nested `status` object;
+    /// the flat `status_id` is only present on some endpoints.
+    public var resolvedStatusId: Int? { statusId ?? status?.id }
+
+    /// «ВЕСНА 2027 ГОД» -- the pill Android shows in place of the play button
+    /// while a title is still an announcement.
+    public var announcementPillText: String {
+        if let seasonAndYear { return "\(seasonAndYear) год".uppercased() }
+        return (status?.name ?? "Анонс").uppercased()
+    }
+
     public var episodeProgressText: String? {
         let released = episodesReleased
         let total = episodesTotal
-        let isAnnouncement = statusId == AiringStatus.announced.rawValue
+        let isAnnouncement = resolvedStatusId == AiringStatus.announced.rawValue
 
         if (released != nil && released == total) || isAnnouncement {
             guard let total else { return "? эп" }
@@ -297,7 +308,7 @@ extension Release {
         if let category = category?.name, !category.isEmpty { parts.append(category) }
         if let status = status?.name, !status.isEmpty {
             var phrase = status.lowercased()
-            if statusId == AiringStatus.ongoing.rawValue, let weekday = broadcastWeekday {
+            if resolvedStatusId == AiringStatus.ongoing.rawValue, let weekday = broadcastWeekday {
                 phrase += " \(weekday)"
             }
             parts.append(phrase)
