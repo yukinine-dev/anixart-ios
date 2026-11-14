@@ -255,6 +255,10 @@ jobs:
   app:
     name: iOS app build and player tests
     runs-on: macos-15
+    # agent/* branches get only the kit tests and the IPA (which also compiles the
+    # app), so a sideloadable build is ready in ~7 min instead of ~9. Player tests
+    # still run on the development branch, pull requests and manual runs.
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/agent/')
     steps:
       - uses: actions/checkout@v4
         with:
