@@ -9,6 +9,7 @@ struct ReleaseDetailView: View {
     @Environment(\.returnToHome) private var returnToHome
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appThemePalette) private var palette
     @AppStorage(DeviceAppearancePreferenceKey.resourceSaving) private var resourceSaving = false
 
     let releaseID: Int
@@ -226,6 +227,8 @@ struct ReleaseDetailView: View {
             if let recommended = release.recommendedReleases, !recommended.isEmpty {
                 sectionRule
                 recommendedCarousel(releases: recommended)
+                    .padding(.vertical, 16)
+                    .background(palette.surface.color)
             }
 
             sectionRule
@@ -360,7 +363,7 @@ struct ReleaseDetailView: View {
 
     @ViewBuilder
     private func factLines(_ release: Release) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 7) {
             if let line = release.countryAndSeasonLine {
                 factLine("globe", line, flag: release.countryFlag)
             }
@@ -389,18 +392,18 @@ struct ReleaseDetailView: View {
     }
 
     private func factLine(_ systemImage: String, _ text: String, underlined: String? = nil, flag: String? = nil) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 10) {
             Group {
                 if let flag { Text(flag).accessibilityHidden(true) }
                 else {
                     Image(systemName: systemImage).resizable().scaledToFit()
-                        .frame(width: 24, height: 22).foregroundStyle(.secondary).accessibilityHidden(true)
+                        .frame(width: 18, height: 16).foregroundStyle(.secondary).accessibilityHidden(true)
                 }
             }
-                .font(.ax(.title3))
-                .frame(width: 26, alignment: .leading)
+                .font(.ax(.body))
+                .frame(width: 22, alignment: .center)
             Text(attributed(text, underlining: underlined))
-                .font(.ax(.subheadline))
+                .font(.ax(.footnote))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -639,8 +642,9 @@ struct ReleaseDetailView: View {
     }
 
     private func collectionLinks(_ release: Release) -> some View {
+        // The outer section rules already draw the top and bottom lines, so only
+        // the one between the two rows lives here (no doubled strokes).
         VStack(spacing: 0) {
-            Divider().padding(.horizontal)
             NavigationLink {
                 ReleaseCollectionsView(releaseID: release.id, title: release.displayTitle, viewer: viewer)
             } label: {
@@ -680,8 +684,6 @@ struct ReleaseDetailView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
-
-            Divider().padding(.horizontal)
         }
     }
 
@@ -922,8 +924,11 @@ struct RelatedReleaseRow: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 FlowRow(spacing: 8) {
+                    // The chip carries 4pt of vertical padding; the plain items carry
+                    // the same so every item in the line is one height and aligns.
                     if let year = release.year, !year.isEmpty {
                         Text("\(year) год").font(.ax(fixed: 14)).foregroundStyle(.secondary)
+                            .padding(.vertical, 4)
                     }
                     if let rating = release.ratingText {
                         HStack(spacing: 3) {
@@ -931,6 +936,7 @@ struct RelatedReleaseRow: View {
                             Text(rating).font(.ax(fixed: 14)).foregroundStyle(.secondary)
                             Image(systemName: "star.fill").font(.ax(fixed: 12)).foregroundStyle(.secondary)
                         }
+                        .padding(.vertical, 4)
                     }
                     if let category = release.category?.name, !category.isEmpty {
                         Text(category)

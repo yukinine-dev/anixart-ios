@@ -53,9 +53,14 @@ struct ReleaseDetailHeader: View {
                                    startPoint: .top, endPoint: .bottom)
                 }
                 .overlay(alignment: .bottom) {
-                    // Keeps the title readable where it sits right below the backdrop.
-                    LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
-                        .frame(height: (Self.backdropHeight + Self.backdropExtension) * 0.4)
+                    // Dissolves the tint into the page background so the title block
+                    // below starts on a seamless surface, with no visible edge.
+                    LinearGradient(stops: [
+                        .init(color: palette.background.color.opacity(0), location: 0),
+                        .init(color: palette.background.color.opacity(0.55), location: 0.55),
+                        .init(color: palette.background.color, location: 1)
+                    ], startPoint: .top, endPoint: .bottom)
+                        .frame(height: (Self.backdropHeight + Self.backdropExtension) * 0.5)
                 }
                 .clipped()
                 .task(id: release.posterURL) {
@@ -157,9 +162,13 @@ struct ReleaseExpandableText: View {
                         }
                 }
             if !isExpanded && isTruncated {
-                Button("Подробнее…") { expand(fromKeyboard: false) }
-                    .font(.ax(.subheadline, .medium))
+                Button("Подробнее") { expand(fromKeyboard: false) }
+                    .font(.ax(.headline, .semibold))
                     .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .buttonStyle(.plain)
                     .onKeyPress(.return) { expand(fromKeyboard: true); return .handled }
                     .onKeyPress(.space) { expand(fromKeyboard: true); return .handled }
