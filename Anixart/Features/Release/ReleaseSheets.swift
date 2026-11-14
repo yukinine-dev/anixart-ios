@@ -17,6 +17,9 @@ struct ListPickerSheet: View {
     /// row of its own.
     @State private var picked: ProfileListStatus?
     @State private var didPick = false
+    /// Row under the finger while it is held down and slid along the list.
+    @State private var hovered: ProfileListStatus??
+    @State private var rowFrames: [ProfileListStatus?: CGRect] = [:]
     @State private var sheetHeight: CGFloat = 400
     @Namespace private var slots
 
@@ -41,6 +44,21 @@ struct ListPickerSheet: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(GeometryReader { Color.clear.preference(key: PickerHeightKey.self, value: $0.size.height) })
         .onPreferenceChange(PickerHeightKey.self) { sheetHeight = $0 }
+        .coordinateSpace(name: "pickerSheet")
+        .onPreferenceChange(RowFramesKey.self) { frames in
+            rowFrames = Dictionary(frames.map { ($0.status, $0.frame) }, uniquingKeysWith: { $1 })
+        }
+        // One gesture for tap and press-slide-release: the row under the finger lights
+        // up, and lifting the finger picks it.
+        .gesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .named("pickerSheet"))
+                .onChanged { value in hovered = status(at: value.location) }
+                .onEnded { value in
+                    let target = status(at: value.location)
+                    hovered = nil
+                    if let target { choose(target) }
+                }
+        )
         .frame(maxHeight: .infinity, alignment: .top)
         // Sized to the rows, so nothing is left empty below «Брошено».
         .presentationDetents([.height(sheetHeight + 20)])
@@ -50,19 +68,28 @@ struct ListPickerSheet: View {
     private func title(_ status: ProfileListStatus?) -> String { status?.title ?? "Не смотрю" }
     private func color(_ status: ProfileListStatus?) -> Color { status.map { Theme.listColor($0) } ?? .gray }
 
+    /// `.some(nil)` is the «Не смотрю» row; plain `nil` means no row is there.
+    private func status(at point: CGPoint) -> ProfileListStatus?? {
+        for (status, frame) in rowFrames where frame.contains(point) { return .some(status) }
+        return nil
+    }
+
+    private func choose(_ status: ProfileListStatus?) {
+        guard !didPick else { return }
+        didPick = true
+        if status != picked {
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) { picked = status }
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            onSelect(status)
+            dismiss()
+        }
+    }
+
     private func row(_ status: ProfileListStatus?, isTop: Bool) -> some View {
-        Button {
-            guard !didPick else { return }
-            didPick = true
-            if status != picked {
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) { picked = status }
-            }
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 450_000_000)
-                onSelect(status)
-                dismiss()
-            }
-        } label: {
+        let isHovered: Bool = { if let h = hovered { return h == status } else { return false } }()
+        return Group {
             HStack(spacing: 18) {
                 Circle().fill(color(status)).frame(width: 12, height: 12)
                 Text(title(status)).font(.ax(.title3))
@@ -73,13 +100,24 @@ struct ListPickerSheet: View {
             }
             .padding(.horizontal, 24)
             .frame(height: 54)
-            .background(isTop ? color(status).opacity(0.28) : Color.clear)
+            .background(isTop ? color(status).opacity(0.28) : (isHovered ? Color.primary.opacity(0.10) : Color.clear))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
         .foregroundStyle(.primary)
+        .background(GeometryReader { geo in
+            Color.clear.preference(key: RowFramesKey.self,
+                                   value: [RowFrame(status: status, frame: geo.frame(in: .named("pickerSheet")))])
+        })
+        .accessibilityAddTraits(.isButton)
         .matchedGeometryEffect(id: status, in: slots)
     }
+}
+
+private struct RowFrame: Equatable { let status: ProfileListStatus?; let frame: CGRect }
+
+private struct RowFramesKey: PreferenceKey {
+    static var defaultValue: [RowFrame] = []
+    static func reduce(value: inout [RowFrame], nextValue: () -> [RowFrame]) { value += nextValue() }
 }
 
 private struct PickerHeightKey: PreferenceKey {

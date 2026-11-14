@@ -1106,7 +1106,7 @@ private struct HideTopScrollEdgeEffect: ViewModifier {
 }
 
 /// The clock beside «пользователей планируют»: a face with a minute hand that
-/// sweeps round and an hour hand that follows slowly.
+/// sweeps round and a fixed hour hand.
 struct TickingClock: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -1114,11 +1114,11 @@ struct TickingClock: View {
         TimelineView(.animation(paused: reduceMotion)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             let minute = t.truncatingRemainder(dividingBy: 6) / 6 * 360    // one lap every 6 seconds
-            let hour = t.truncatingRemainder(dividingBy: 24) / 24 * 360     // one lap every 24 s, clearly moving
             ZStack {
                 Circle().stroke(Color.secondary, lineWidth: 2.5)
+                // The hour hand stays put; only the minute hand moves.
                 Capsule().fill(Color.secondary).frame(width: 2.5, height: 10)
-                    .offset(y: -5).rotationEffect(.degrees(hour))
+                    .offset(y: -5).rotationEffect(.degrees(-30))
                 Capsule().fill(Color.secondary).frame(width: 2.5, height: 13)
                     .offset(y: -6.5).rotationEffect(.degrees(minute))
             }
