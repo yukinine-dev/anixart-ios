@@ -12,6 +12,8 @@ struct ReleaseDetailHeader: View {
 
     static let posterHeight: CGFloat = 372
     static let backdropHeight: CGFloat = 412
+    /// How far the whole block is lifted so the poster starts right under the status bar.
+    static let topLift: CGFloat = 62
     /// How far the backdrop reaches above the page, behind the bars.
     static let backdropExtension: CGFloat = 240
 
@@ -105,7 +107,7 @@ struct ReleaseDetailHeader: View {
         // Android's poster starts right under the status bar, with the round buttons
         // beside it; here the page starts below the nav bar, so lift the whole block
         // (measured: ~62pt lower than Android on a live comparison).
-        .padding(.top, -62)
+        .padding(.top, -Self.topLift)
     }
 }
 

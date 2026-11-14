@@ -31,7 +31,9 @@ final class ReleaseDetailHeaderTests: XCTestCase {
                     .fixedSize(horizontal: false, vertical: true))
                 let measured = host.sizeThatFits(in: CGSize(width: width, height: 10_000))
                 XCTAssertLessThanOrEqual(measured.width, width + 0.5)
-                XCTAssertGreaterThan(measured.height, ReleaseDetailHeader.backdropHeight)
+                // The block is lifted by `topLift`, so it measures that much shorter than
+                // backdrop + title.
+                XCTAssertGreaterThan(measured.height, ReleaseDetailHeader.backdropHeight - ReleaseDetailHeader.topLift)
                 XCTAssertTrue(measured.height.isFinite)
             }
         }
