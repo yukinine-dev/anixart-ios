@@ -54,6 +54,7 @@ struct SettingsView: View {
                     NavigationLink { DevicePlaybackSettingsView() } label: { Label("Воспроизведение", systemImage: "play.rectangle") }
                     NavigationLink { DeviceAppearanceSettingsView() } label: { Label("Внешний вид", systemImage: "paintpalette") }
                     NavigationLink { DeviceDataSettingsView() } label: { Label("Управление данными", systemImage: "internaldrive") }
+                    NavigationLink { DeviceHapticsSettingsView() } label: { Label("Вибро-отклик", systemImage: "waveform") }
                     NavigationLink { DeviceAdditionalSettingsView() } label: { Label("Дополнительно", systemImage: "slider.horizontal.3") }
                 }
 
@@ -104,6 +105,7 @@ struct SettingsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Выйти", role: .destructive) {
+                    AppHaptics.shared.play(.destructiveConfirm)
                     Task {
                         guard let signOutAccount, env.session.accountKey == signOutAccount else { return }
                         await env.session.signOut()

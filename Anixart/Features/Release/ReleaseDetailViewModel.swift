@@ -83,6 +83,7 @@ final class ReleaseDetailViewModel {
         let previous = current.profileListStatus
 
         release?.profileListStatus = status?.rawValue
+        AppHaptics.shared.play(status != nil ? .bookmarkAdded : .bookmarkRemoved)
 
         do {
             try await session.sendConfirmedAccountRequest(endpoint, for: account)
@@ -104,6 +105,7 @@ final class ReleaseDetailViewModel {
         let wasFavorite = current.isFavorite ?? false
 
         release?.isFavorite = !wasFavorite
+        AppHaptics.shared.play(wasFavorite ? .bookmarkRemoved : .bookmarkAdded)
 
         do {
             if wasFavorite {
@@ -139,6 +141,7 @@ final class ReleaseDetailViewModel {
             // Own stars are acknowledged even when the following aggregate read
             // fails. That read's failure remains visible on the detail screen.
             release?.yourVote = value
+            if value != nil { AppHaptics.shared.play(.voteCast) }
             // The aggregate grade changes server-side, so refetch rather than guess.
             await load(allowDuringAction: true)
             await session.refreshProfile(for: account)
@@ -168,5 +171,6 @@ final class ReleaseDetailViewModel {
     private func showActionError(_ error: any Error) {
         guard hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) else { return }
         actionError = Paginator<Release>.message(for: error)
+        AppHaptics.shared.play(.error)
     }
 }

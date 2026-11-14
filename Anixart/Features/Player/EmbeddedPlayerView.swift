@@ -378,7 +378,7 @@ struct EmbeddedPlayerView: View {
 
                 if !model.isLocked {
                     Button {
-                        model.seek(by: TimeInterval(preferences.rewindSeconds))
+                        model.seek(by: TimeInterval(preferences.rewindSeconds), isIntroSkip: true)
                     } label: {
                         Image(systemName: "forward.fill").font(.ax(.title3)).playerHitArea()
                     }
