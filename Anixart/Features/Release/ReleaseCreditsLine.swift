@@ -50,10 +50,10 @@ struct ReleaseCreditsLine: View {
             // starts on exactly the same x.
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: "person.3").resizable().scaledToFit()
-                    .frame(width: 18, height: 16).foregroundStyle(.secondary)
-                    .frame(width: 22, alignment: .center).accessibilityHidden(true)
+                    .frame(width: 21, height: 19).foregroundStyle(.secondary)
+                    .frame(width: 26, alignment: .center).accessibilityHidden(true)
                 Text(ReleaseCredit.text(for: entries))
-                    .font(.ax(.footnote))
+                    .font(.ax(.subheadline))
                     .tint(.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)

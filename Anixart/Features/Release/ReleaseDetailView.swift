@@ -67,6 +67,9 @@ struct ReleaseDetailView: View {
         .toolbar(.visible, for: .navigationBar)
         // The blurred poster runs under the bar, as on Android.
         .toolbarBackground(.hidden, for: .navigationBar)
+        // iOS 26 adds a soft translucent strip under the bar buttons once the page
+        // scrolls; Android has nothing there, so switch that edge effect off.
+        .modifier(HideTopScrollEdgeEffect())
         .refreshable { await model?.load() }
         .sheet(isPresented: $isShowingTitles) {
             if let release = model?.release { ReleaseTitlesView(release: release) }
@@ -230,18 +233,20 @@ struct ReleaseDetailView: View {
                 relatedSection(release, releases: release.relatedPreviewReleases)
             }
 
-            sectionRule
+            // The block carries its own three lines (top, between, bottom), so each row
+            // is centred between two lines and nothing doubles up with a section rule.
             collectionLinks(release)
+                .padding(.top, Theme.Spacing.section)
 
             if let recommended = release.recommendedReleases, !recommended.isEmpty {
-                sectionRule
                 recommendedCarousel(releases: recommended)
                     .padding(.vertical, 16)
                     .background(palette.surface.color)
+                    .padding(.top, Theme.Spacing.section)
             }
 
-            sectionRule
             commentsSection(release, model: model)
+                .padding(.top, Theme.Spacing.section)
     }
 
 
@@ -275,17 +280,30 @@ struct ReleaseDetailView: View {
             Button {
                 Task { await model.toggleFavorite() }
             } label: {
+                let isFavorite = release.isFavorite ?? false
                 HStack(spacing: 8) {
-                    Image(systemName: (release.isFavorite ?? false) ? "bookmark.fill" : "bookmark")
+                    Image(systemName: isFavorite ? "bookmark.fill" : "bookmark")
                         .font(.ax(.subheadline))
+                        .contentTransition(.symbolEffect(.replace))
+                        // A quick squash, a pop past full size, then a bouncy settle.
+                        .keyframeAnimator(initialValue: 1.0, trigger: isFavorite) { view, scale in
+                            view.scaleEffect(scale)
+                        } keyframes: { _ in
+                            SpringKeyframe(0.7, duration: 0.1)
+                            SpringKeyframe(1.5, duration: 0.2, spring: .snappy)
+                            SpringKeyframe(1.0, spring: .bouncy)
+                        }
                     Text(Format.exact(release.favoriteCount))
                         .font(.ax(.subheadline))
                         .monospacedDigit()
+                        .contentTransition(.numericText())
                 }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 12)
-                .overlay(Capsule().stroke((release.isFavorite ?? false) ? Theme.favoriteYellow : Color.primary.opacity(0.25), lineWidth: 1.5))
-                .foregroundStyle((release.isFavorite ?? false) ? Theme.favoriteYellow : .primary)
+                .overlay(Capsule().stroke(isFavorite ? Theme.favoriteYellow : Color.primary.opacity(0.25), lineWidth: 1.5))
+                .foregroundStyle(isFavorite ? Theme.favoriteYellow : .primary)
+                .animation(.easeOut(duration: 0.25), value: isFavorite)
+                .animation(.default, value: release.favoriteCount)
             }
             .buttonStyle(.plain)
             .disabled(model.isPerformingAction)
@@ -426,7 +444,7 @@ struct ReleaseDetailView: View {
 
     @ViewBuilder
     private func factLines(_ release: Release) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 10) {
             if let line = release.countryAndSeasonLine {
                 factLine("globe", line, flag: release.countryFlag)
             }
@@ -460,13 +478,13 @@ struct ReleaseDetailView: View {
                 if let flag { Text(flag).accessibilityHidden(true) }
                 else {
                     Image(systemName: systemImage).resizable().scaledToFit()
-                        .frame(width: 18, height: 16).foregroundStyle(.secondary).accessibilityHidden(true)
+                        .frame(width: 21, height: 19).foregroundStyle(.secondary).accessibilityHidden(true)
                 }
             }
-                .font(.ax(.body))
-                .frame(width: 22, alignment: .center)
+                .font(.ax(.title3))
+                .frame(width: 26, alignment: .center)
             Text(attributed(text, underlining: underlined))
-                .font(.ax(.footnote))
+                .font(.ax(.subheadline))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -713,13 +731,20 @@ struct ReleaseDetailView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             SectionHeader(title: "Связанные релизы") {
                 if release.hasMoreRelatedReleases, let related = release.related {
-                    NavigationLink("Показать все") {
+                    NavigationLink {
                         RelatedReleasesView(related: related, viewer: viewer, context: .release(release.id))
+                    } label: {
+                        Text("Показать все")
+                            .font(.ax(.body, .medium))
+                            .foregroundStyle(palette.text.color)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(palette.surface.color, in: Capsule())
                     }
-                    .font(.ax(.subheadline))
+                    .buttonStyle(.plain)
                 }
             }
-            VStack(spacing: Theme.Spacing.row) {
+            VStack(spacing: 26) {
                 ForEach(releases) { item in
                     if item.id == release.id {
                         // Not a disabled link: that would dim the open release to grey.
@@ -741,9 +766,8 @@ struct ReleaseDetailView: View {
     private static let collectionRowHeight: CGFloat = 58
 
     private func collectionLinks(_ release: Release) -> some View {
-        // The outer section rules already draw the top and bottom lines, so only
-        // the one between the two rows lives here (no doubled strokes).
         VStack(spacing: 0) {
+            Divider().padding(.horizontal)
             // Both rows have one fixed height with their content centred in it, so the
             // count chip no longer makes the first row taller than the second.
             NavigationLink {
@@ -761,7 +785,10 @@ struct ReleaseDetailView: View {
                             .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     Spacer()
+                    // Both trailing icons share one fixed-width slot, so the chevron
+                    // and the plus sit on the same vertical axis.
                     Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                        .frame(width: 30)
                 }
                 .padding(.horizontal)
                 .frame(minHeight: Self.collectionRowHeight)
@@ -778,6 +805,7 @@ struct ReleaseDetailView: View {
                     Text("Добавить к себе в коллекцию").font(.ax(.title3, .medium))
                     Spacer()
                     Image(systemName: "plus").font(.system(size: 22, weight: .light)).foregroundStyle(.secondary)
+                        .frame(width: 30)
                 }
                 .padding(.horizontal)
                 .frame(minHeight: Self.collectionRowHeight)
@@ -785,6 +813,8 @@ struct ReleaseDetailView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
+
+            Divider().padding(.horizontal)
         }
     }
 
@@ -1061,6 +1091,20 @@ struct RelatedReleaseRow: View {
     }
 }
 
+private struct HideTopScrollEdgeEffect: ViewModifier {
+    func body(content: Content) -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
 /// The clock beside «пользователей планируют»: a face with a minute hand that
 /// sweeps round and an hour hand that follows slowly.
 struct TickingClock: View {
@@ -1069,11 +1113,12 @@ struct TickingClock: View {
     var body: some View {
         TimelineView(.animation(paused: reduceMotion)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
-            let minute = t.truncatingRemainder(dividingBy: 6) / 6 * 360   // one lap every 6 seconds
+            let minute = t.truncatingRemainder(dividingBy: 6) / 6 * 360    // one lap every 6 seconds
+            let hour = t.truncatingRemainder(dividingBy: 24) / 24 * 360     // one lap every 24 s, clearly moving
             ZStack {
                 Circle().stroke(Color.secondary, lineWidth: 2.5)
                 Capsule().fill(Color.secondary).frame(width: 2.5, height: 10)
-                    .offset(y: -5).rotationEffect(.degrees(minute / 12))
+                    .offset(y: -5).rotationEffect(.degrees(hour))
                 Capsule().fill(Color.secondary).frame(width: 2.5, height: 13)
                     .offset(y: -6.5).rotationEffect(.degrees(minute))
             }

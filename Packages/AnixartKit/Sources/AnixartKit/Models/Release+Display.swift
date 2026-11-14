@@ -88,7 +88,8 @@ extension Release {
     /// while a title is still an announcement.
     public var announcementPillText: String {
         if let seasonAndYear { return "\(seasonAndYear) год".uppercased() }
-        return (status?.name ?? "Анонс").uppercased()
+        // Season unknown (Re:Zero 5): Android says «СКОРО», not the status name.
+        return "СКОРО"
     }
 
     public var episodeProgressText: String? {

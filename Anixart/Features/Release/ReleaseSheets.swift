@@ -12,46 +12,79 @@ struct ListPickerSheet: View {
     let current: ProfileListStatus?
     let onSelect: (ProfileListStatus?) -> Void
 
-    /// Android's order: not watching, a divider, then the five lists.
-    private let order: [ProfileListStatus] = [.watching, .plan, .completed, .holdOn, .dropped]
+    /// `nil` is «Не смотрю». The picked option moves up into the highlighted top slot
+    /// and the previous one drops into the list, so «Не смотрю» is no longer a fixed
+    /// row of its own.
+    @State private var picked: ProfileListStatus?
+    @State private var didPick = false
+    @State private var sheetHeight: CGFloat = 400
+    @Namespace private var slots
+
+    private let options: [ProfileListStatus?] = [nil, .watching, .plan, .completed, .holdOn, .dropped]
+
+    init(current: ProfileListStatus?, onSelect: @escaping (ProfileListStatus?) -> Void) {
+        self.current = current
+        self.onSelect = onSelect
+        _picked = State(initialValue: current)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            row(title: "Не смотрю", color: .gray, selected: current == nil) { onSelect(nil) }
+            row(picked, isTop: true)
             Divider().padding(.vertical, 6)
-            ForEach(order, id: \.self) { status in
-                row(title: status.title, color: Theme.listColor(status), selected: status == current) {
-                    onSelect(status)
-                }
+            ForEach(options.filter { $0 != picked }, id: \.self) { status in
+                row(status, isTop: false)
             }
-            Spacer(minLength: 0)
         }
         .padding(.top, 20)
-        .presentationDetents([.height(440)])
+        .padding(.bottom, 12)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(GeometryReader { Color.clear.preference(key: PickerHeightKey.self, value: $0.size.height) })
+        .onPreferenceChange(PickerHeightKey.self) { sheetHeight = $0 }
+        .frame(maxHeight: .infinity, alignment: .top)
+        // Sized to the rows, so nothing is left empty below «Брошено».
+        .presentationDetents([.height(sheetHeight + 20)])
         .presentationDragIndicator(.visible)
     }
 
-    private func row(title: String, color: Color, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func title(_ status: ProfileListStatus?) -> String { status?.title ?? "Не смотрю" }
+    private func color(_ status: ProfileListStatus?) -> Color { status.map { Theme.listColor($0) } ?? .gray }
+
+    private func row(_ status: ProfileListStatus?, isTop: Bool) -> some View {
         Button {
-            action()
-            dismiss()
+            guard !didPick else { return }
+            didPick = true
+            if status != picked {
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) { picked = status }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 450_000_000)
+                onSelect(status)
+                dismiss()
+            }
         } label: {
             HStack(spacing: 18) {
-                Circle().fill(color).frame(width: 12, height: 12)
-                Text(title).font(.ax(.title3))
+                Circle().fill(color(status)).frame(width: 12, height: 12)
+                Text(title(status)).font(.ax(.title3))
                 Spacer()
-                if selected {
-                    Image(systemName: "checkmark").font(.ax(.headline)).foregroundStyle(color)
+                if isTop {
+                    Image(systemName: "checkmark").font(.ax(.headline)).foregroundStyle(color(status))
                 }
             }
             .padding(.horizontal, 24)
             .frame(height: 54)
-            .background(selected ? color.opacity(0.28) : Color.clear)
+            .background(isTop ? color(status).opacity(0.28) : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .foregroundStyle(.primary)
+        .matchedGeometryEffect(id: status, in: slots)
     }
+}
+
+private struct PickerHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 /// Five-star rating with the vote distribution underneath.
