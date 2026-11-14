@@ -48,17 +48,18 @@ struct ReleaseDetailHeader: View {
                 .overlay {
                     // Measured on a live Android screen: the backdrop is the poster itself,
                     // sharp (no blur), dimmed to roughly 12-15% brightness.
-                    palette.background.color.opacity(0.86)
+                    palette.background.color.opacity(0.62)
                 }
                 .overlay(alignment: .bottom) {
                     // Dissolves the tint into the page background so the title block
                     // below starts on a seamless surface, with no visible edge.
+                    // Android's ghost holds until ~20% of the screen and is gone by ~40%.
                     LinearGradient(stops: [
                         .init(color: palette.background.color.opacity(0), location: 0),
-                        .init(color: palette.background.color.opacity(0.55), location: 0.55),
+                        .init(color: palette.background.color.opacity(0.6), location: 0.5),
                         .init(color: palette.background.color, location: 1)
                     ], startPoint: .top, endPoint: .bottom)
-                        .frame(height: (Self.backdropHeight + Self.backdropExtension) * 0.5)
+                        .frame(height: (Self.backdropHeight + Self.backdropExtension) * 0.36)
                 }
                 .clipped()
             }

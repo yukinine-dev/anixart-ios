@@ -78,6 +78,12 @@ extension Release {
     /// the flat `status_id` is only present on some endpoints.
     public var resolvedStatusId: Int? { statusId ?? status?.id }
 
+    /// An announcement by id, or by the status name when the id does not line up.
+    public var isAnnouncement: Bool {
+        resolvedStatusId == AiringStatus.announced.rawValue
+            || status?.name?.trimmingCharacters(in: .whitespaces).lowercased() == "анонс"
+    }
+
     /// «ВЕСНА 2027 ГОД» -- the pill Android shows in place of the play button
     /// while a title is still an announcement.
     public var announcementPillText: String {
@@ -88,7 +94,7 @@ extension Release {
     public var episodeProgressText: String? {
         let released = episodesReleased
         let total = episodesTotal
-        let isAnnouncement = resolvedStatusId == AiringStatus.announced.rawValue
+        let isAnnouncement = self.isAnnouncement
 
         if (released != nil && released == total) || isAnnouncement {
             guard let total else { return "? эп" }

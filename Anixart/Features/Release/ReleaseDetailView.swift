@@ -200,7 +200,7 @@ struct ReleaseDetailView: View {
             }
 
             // Android hides the whole rating block for an announced (unreleased) title.
-            if release.status?.id != AiringStatus.announced.rawValue {
+            if !release.isAnnouncement {
                 sectionRule
                 ratingSection(release, model: model)
             }
@@ -316,7 +316,7 @@ struct ReleaseDetailView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(Color.primary.opacity(0.07), in: Capsule())
-                } else if release.resolvedStatusId == AiringStatus.announced.rawValue {
+                } else if release.isAnnouncement {
                     // Android swaps the play button for an inert season pill.
                     Text(release.announcementPillText)
                         .font(.ax(.headline, .semibold))
@@ -354,7 +354,9 @@ struct ReleaseDetailView: View {
     /// with per-theme colors; the plain surface is the fallback when they are absent.
     @ViewBuilder
     private func noteBlock(_ release: Release) -> some View {
-        if let note = release.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
+        if let note = release.note?
+            .replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: [.regularExpression, .caseInsensitive])
+            .trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
             let isDark = colorScheme == .dark
             let background = Self.noteColor(isDark ? release.noteBackgroundColorDark : release.noteBackgroundColorLight)
             let foreground = Self.noteColor(isDark ? release.noteTextColorDark : release.noteTextColorLight)
@@ -873,7 +875,7 @@ struct ReleaseDetailView: View {
             }
 
             // Android hides the composer entirely for an announced (unreleased) title.
-            if release.status?.id != AiringStatus.announced.rawValue {
+            if !release.isAnnouncement {
                 CommentComposerBar(composer: inlineComposer, showsDivider: false) {
                     let location = ProfileCommentLocation(category: .releases, parentID: release.id)
                     if await inlineComposer.send(at: location, parentCommentID: inlineComposer.replyingTo?.threadRootID, session: env.session) {
