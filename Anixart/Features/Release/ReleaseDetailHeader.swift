@@ -48,18 +48,18 @@ struct ReleaseDetailHeader: View {
                 .overlay {
                     // Measured on a live Android screen: the backdrop is the poster itself,
                     // sharp (no blur), dimmed to roughly 12-15% brightness.
-                    palette.background.color.opacity(0.62)
+                    palette.background.color.opacity(0.9)
                 }
                 .overlay(alignment: .bottom) {
                     // Dissolves the tint into the page background so the title block
                     // below starts on a seamless surface, with no visible edge.
-                    // Android's ghost holds until ~20% of the screen and is gone by ~40%.
+                    // Measured on Android: the ghost stays flat to ~35% of the screen,
+                    // then is gone by ~45%.
                     LinearGradient(stops: [
                         .init(color: palette.background.color.opacity(0), location: 0),
-                        .init(color: palette.background.color.opacity(0.6), location: 0.5),
-                        .init(color: palette.background.color, location: 1)
+                        .init(color: palette.background.color, location: 0.8)
                     ], startPoint: .top, endPoint: .bottom)
-                        .frame(height: (Self.backdropHeight + Self.backdropExtension) * 0.36)
+                        .frame(height: 150)
                 }
                 .clipped()
             }
@@ -102,6 +102,10 @@ struct ReleaseDetailHeader: View {
             .padding(.horizontal)
             .padding(.top, Theme.Spacing.row)
         }
+        // Android's poster starts right under the status bar, with the round buttons
+        // beside it; here the page starts below the nav bar, so lift the whole block
+        // (measured: ~62pt lower than Android on a live comparison).
+        .padding(.top, -62)
     }
 }
 
