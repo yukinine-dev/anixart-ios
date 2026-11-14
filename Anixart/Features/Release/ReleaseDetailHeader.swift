@@ -15,13 +15,10 @@ struct ReleaseDetailHeader: View {
     /// How far the backdrop reaches above the page, behind the bars.
     static let backdropExtension: CGFloat = 240
 
-    @State private var tint = PosterTint.neutral
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Android paints a gradient pulled from the poster's own colors behind
-            // the whole top of the page, up under the status bar -- not a blur --
-            // and the poster over it; the bar above is transparent.
+            // Android paints the poster itself, enlarged and heavily dimmed, behind the
+            // whole top of the page and the poster sharp over it; the bar above is transparent.
             ZStack {
                 CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
                     image.resizable().scaledToFit()
@@ -49,8 +46,9 @@ struct ReleaseDetailHeader: View {
                 .frame(height: Self.backdropHeight + Self.backdropExtension)
                 .clipped()
                 .overlay {
-                    LinearGradient(colors: [tint.top.opacity(0.82), tint.bottom.opacity(0.92)],
-                                   startPoint: .top, endPoint: .bottom)
+                    // Measured on a live Android screen: the backdrop is the poster itself,
+                    // sharp (no blur), dimmed to roughly 12-15% brightness.
+                    palette.background.color.opacity(0.86)
                 }
                 .overlay(alignment: .bottom) {
                     // Dissolves the tint into the page background so the title block
@@ -63,13 +61,6 @@ struct ReleaseDetailHeader: View {
                         .frame(height: (Self.backdropHeight + Self.backdropExtension) * 0.5)
                 }
                 .clipped()
-                .task(id: release.posterURL) {
-                    guard let url = release.posterURL,
-                          let image = await ImageLoader.shared.image(for: url, pixelSize: 48) else { return }
-                    let sampled = PosterColorExtractor.tint(of: image)
-                    guard !Task.isCancelled else { return }
-                    withAnimation(.easeOut(duration: 0.25)) { tint = sampled }
-                }
             }
             .accessibilityHidden(true)
 
