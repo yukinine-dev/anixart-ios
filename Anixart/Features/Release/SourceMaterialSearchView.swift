@@ -28,18 +28,28 @@ struct SourceMaterialSearchView: View {
         VStack(spacing: 0) {
             ProfileViewerNotice(viewer: viewer)
             if viewer == env.session.viewerKey {
-                if let model, model.hasCurrentViewer { ReleaseSearchResultsView(model: model) }
+                // Android just drops the name into the ordinary search screen: no
+                // «Режиссёр: …» title, and no franchise card above the results.
+                if let model, model.hasCurrentViewer { ReleaseSearchResultsView(model: model, showsFranchise: false) }
                 else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
             }
         }
-        .navigationTitle(title)
+        .navigationTitle("Поиск")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .searchable(
+            text: Binding(get: { model?.query ?? query }, set: { model?.query = $0 }),
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Поиск аниме"
+        )
         .task {
             guard viewer == env.session.viewerKey else { return }
             if model == nil {
                 model = CatalogViewModel(session: env.session, query: query, searchScope: scope)
             }
+        }
+        .task(id: model?.searchKey) {
+            guard viewer == env.session.viewerKey else { return }
             await model?.search()
         }
         .onChange(of: env.session.viewerKey) { _, current in

@@ -6,6 +6,9 @@ import AnixartKit
 @MainActor
 struct ReleaseSearchResultsView: View {
     let model: CatalogViewModel
+    /// The franchise card above the results; a credit link (director, author, studio)
+    /// shows only the plain results, as Android does.
+    var showsFranchise = true
     @State private var opened: Release?
     @State private var actionTarget: Release?
     @State private var openedFranchise: Related?
@@ -16,7 +19,7 @@ struct ReleaseSearchResultsView: View {
                 if let history = model.history, !history.entries.isEmpty { ReleaseSearchHistoryView(model: model, history: history) }
                 else { StatusMessageView(title: "Введите название аниме", systemImage: "magnifyingglass") }
             } else if let results = model.currentSearch {
-                if let related = results.related {
+                if showsFranchise, let related = results.related {
                     Section {
                         RelatedSearchResultCard(related: related) { model.rememberSearch(); openedFranchise = related }
                             .listRowSeparator(.hidden)
@@ -46,11 +49,11 @@ struct ReleaseSearchResultsView: View {
                             title: results.failedPage == 0 ? "Поиск не удался" : "Не удалось загрузить следующую страницу",
                             message: error, systemImage: "wifi.exclamationmark", retry: { await results.retry() }
                         )
-                    } else if results.items.isEmpty, results.related == nil {
+                    } else if results.items.isEmpty, results.related == nil || !showsFranchise {
                         StatusMessageView(title: "Ничего не найдено", message: "Проверьте написание названия", systemImage: "magnifyingglass")
                     }
                 } header: {
-                    Text(results.related == nil ? "Результаты поиска" : "Другие результаты")
+                    Text(results.related == nil || !showsFranchise ? "Результаты поиска" : "Другие результаты")
                         .font(.ax(.subheadline)).textCase(nil)
                 }
             } else {
@@ -74,36 +77,39 @@ struct ReleaseSearchResultsView: View {
 
 @MainActor
 struct RelatedSearchResultCard: View {
+    @Environment(\.appThemePalette) private var palette
     let related: Related
     let onOpen: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             RelatedPosterStack(urls: related.posterURLs)
             Text(related.displayName)
-                .font(.ax(.title3, .medium))
-                .foregroundStyle(.primary)
+                .font(.ax(.title3, .semibold))
+                .foregroundStyle(palette.text.color)
                 .multilineTextAlignment(.center)
             if let count = related.releaseCountText {
-                Text(count).font(.ax(.subheadline)).foregroundStyle(.primary)
+                Text(count).font(.ax(.subheadline)).foregroundStyle(palette.secondaryText.color)
             }
+            // Filled with the theme's own accent, with the theme background as the
+            // label colour, so it reads on every theme instead of a fixed black/white.
             Button(action: onOpen) {
                 Text("Перейти")
-                    .font(.ax(.body, .medium))
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .padding(.horizontal, 20)
-                    .foregroundStyle(Color(.systemBackground))
-                    .background(Color.primary, in: Capsule())
+                    .font(.ax(.body, .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .foregroundStyle(palette.background.color)
+                    .background(palette.accent.color, in: Capsule())
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .frame(maxWidth: 200)
-            .padding(.top, 4)
+            .frame(maxWidth: 220)
+            .padding(.top, 6)
             .accessibilityIdentifier("search.franchise.open")
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 8)
-        .padding(.bottom, 16)
+        .padding(.vertical, 18)
+        .padding(.horizontal, 16)
+        .background(palette.surface.color, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
     }

@@ -31,7 +31,9 @@ struct HomeView: View {
                     case .custom:
                         CustomFilterTabView(preferences: preferences)
                     case let tab:
-                        HomeTabListView(tab: tab)
+                        // A fresh list per tab: reusing one List for every tab left the old
+                    // rows and scroll offset behind and made the switch look broken.
+                    HomeTabListView(tab: tab).id(tab)
                     }
                 }
                 // Only the tab indicator/strip moves. New lists and their loading
@@ -87,29 +89,29 @@ struct HomeView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(.trailing, 12)
+            .padding(.trailing, 6)
             .zIndex(1)
             .accessibilityLabel("Настройки вкладок")
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 2) {
                         ForEach(HomeTab.allCases) { tab in
                             tabButton(tab)
                                 .id(tab)
                         }
                     }
-                    .padding(.leading, 12)
+                    .padding(.leading, 6)
                     .padding(.trailing, 8)
                     .padding(.vertical, 4)
                 }
                 .clipped()
                 .onAppear {
-                    proxy.scrollTo(selection ?? preferences.defaultTab, anchor: UnitPoint(x: 0.25, y: 0.5))
+                    reveal(selection ?? preferences.defaultTab, with: proxy)
                 }
                 .onChange(of: selection) { _, new in
                     guard let new, new == selection else { return }
-                    motion.perform(animated: selectionMotion.shouldAnimate(new)) { proxy.scrollTo(new, anchor: UnitPoint(x: 0.25, y: 0.5)) }
+                    motion.perform(animated: selectionMotion.shouldAnimate(new)) { reveal(new, with: proxy) }
                     selectionMotion.complete(new)
                 }
             }
@@ -126,6 +128,18 @@ struct HomeView: View {
         }
     }
 
+    /// Brings the selected tab into view. The first few tabs sit within the first screen of
+    /// the strip, so it stays at the start and «Моя вкладка» is always fully visible next
+    /// to the settings button; only tabs further along are scrolled in.
+    private func reveal(_ tab: HomeTab, with proxy: ScrollViewProxy) {
+        let index = HomeTab.allCases.firstIndex(of: tab) ?? 0
+        if index <= 3 {
+            proxy.scrollTo(HomeTab.allCases[0], anchor: .leading)
+        } else {
+            proxy.scrollTo(tab, anchor: .center)
+        }
+    }
+
     private func tabButton(_ tab: HomeTab) -> some View {
         let isSelected = (selection ?? preferences.defaultTab) == tab
         let title = tab == .custom ? preferences.customTabTitle : tab.title
@@ -134,8 +148,8 @@ struct HomeView: View {
             // The beta marks the active tab with a tonal pill instead of an underline.
             SelectionLabel(title: title, isSelected: isSelected)
                 .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .background {
                     SelectionChipBackground(isSelected: isSelected, shape: Capsule(),
                                             color: Theme.accent.opacity(0.3), namespace: tabIndicator)

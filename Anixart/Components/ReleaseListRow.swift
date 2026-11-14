@@ -20,6 +20,9 @@ struct ReleaseListRow: View {
 
     private var posterWidth: CGFloat { 104 }
 
+    /// The «Анонс» word and the «скоро» chip belong to the Главная card rows only.
+    private var showsAnnouncementMark: Bool { style == .card && !showsSeasonAndCategory }
+
     @ViewBuilder
     var body: some View {
         if style == .card {
@@ -72,6 +75,17 @@ struct ReleaseListRow: View {
                 }
 
                 metadata
+                // Home only: an unreleased title reads «Анонс ? эп» and carries a
+                // «скоро» chip, as on Android. The catalogue lists keep their badges.
+                if showsAnnouncementMark, release.isAnnouncement {
+                    Text("скоро")
+                        .font(.ax(.subheadline))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(.top, 4)
+                }
                 if showsDailyDiscussion, let discussion = release.dailyDiscussionText {
                     Text(discussion).font(.ax(.caption)).foregroundStyle(.secondary)
                 }
@@ -127,6 +141,9 @@ struct ReleaseListRow: View {
 
         if episodes != nil || rating != nil || (style == .plain && release.isFavorite == true) {
             HStack(spacing: 5) {
+                if showsAnnouncementMark, release.isAnnouncement {
+                    Text("Анонс")
+                }
                 if let episodes {
                     Text(episodes)
                 }

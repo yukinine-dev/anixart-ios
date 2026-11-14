@@ -8,15 +8,19 @@ struct ReleaseMetadataBadge: View {
     var isFranchise = false
 
     var body: some View {
+        // A rounded chip with room around centred text; the old square 7×4 box read
+        // as cramped and off-centre next to the list text.
         Text(text)
-            .font(.ax(.caption, .medium))
-            .fixedSize(horizontal: false, vertical: true)
-            .foregroundStyle(palette.secondaryText.color)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 4)
-            .background(palette.surface.color, in: RoundedRectangle(cornerRadius: isFranchise ? 0 : 5))
-            .overlay(RoundedRectangle(cornerRadius: isFranchise ? 0 : 5)
-                .strokeBorder(palette.secondaryText.color.opacity(0.2), lineWidth: 1))
+            .font(.ax(.footnote, .medium))
+            .multilineTextAlignment(.center)
+            .lineLimit(1)
+            .fixedSize()
+            .foregroundStyle(palette.text.color.opacity(0.85))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(palette.surface.color, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(palette.secondaryText.color.opacity(0.22), lineWidth: 1))
     }
 }
 

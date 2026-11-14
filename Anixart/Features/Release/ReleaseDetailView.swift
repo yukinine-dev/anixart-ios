@@ -366,6 +366,9 @@ struct ReleaseDetailView: View {
     private func noteBlock(_ release: Release) -> some View {
         if let note = release.note?
             .replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: [.regularExpression, .caseInsensitive])
+            // Licensing and similar notices arrive as small HTML (<b>…</b>): keep the words only.
+            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
             let isDark = colorScheme == .dark
             let background = Self.noteColor(isDark ? release.noteBackgroundColorDark : release.noteBackgroundColorLight)
