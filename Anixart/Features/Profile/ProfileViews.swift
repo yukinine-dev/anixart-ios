@@ -320,8 +320,8 @@ struct ProfileView: View {
                     .buttonStyle(.plain)
                     .disabled(!ownsProfile)
                     .lineLimit(3)
-                    .font(.ax(.subheadline))
-                    .foregroundStyle(.secondary)
+                    .font(.ax(.body))
+                    .foregroundStyle(.primary.opacity(0.75))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -342,7 +342,7 @@ struct ProfileView: View {
                     Button { showsRegistration.toggle() } label: {
                         HStack(spacing: 4) {
                             Text(showsRegistration ? "на проекте с \(registered(profile) ?? "—")"
-                                 : (profile.isOnline == true ? "В сети" : "Последняя активность: \(Format.relativeDate(profile.lastActivityDate) ?? "—")"))
+                                 : (profile.isOnline == true ? "В сети" : "был(а) в сети \(Format.commentDate(profile.lastActivityDate) ?? "—")"))
                                 .fixedSize(horizontal: false, vertical: true)
                             Image(systemName: "chevron.right").font(.ax(.caption2))
                         }.font(.ax(.caption)).foregroundStyle(.secondary)
@@ -383,7 +383,7 @@ struct ProfileView: View {
                         Text("Редактировать")
                              .font(.ax(.headline))
                             .frame(maxWidth: .infinity, minHeight: 46)
-                            .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
+                            .background(Capsule().fill(Color.primary.opacity(0.08)))
                     }
                     .buttonStyle(.plain)
                     .disabled(isLoading || !hasCurrentViewer || model.viewerAccount == nil)
@@ -397,7 +397,7 @@ struct ProfileView: View {
                             .lineLimit(2)
                             .frame(maxWidth: .infinity, minHeight: 46)
                             .padding(.horizontal, 8)
-                            .overlay(Capsule().stroke(.quaternary, lineWidth: 1))
+                            .background(Capsule().fill(Color.primary.opacity(0.08)))
                     }
                     .buttonStyle(.plain)
                     .disabled(isChangingRelationship || isLoading || !hasCurrentViewer)
@@ -494,7 +494,11 @@ struct ProfileView: View {
                     Text(
                         friends.isEmpty
                             ? "Друзей пока нет"
-                            : friends.prefix(3).map(\.displayLogin).joined(separator: ", ")
+                            // Android names the first two and folds the rest into
+                            // "и другие" rather than listing all three previews.
+                            : (friends.count > 2
+                               ? friends.prefix(2).map(\.displayLogin).joined(separator: ", ") + " и другие"
+                               : friends.prefix(2).map(\.displayLogin).joined(separator: ", "))
                     )
                     .font(.ax(.subheadline))
                     .foregroundStyle(.secondary)
@@ -747,13 +751,17 @@ struct ProfileStatisticsSection: View {
                 ForEach(ProfileStatisticsPreferences(profile: profile).rows) { row in
                     statLine(row.title, row.value)
                 }
-                statLine("Просмотрено серий:", Format.count(profile.watchedEpisodeCount))
+                // Android prints this one in full, never abbreviated to "11 тыс.".
+                statLine("Просмотрено серий:", Format.exact(profile.watchedEpisodeCount))
                 statLine("Время просмотра:", watchedTimeText)
             }
             .padding(.horizontal)
 
-            Button("Узнать подробнее") { isShowingHelp = true }
-                .font(.ax(.subheadline, .medium))
+            // Android's label here is "Показать списки", distinct from the
+            // "Узнать подробнее" under the dynamics chart below.
+            Button("Показать списки") { isShowingHelp = true }
+                .font(.ax(.body, .semibold))
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
         }
@@ -769,23 +777,24 @@ struct ProfileStatisticsSection: View {
         }
     }
 
-    /// `watchedTime` is reported in seconds.
+    /// `watchedTime` is reported in minutes.
     private var watchedTimeText: String {
-        (ProfileWatchTimeFormat(rawValue: watchTimeFormat) ?? .daysAndHours).text(seconds: profile.watchedTime ?? 0)
+        (ProfileWatchTimeFormat(rawValue: watchTimeFormat) ?? .daysAndHours).text(minutes: profile.watchedTime ?? 0)
     }
 }
 
 /// Donut of the five list counts, drawn in the Android chart's colours.
 struct DonutChart: View {
     let slices: [(color: Color, value: Int)]
-    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         GeometryReader { geometry in
             let side = min(geometry.size.width, geometry.size.height)
-            let thickness = side * 0.28
-            let circumference = max(1, .pi * (side - thickness) * max(1, displayScale))
-            let spans = ProfileDonutLayout.spans(values: slices.map(\.value), minimumFraction: min(0.02, 3 / circumference))
+            // Android's ring is noticeably thicker than a thin accent stroke.
+            let thickness = side * 0.34
+            // A fixed floor keeps a thin slice (e.g. 4 of 820) visible as a sliver,
+            // which pixel-thin circumference-derived minimums were rounding away.
+            let spans = ProfileDonutLayout.spans(values: slices.map(\.value), minimumFraction: 0.014)
             ZStack {
                 if spans.isEmpty {
                     Circle()

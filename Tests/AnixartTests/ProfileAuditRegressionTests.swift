@@ -141,7 +141,7 @@ final class ProfileAuditRegressionTests: XCTestCase {
         XCTAssertTrue(ProfileImagePreparation.isValidAvatarGIF(try ProfileThemeTestImages.gif(frameCount: 2)))
         XCTAssertFalse(ProfileImagePreparation.isValidAvatarGIF(try ProfileThemeTestImages.png()))
         XCTAssertFalse(ProfileImagePreparation.isValidAvatarGIF(Data(count: ProfileEditorRules.avatarAnimationByteLimit + 1)))
-        XCTAssertEqual(ProfileWatchTimeFormat.daysAndHours.text(seconds: 21 * 86_400 + 7 * 3_600), "~ 21 день 7 часов")
-        XCTAssertEqual(ProfileWatchTimeFormat.hours.text(seconds: 2 * 3_600), "~ 2 часа")
+        XCTAssertEqual(ProfileWatchTimeFormat.daysAndHours.text(minutes: 21 * 1_440 + 7 * 60), "~ 21 день 7 часов")
+        XCTAssertEqual(ProfileWatchTimeFormat.hours.text(minutes: 2 * 60), "~ 2 часа")
     }
 }
