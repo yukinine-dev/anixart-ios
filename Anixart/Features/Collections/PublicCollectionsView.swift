@@ -11,6 +11,12 @@ struct PublicCollectionsView: View {
     var body: some View {
         List {
             ProfileViewerNotice(viewer: viewer)
+            if let viewer, viewer == env.session.viewerKey {
+                CollectionShelves(viewer: viewer)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            }
             Section {
                 NavigationLink {
                     FavoriteCollectionsList()

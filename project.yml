@@ -53,6 +53,10 @@ targets:
         CFBundleDisplayName: Anixart
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Android release this port tracks. Kept out of CFBundleShortVersionString (iOS
+        # wants digits and dots there) and out of MARKETING_VERSION (the release workflow
+        # builds git tags from it). Hold at "11 beta 3" until told to change it.
+        AnixartVersionLabel: 11 beta 3
         NSMicrophoneUsageDescription: Микрофон используется только по нажатию кнопки голосового поиска, чтобы ввести название аниме.
         NSSpeechRecognitionUsageDescription: Распознавание речи используется только по нажатию кнопки голосового поиска, чтобы ввести название аниме.
         # The storyboard and runtime loading view share LaunchMark/LaunchBackground.

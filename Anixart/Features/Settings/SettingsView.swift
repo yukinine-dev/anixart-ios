@@ -17,7 +17,8 @@ struct SettingsView: View {
         let info = Bundle.main.infoDictionary
         let short = info?["CFBundleShortVersionString"] as? String ?? "—"
         let build = info?["CFBundleVersion"] as? String ?? "—"
-        return "\(short) (\(build))"
+        let label = info?["AnixartVersionLabel"] as? String
+        return label.map { "\($0) · \(short) (\(build))" } ?? "\(short) (\(build))"
     }
 
     var body: some View {
@@ -52,6 +53,7 @@ struct SettingsView: View {
 
                 Section("Приложение") {
                     NavigationLink { DevicePlaybackSettingsView() } label: { Label("Воспроизведение", systemImage: "play.rectangle") }
+                    NavigationLink { DownloadsView() } label: { Label("Загрузки", systemImage: "arrow.down.circle") }
                     NavigationLink { DeviceAppearanceSettingsView() } label: { Label("Внешний вид", systemImage: "paintpalette") }
                     NavigationLink { DeviceDataSettingsView() } label: { Label("Управление данными", systemImage: "internaldrive") }
                     NavigationLink { DeviceHapticsSettingsView() } label: { Label("Вибро-отклик", systemImage: "waveform") }

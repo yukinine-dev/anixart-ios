@@ -370,6 +370,19 @@ struct EpisodeListView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
+                        if let model { EpisodeDownloadCenter.shared.enqueue(release: release, episodes: model.episodes) }
+                    } label: {
+                        Label("Скачать все серии", systemImage: "arrow.down.circle")
+                    }
+                    Button {
+                        if let model {
+                            EpisodeDownloadCenter.shared.enqueue(release: release, episodes: model.episodes.filter { $0.isWatched != true })
+                        }
+                    } label: {
+                        Label("Скачать непросмотренные", systemImage: "arrow.down.circle.dotted")
+                    }
+                    Divider()
+                    Button {
                         Task { await model?.markAllWatched() }
                     } label: {
                         Label("Отметить все просмотренными", systemImage: "checkmark.circle")

@@ -126,14 +126,20 @@ struct AddToCollectionSheet: View {
                                 PaginatedContent(paginator: paginator, emptyTitle: "Коллекций пока нет",
                                                  emptyMessage: "Создайте коллекцию в приложении Anixart, и она появится здесь") { collection in
                                     Button {
-                                        Task { if await model.add(to: collection) { dismiss() } }
+                                        Task { await model.toggle(collection) }
                                     } label: {
                                         HStack {
                                             Text(collection.displayTitle)
                                             Spacer()
-                                            if model.addingCollectionID == collection.id { ProgressView() }
+                                            if model.addingCollectionID == collection.id {
+                                                ProgressView()
+                                            } else {
+                                                Image(systemName: model.memberIDs.contains(collection.id) ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundStyle(model.memberIDs.contains(collection.id) ? Theme.accent : .secondary)
+                                            }
                                         }
                                     }
+                                    .accessibilityAddTraits(model.memberIDs.contains(collection.id) ? [.isSelected] : [])
                                     .disabled(model.isAdding)
                                 }
                             }
@@ -156,6 +162,7 @@ struct AddToCollectionSheet: View {
                 if viewer == nil { viewer = env.session.viewerKey }
                 guard let viewer, viewer == env.session.viewerKey else { return }
                 if model == nil { model = AddToCollectionViewModel(releaseID: releaseID, viewer: viewer, session: env.session) }
+                await model?.loadMembership()
                 await model?.paginator?.loadFirstPageIfNeeded()
             }
             .onChange(of: env.session.viewerKey) { _, current in

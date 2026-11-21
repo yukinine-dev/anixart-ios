@@ -9,6 +9,8 @@ struct ReleaseDetailHeader: View {
     let onTitles: () -> Void
     /// Opens the poster full screen, where it can be zoomed and saved.
     var onPoster: (() -> Void)?
+    /// Beta 3 paints the top of the page in the poster's own colors.
+    @State private var tint: PosterTint?
 
     static let posterHeight: CGFloat = 372
     static let backdropHeight: CGFloat = 412
@@ -52,6 +54,13 @@ struct ReleaseDetailHeader: View {
                     // sharp (no blur), dimmed to roughly 12-15% brightness.
                     palette.background.color.opacity(0.9)
                 }
+                .overlay {
+                    if let tint {
+                        LinearGradient(colors: [tint.top.opacity(0.55), tint.bottom.opacity(0.3)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.3), value: tint)
                 .overlay(alignment: .bottom) {
                     // Dissolves the tint into the page background so the title block
                     // below starts on a seamless surface, with no visible edge.
@@ -66,6 +75,11 @@ struct ReleaseDetailHeader: View {
                 .clipped()
             }
             .accessibilityHidden(true)
+            .task(id: release.posterURL) {
+                guard let url = release.posterURL,
+                      let thumbnail = await ImageLoader.shared.image(for: url, pixelSize: 64) else { return }
+                tint = PosterColorExtractor.tint(of: thumbnail)
+            }
 
             Button(action: onTitles) {
                 VStack(alignment: .leading, spacing: 4) {

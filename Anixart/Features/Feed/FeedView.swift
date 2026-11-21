@@ -5,7 +5,8 @@ import AnixartKit
 struct FeedView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var model: FeedViewModel?
-    @State private var selection: FeedTab = .my
+    /// The last open tab survives leaving the section and relaunching the app.
+    @State private var selection: FeedTab = FeedTab(rawValue: UserDefaults.standard.string(forKey: "feed.lastTab") ?? "") ?? .my
     @State private var path: [FeedRouteContext] = []
     @State private var showsSearch = false
     @State private var showsSettings = false
@@ -108,6 +109,7 @@ struct FeedView: View {
         guard selection != tab else { return }
         selectionMotion.register(tab, fromKeyboard: fromKeyboard)
         motion.perform(animated: !fromKeyboard) { selection = tab }
+        UserDefaults.standard.set(tab.rawValue, forKey: "feed.lastTab")
     }
 
     @ViewBuilder

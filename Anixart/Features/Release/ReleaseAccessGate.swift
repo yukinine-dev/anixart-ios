@@ -125,6 +125,25 @@ struct ReleasePlaybackButton: View {
     var viewer: ProfileViewerKey?
     @State private var isShowingEpisodes = false
     @State private var isShowingRestriction = false
+    @AppStorage(DeviceAppearancePreferenceKey.continueWatching) private var continuesFromLast = true
+
+    /// «Продолжить 5 серию» when the viewer is mid-release and the setting is on.
+    private var resumeEpisode: Int? {
+        guard continuesFromLast, let position = release.lastViewEpisode?.position, position > 0 else { return nil }
+        return position
+    }
+
+    /// Minutes left in the episode the player last stopped in, remembered on this device.
+    private var minutesLeft: Int? {
+        guard resumeEpisode != nil,
+              let seconds = PlaybackMemory.value("resumeLeft", release: release.displayTitle), seconds >= 30 else { return nil }
+        return Int((seconds / 60).rounded(.up))
+    }
+
+    private var title: String {
+        if let resumeEpisode { return "Продолжить \(resumeEpisode) серию" }
+        return release.continueWatchingText == nil ? "Воспроизвести" : "Продолжить"
+    }
 
     var body: some View {
         Button {
@@ -135,8 +154,14 @@ struct ReleasePlaybackButton: View {
                 isShowingEpisodes = true
             }
         } label: {
-            Label(release.continueWatchingText == nil ? "Воспроизвести" : "Продолжить", systemImage: "play.fill")
-                .font(.ax(.title3, .medium))
+            VStack(spacing: 2) {
+                Label(title, systemImage: "play.fill")
+                    .font(.ax(.title3, .medium))
+                if let minutesLeft {
+                    Text("Осталось \(minutesLeft) мин").font(.ax(.caption))
+                        .opacity(0.7)
+                }
+            }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(Color.primary.opacity(0.92), in: Capsule())

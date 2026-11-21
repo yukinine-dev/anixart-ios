@@ -226,6 +226,25 @@ struct RandomReleaseScreen: View {
                 ProgressView()
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if let model, model.hasCurrentViewer, model.release != nil {
+                Button {
+                    model.invalidate()
+                    Task { await model.load() }
+                } label: {
+                    Label("Еще случайный", systemImage: "shuffle")
+                        .font(.ax(.subheadline, .semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Theme.accent, in: Capsule())
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.3), radius: 8, y: 3)
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 16)
+                .padding(.bottom, 24)
+            }
+        }
         .task {
             if model == nil { model = RandomReleaseViewModel(session: env.session) }
             if model?.release == nil { await model?.load() }

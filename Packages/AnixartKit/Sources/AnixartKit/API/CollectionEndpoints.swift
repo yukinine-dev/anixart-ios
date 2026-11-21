@@ -55,6 +55,19 @@ public enum CollectionEndpoints {
         Endpoint(path: "collectionFavorite/delete/\(collectionID)", auth: .required)
     }
 
+    /// `collectionMy/release/remove/{id}` (CollectionMyApi.releaseRemove, beta 3 APK). Codes:
+    /// 2 not found, 3 not owned, 4 invalid release, 5 not in collection, 6 deleted, 7 last release.
+    public static func removeRelease(collectionID: Int, releaseID: Int) -> Endpoint<StatusResponse> {
+        Endpoint(path: "collectionMy/release/remove/\(collectionID)",
+                 query: ["release_id": String(releaseID)], auth: .required)
+    }
+
+    /// `collectionMy/all/release/{r_id}/{page}`: the viewer's own collections that already
+    /// contain the release, used to pre-tick the «Добавить в коллекцию» sheet.
+    public static func mineContaining(releaseID: Int, page: Int) -> Endpoint<PageableResponse<ReleaseCollection>> {
+        Endpoint(path: "collectionMy/all/release/\(releaseID)/\(page)", auth: .required)
+    }
+
     /// The APK's ReleaseAddCollectionResponse has only Response's status code.
     /// This mutation is a GET with `release_id`, not a JSON POST.
     public static func addRelease(collectionID: Int, releaseID: Int) -> Endpoint<StatusResponse> {

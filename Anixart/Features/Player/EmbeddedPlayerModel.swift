@@ -241,6 +241,11 @@ final class EmbeddedPlayerModel {
         guard !isStopped else { return }
         isStopped = true
         report()
+        // Feeds «Осталось N мин» under the release's resume button.
+        if let memoryKey, duration > 0 {
+            let left = duration - position
+            PlaybackMemory.store(left > 30 ? left : nil, field: "resumeLeft", release: memoryKey)
+        }
         player.pause()
         isPlaying = false
         isBuffering = false

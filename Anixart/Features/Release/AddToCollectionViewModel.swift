@@ -24,6 +24,61 @@ final class AddToCollectionViewModel {
         }
     }
 
+    /// Own collections that contain the release right now, as the server last confirmed.
+    private(set) var memberIDs: Set<Int> = []
+
+    /// Pre-ticks the collections that already hold the release.
+    func loadMembership() async {
+        guard let account = viewer.account, hasCurrentViewer else { return }
+        var found = Set<Int>()
+        for page in 0..<10 {
+            guard let items = try? await session.sendAccountRequest(
+                CollectionEndpoints.mineContaining(releaseID: releaseID, page: page), for: account
+            ).items, !items.isEmpty else { break }
+            found.formUnion(items.map(\.id))
+        }
+        guard hasCurrentViewer, !Task.isCancelled else { return }
+        memberIDs = found
+    }
+
+    /// Ticks or unticks one collection; the sheet stays open so several can be changed.
+    func toggle(_ collection: ReleaseCollection) async {
+        if memberIDs.contains(collection.id) {
+            await remove(from: collection)
+        } else if await add(to: collection) {
+            memberIDs.insert(collection.id)
+        }
+    }
+
+    private func remove(from collection: ReleaseCollection) async {
+        guard hasCurrentViewer, !Task.isCancelled, !isAdding, let account = viewer.account else { return }
+        addingCollectionID = collection.id
+        errorMessage = nil
+        defer { addingCollectionID = nil }
+        do {
+            let response = try await session.sendAccountRequest(
+                CollectionEndpoints.removeRelease(collectionID: collection.id, releaseID: releaseID), for: account
+            )
+            guard response.code == 0 else {
+                throw AnixartError.api(code: response.code ?? -1, path: "collectionMy/release/remove")
+            }
+            memberIDs.remove(collection.id)
+            await session.refreshProfile(for: account)
+        } catch {
+            guard hasCurrentViewer, !ProfileRequestFailure.isCancellation(error) else { return }
+            if let api = error as? AnixartError, case .api(let code, _) = api {
+                switch code {
+                case 5: memberIDs.remove(collection.id); return
+                case 7: errorMessage = "Нельзя убрать последний релиз из коллекции."; return
+                case 2, 6: errorMessage = "Коллекция не найдена или удалена. Обновите список."; return
+                case 3: errorMessage = "Можно менять только свои коллекции."; return
+                default: break
+                }
+            }
+            errorMessage = Self.message(for: error)
+        }
+    }
+
     var hasCurrentViewer: Bool { viewer == session.viewerKey }
     var isSignedIn: Bool { hasCurrentViewer && viewer.account != nil }
     var isAdding: Bool { addingCollectionID != nil }
