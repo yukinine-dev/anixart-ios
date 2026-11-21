@@ -728,9 +728,9 @@ struct ReleaseDetailView: View {
                 if banner.isNew == true {
                     Text("Новое")
                         .font(.ax(.subheadline, .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 5)
-                        .background(Color(white: 0.9), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .background(Color(red: 0.78, green: 0.31, blue: 0.27), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .padding(10)
                 }
             }
@@ -743,7 +743,7 @@ struct ReleaseDetailView: View {
                 .padding(14)
             }
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.white.opacity(0.22), lineWidth: 1.5))
     }
 
     // MARK: - Rating
@@ -800,7 +800,10 @@ struct ReleaseDetailView: View {
     // MARK: - Lists
 
     private func listsSection(_ release: Release) -> some View {
-        let distribution = release.listDistribution
+        // An airing release has no «Просмотрено» on Android (assumed from two ongoing titles: its count
+        // exists on the server but is not drawn), so it is dropped from the bar and the legend.
+        let isAiring = release.resolvedStatusId == AiringStatus.ongoing.rawValue
+        let distribution = release.listDistribution.filter { !(isAiring && $0.status == .completed) }
         let total = max(1, distribution.reduce(0) { $0 + $1.count })
         return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             HStack {
@@ -809,11 +812,10 @@ struct ReleaseDetailView: View {
                 Text(Format.count(distribution.reduce(0) { $0 + $1.count })).font(.ax(.title3)).foregroundStyle(.secondary)
             }
 
-            // Every list with at least one person gets a visible segment, however small its
-            // share: «Брошено 427» of 88 000 would otherwise be under one point wide.
             GeometryReader { geometry in
-                let slices = distribution.filter { $0.count > 0 }
-                let widths = Self.segmentWidths(counts: slices.map(\.count), available: geometry.size.width, gap: 2, minWidth: 4)
+                // Lists under 1% are not drawn (they stay in the legend), as on Android.
+                let slices = distribution.filter { $0.count * 100 >= total }
+                let widths = Self.segmentWidths(counts: slices.map(\.count), available: geometry.size.width, gap: 2, minWidth: 0)
                 HStack(spacing: 2) {
                     ForEach(Array(slices.enumerated()), id: \.offset) { index, slice in
                         Rectangle()
@@ -823,7 +825,7 @@ struct ReleaseDetailView: View {
                 }
                 .clipShape(Capsule())
             }
-            .frame(height: 26)
+            .frame(height: 14)
 
             // Android lays the legend out in two columns: watching, planned and
             // completed on the left; on hold and dropped on the right.
@@ -913,7 +915,7 @@ struct ReleaseDetailView: View {
             countHeader("Кадры", count: urls.count)
             // Wide cards that snap one at a time, with the next one peeking in.
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 8) {
+                HStack(spacing: 8) {
                     ForEach(Array(urls.enumerated()), id: \.offset) { index, url in
                         Button {
                             guard let viewer, viewer == env.session.viewerKey else { return }
@@ -922,7 +924,7 @@ struct ReleaseDetailView: View {
                             Color.clear
                                 .aspectRatio(16.0 / 9.0, contentMode: .fit)
                                 .overlay {
-                                    CachedAsyncImage(url: url, maxPixelSize: 900) { image in
+                                    CachedAsyncImage(url: url, maxPixelSize: 640) { image in
                                         image.resizable().scaledToFill()
                                     } placeholder: {
                                         Rectangle().fill(.quaternary)

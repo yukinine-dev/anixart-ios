@@ -34,6 +34,8 @@ struct ReleaseDetailHeader: View {
                 }
                 .frame(height: Self.posterHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                // Android outlines the poster with a thin light line.
+                .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
                 .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .onTapGesture { onPoster?() }

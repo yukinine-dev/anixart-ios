@@ -9,11 +9,28 @@ struct ReleaseVideoOverviewContent: View {
 
     var body: some View {
         if let release = model.release {
+            // Beta 3: a big crop of the poster with «Видео» and the release name on it.
             Section {
-                HStack(spacing: 16) {
-                    ReleasePoster(url: release.posterURL, width: 56)
-                    Text(release.displayTitle).font(.ax(.title3, .medium))
+                ZStack(alignment: .bottomLeading) {
+                    CachedAsyncImage(url: release.posterURL, maxPixelSize: 900) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: { Color.clear }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 240)
+                    .clipped()
+                    .overlay {
+                        LinearGradient(colors: [.black.opacity(0.35), .black.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Видео").font(.ax(fixed: 44, .bold))
+                        Text(release.displayTitle).font(.ax(.title3)).lineLimit(2)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(16)
                 }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
             if !model.streamingPlatforms.isEmpty {
                 Section("Онлайн просмотр") {
@@ -36,18 +53,23 @@ struct ReleaseVideoOverviewContent: View {
                                 ReleaseVideoTile(video: video, onPlay: { onPlay(video) }, onInfo: { onInfo(video) })
                             }
                         }
+                        .padding(.horizontal, 16)
                     }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 12, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 } header: {
                     HStack {
-                        Text(section.category?.name ?? "Видео").font(.ax(.headline))
+                        Text(section.category?.name ?? "Видео").font(.ax(.title2, .bold)).textCase(nil)
                         Spacer()
                         if section.showsAll, let categoryID = section.categoryID {
                             NavigationLink("Показать все") {
                                 ReleaseVideosView(release: release, categoryID: categoryID,
                                                   categoryTitle: section.category?.name, viewer: model.viewer)
-                            }.font(.ax(.subheadline))
+                            }.font(.ax(.body, .semibold)).textCase(nil)
                         }
                     }
+                    .foregroundStyle(.primary)
                 }
             }
             Section("Последние видео") {
@@ -116,20 +138,25 @@ private struct ReleaseVideoTile: View {
     let onPlay: () -> Void
     let onInfo: () -> Void
 
+    /// 16:9 cards about 57% of the screen wide, as on Android: the title sits on the picture,
+    /// and «Информация о видео» moved to the long-press menu.
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button(action: onPlay) { ReleaseVideoThumbnail(video: video, width: 260, height: 146) }
-                .buttonStyle(.plain).disabled(video.playbackURL == nil)
-                .accessibilityLabel(video.title ?? "Видео")
-                .accessibilityHint(video.playbackURL == nil ? "Ссылка на видео недоступна" : "Воспроизвести")
-            HStack(alignment: .top) {
-                Text(video.title ?? "Видео").font(.ax(.subheadline)).foregroundStyle(.primary).lineLimit(2)
-                Spacer(minLength: 0)
-                Button(action: onInfo) { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
-                    .buttonStyle(.borderless).accessibilityLabel("Информация о видео")
+        Button(action: onPlay) {
+            ZStack(alignment: .bottomLeading) {
+                ReleaseVideoThumbnail(video: video, width: 224, height: 126)
+                Text(video.title ?? "Видео")
+                    .font(.ax(.subheadline, .semibold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.8), radius: 3)
+                    .lineLimit(1)
+                    .padding(10)
             }
+            .frame(width: 224, height: 126)
         }
-        .frame(width: 260, alignment: .leading)
+        .buttonStyle(.plain).disabled(video.playbackURL == nil)
+        .contextMenu { Button("Информация о видео", systemImage: "info.circle", action: onInfo) }
+        .accessibilityLabel(video.title ?? "Видео")
+        .accessibilityHint(video.playbackURL == nil ? "Ссылка на видео недоступна" : "Воспроизвести")
     }
 }
 
@@ -144,7 +171,18 @@ private struct ReleaseVideoThumbnail: View {
             image.resizable().scaledToFill()
         } placeholder: { Rectangle().fill(.quaternary) }
         .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay { Image(systemName: "play.fill").foregroundStyle(.white).shadow(radius: 3) }
+        .clipShape(RoundedRectangle(cornerRadius: min(20, height / 3), style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: min(20, height / 3), style: .continuous)
+            .strokeBorder(Color.white.opacity(0.2), lineWidth: 1.5))
+        .overlay(alignment: .topLeading) {
+            // The red play badge Android puts on YouTube videos.
+            Image(systemName: "play.fill")
+                .font(.system(size: height > 100 ? 14 : 10, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, height > 100 ? 12 : 7)
+                .padding(.vertical, height > 100 ? 6 : 3)
+                .background(Color(red: 0.9, green: 0.1, blue: 0.1), in: RoundedRectangle(cornerRadius: height > 100 ? 8 : 5, style: .continuous))
+                .padding(height > 100 ? 10 : 5)
+        }
     }
 }
