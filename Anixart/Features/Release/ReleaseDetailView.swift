@@ -86,10 +86,10 @@ struct ReleaseDetailView: View {
                 ToolbarItem(placement: .topBarLeading) { backButton }
             }
             if #available(iOS 26, *) {
-                ToolbarItem(placement: .topBarTrailing) { collectionButton }
+                ToolbarItem(placement: .topBarTrailing) { menuButton }
                     .sharedBackgroundVisibility(.hidden)
             } else {
-                ToolbarItem(placement: .topBarTrailing) { collectionButton }
+                ToolbarItem(placement: .topBarTrailing) { menuButton }
             }
         }
         .task {
@@ -181,27 +181,59 @@ struct ReleaseDetailView: View {
                 guard let viewer, viewer == env.session.viewerKey, let url = release.posterURL else { return }
                 screenshotGallery = ReleaseScreenshotPresentation(urls: [url], initialIndex: 0, viewer: viewer, title: "Постер")
             })
-            statusRow(release, model: model)
+            statsRow(release)
             playBlock(release)
-            noteBlock(release)
-            factLines(release)
-            genres(release)
+            actionTiles(release, model: model)
+            if release.isAnnouncement || release.isDeleted == true { noteBlock(release) }
 
             if let description = release.description?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
-                ReleaseExpandableText(text: description, lineLimit: 5, isExpanded: $isDescriptionExpanded,
+                ReleaseExpandableText(text: description, lineLimit: 3, isExpanded: $isDescriptionExpanded,
                                       onExpand: { expandDescription(fromKeyboard: $0) })
                     .padding(.horizontal)
-                    .padding(.top, Theme.Spacing.row)
+                    .padding(.top, Theme.Spacing.section)
             }
+            genres(release)
     }
 
     @ViewBuilder
     private func detailMiddle(_ release: Release, model: ReleaseDetailViewModel) -> some View {
+            if !release.screenshotURLs.isEmpty {
+                sectionRule
+                screenshots(release)
+            }
+
             if let banners = release.videoBanners, !banners.isEmpty {
                 sectionRule
                 videoSection(release, banners: banners)
             }
 
+            if !release.relatedPreviewReleases.isEmpty || release.hasMoreRelatedReleases {
+                sectionRule
+                relatedSection(release, releases: release.relatedPreviewReleases)
+            }
+    }
+
+    @ViewBuilder
+    private func detailBottom(_ release: Release, model: ReleaseDetailViewModel) -> some View {
+            AnyView(ratingsAndLists(release, model: model))
+
+            factLines(release)
+
+            collectionLinks(release)
+                .padding(.top, Theme.Spacing.section)
+
+            if let recommended = release.recommendedReleases, !recommended.isEmpty {
+                recommendedCarousel(releases: recommended)
+                    .padding(.vertical, 16)
+                    .padding(.top, Theme.Spacing.section)
+            }
+
+            commentsSection(release, model: model)
+                .padding(.top, Theme.Spacing.section)
+    }
+
+    @ViewBuilder
+    private func ratingsAndLists(_ release: Release, model: ReleaseDetailViewModel) -> some View {
             // Android hides the whole rating block for an announced (unreleased) title.
             if !release.isAnnouncement {
                 sectionRule
@@ -219,71 +251,81 @@ struct ReleaseDetailView: View {
                 sectionRule
                 listsSection(release)
             }
-
-            if !release.screenshotURLs.isEmpty {
-                sectionRule
-                screenshots(release)
-            }
     }
 
-    @ViewBuilder
-    private func detailBottom(_ release: Release, model: ReleaseDetailViewModel) -> some View {
-            if !release.relatedPreviewReleases.isEmpty || release.hasMoreRelatedReleases {
-                sectionRule
-                relatedSection(release, releases: release.relatedPreviewReleases)
-            }
-
-            // The block carries its own three lines (top, between, bottom), so each row
-            // is centred between two lines and nothing doubles up with a section rule.
-            collectionLinks(release)
-                .padding(.top, Theme.Spacing.section)
-
-            if let recommended = release.recommendedReleases, !recommended.isEmpty {
-                recommendedCarousel(releases: recommended)
-                    .padding(.vertical, 16)
-                    .background(palette.surface.color)
-                    .padding(.top, Theme.Spacing.section)
-            }
-
-            commentsSection(release, model: model)
-                .padding(.top, Theme.Spacing.section)
-    }
-
-
+    /// Beta 3 drops the hairlines between sections: space alone separates them.
     private var sectionRule: some View {
-        Divider()
-            .padding(.horizontal)
-            .padding(.vertical, Theme.Spacing.section * 0.75)
+        Color.clear.frame(height: Theme.Spacing.section)
     }
 
-    // MARK: - Status / bookmark / comments
-
-    private func statusRow(_ release: Release, model: ReleaseDetailViewModel) -> some View {
-        HStack(spacing: 10) {
-            Button {
-                isShowingListPicker = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "chevron.down").font(.ax(.caption))
-                    Text(release.listStatus?.title ?? "Не смотрю")
-                        .font(.ax(.subheadline))
-                        .lineLimit(1)
+    /// Three columns under the title: rating, episodes and season, split by hairlines.
+    @ViewBuilder
+    private func statsRow(_ release: Release) -> some View {
+        let columns = statColumns(for: release)
+        if !columns.isEmpty {
+            HStack(spacing: 0) {
+                ForEach(Array(columns.enumerated()), id: \.offset) { index, column in
+                    VStack(spacing: 4) {
+                        Text(column.value).font(.ax(.title2, .semibold)).monospacedDigit()
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                        Text(column.caption).font(.ax(.subheadline)).foregroundStyle(.secondary)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .combine)
+                    if index < columns.count - 1 {
+                        Rectangle().fill(Color.primary.opacity(0.15)).frame(width: 1, height: 44)
+                    }
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .overlay(Capsule().stroke(release.listStatus.map { Theme.listColor($0) } ?? Color.primary.opacity(0.25), lineWidth: 1.5))
-                .foregroundStyle(release.listStatus.map { Theme.listColor($0) } ?? .primary)
+            }
+            .padding(.horizontal)
+            .padding(.top, Theme.Spacing.section)
+        }
+    }
+
+    private func statColumns(for release: Release) -> [(value: String, caption: String)] {
+        var columns: [(value: String, caption: String)] = []
+        if !release.isAnnouncement, let rating = release.ratingText {
+            columns.append((rating.replacingOccurrences(of: ".", with: ",") + " ★",
+                            Format.count(release.voteCount) + " оценок"))
+        }
+        let released = release.episodesReleased
+        let total = release.episodesTotal
+        if released != nil || total != nil {
+            let value: String
+            if let released, let total, released != total { value = "\(released) из \(total)" }
+            else if let total { value = "\(total)" }
+            else if let released { value = "\(released)" }
+            else { value = "?" }
+            let minutes = (release.duration ?? 0) > 0 ? " по \(release.duration ?? 0) мин" : ""
+            columns.append((value, "эп.\(minutes)"))
+        }
+        if let season = release.seasonAndYear {
+            let caption = [release.categoryBadgeText, release.statusBadgeText]
+                .compactMap { $0?.lowercased() }.joined(separator: " · ")
+            columns.append((season, caption))
+        }
+        return columns
+    }
+
+    // MARK: - Action tiles
+
+    /// «В список», bookmarks, comments and «В коллекцию» as four equal tiles.
+    private func actionTiles(_ release: Release, model: ReleaseDetailViewModel) -> some View {
+        let isFavorite = release.isFavorite ?? false
+        return HStack(spacing: 8) {
+            Button { isShowingListPicker = true } label: {
+                tileLabel(icon: release.listStatus == nil ? "plus" : "checkmark",
+                          title: release.listStatus?.title ?? "В список",
+                          color: release.listStatus.map { Theme.listColor($0) })
             }
             .buttonStyle(.plain)
             .disabled(model.isPerformingAction)
 
-            Button {
-                Task { await model.toggleFavorite() }
-            } label: {
-                let isFavorite = release.isFavorite ?? false
-                HStack(spacing: 8) {
+            Button { Task { await model.toggleFavorite() } } label: {
+                VStack(spacing: 8) {
                     Image(systemName: isFavorite ? "bookmark.fill" : "bookmark")
-                        .font(.ax(.subheadline))
+                        .font(.ax(.title3))
                         .contentTransition(.symbolEffect(.replace))
                         // A quick squash, a pop past full size, then a bouncy settle.
                         .keyframeAnimator(initialValue: 1.0, trigger: isFavorite) { view, scale in
@@ -294,13 +336,14 @@ struct ReleaseDetailView: View {
                             SpringKeyframe(1.0, spring: .bouncy)
                         }
                     Text(Format.exact(release.favoriteCount))
-                        .font(.ax(.subheadline))
+                        .font(.ax(.subheadline, .semibold))
                         .monospacedDigit()
                         .contentTransition(.numericText())
+                        .lineLimit(1)
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .overlay(Capsule().stroke(isFavorite ? Theme.favoriteYellow : Color.primary.opacity(0.25), lineWidth: 1.5))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .foregroundStyle(isFavorite ? Theme.favoriteYellow : .primary)
                 .animation(.easeOut(duration: 0.25), value: isFavorite)
                 .animation(.default, value: release.favoriteCount)
@@ -311,28 +354,39 @@ struct ReleaseDetailView: View {
             NavigationLink {
                 CommentsView(releaseID: release.id, releaseTitle: release.displayTitle, viewer: viewer)
             } label: {
-                Image(systemName: "text.bubble")
-                    .font(.ax(.subheadline))
-                    .frame(width: 24, height: 24)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .overlay(Capsule().stroke(Color.primary.opacity(0.25), lineWidth: 1.5))
-                    .foregroundStyle(.primary)
+                tileLabel(icon: "bubble.left.and.text.bubble.right", title: Format.exact(release.commentCount), color: nil)
             }
             .buttonStyle(.plain)
 
-            Spacer(minLength: 0)
+            Button { isShowingCollectionPicker = true } label: {
+                tileLabel(icon: "rectangle.stack.badge.plus", title: "В коллекцию", color: nil)
+            }
+            .buttonStyle(.plain)
+            .disabled(viewer != env.session.viewerKey)
         }
         .padding(.horizontal)
         .padding(.top, Theme.Spacing.row)
+    }
+
+    private func tileLabel(icon: String, title: String, color: Color?) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon).font(.ax(.title3))
+            Text(title).font(.ax(.subheadline, .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .foregroundStyle(color ?? .primary)
     }
 
     // MARK: - Play
 
     @ViewBuilder
     private func playBlock(_ release: Release) -> some View {
-        let caption: String? = release.isDeleted == true ? nil : (release.lastEpisodeAddedLine ?? release.continueWatchingText)
-        return HStack(alignment: .top, spacing: 12) {
+        // Beta 3 puts the licensing note in the panel under the play button.
+        let caption: String? = release.isDeleted == true ? nil
+            : (Self.plainNote(release) ?? release.lastEpisodeAddedLine ?? release.continueWatchingText)
+        return VStack(spacing: 0) {
             VStack(spacing: 0) {
                 if release.isDeleted == true {
                     Label("Релиз удалён", systemImage: "exclamationmark.triangle")
@@ -361,21 +415,33 @@ struct ReleaseDetailView: View {
                 // Android tucks the caption into a dark panel under the button.
                 if let caption {
                     Text(caption)
-                        .font(.ax(.caption))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .font(.ax(.subheadline))
+                        .foregroundStyle(.primary.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
                         .frame(maxWidth: .infinity)
-                        .padding(.top, 30)
-                        .padding(.bottom, 10)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 34)
+                        .padding(.bottom, 14)
                         .background(Color.primary.opacity(0.08),
-                                    in: UnevenRoundedRectangle(bottomLeadingRadius: 22, bottomTrailingRadius: 22, style: .continuous))
+                                    in: UnevenRoundedRectangle(bottomLeadingRadius: 28, bottomTrailingRadius: 28, style: .continuous))
                         .padding(.top, -24)
                 }
             }
-            releaseMenu(release)
         }
         .padding(.horizontal)
-        .padding(.top, Theme.Spacing.row + 4)
+        .padding(.top, Theme.Spacing.section)
+    }
+
+    /// The release note without its HTML, or nil when there is none.
+    private static func plainNote(_ release: Release) -> String? {
+        let text = release.note?
+            .replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let text, !text.isEmpty else { return nil }
+        return text
     }
 
     /// The server-supplied note («Премьера в апреле…»), in its own panel. It comes
@@ -431,9 +497,7 @@ struct ReleaseDetailView: View {
                 report = ProfileReportPresentation(kind: .release, entityID: release.id, title: release.displayTitle, account: account)
             } label: { Label("Пожаловаться", systemImage: "flag") }
         } label: {
-            Image(systemName: "ellipsis").rotationEffect(.degrees(90))
-                .font(.ax(.title3)).frame(width: 44, height: 48)
-                .contentShape(Rectangle())
+            barButtonLabel("ellipsis").rotationEffect(.degrees(90))
         }
         .foregroundStyle(.primary)
         .accessibilityLabel("Действия с релизом")
@@ -505,23 +569,25 @@ struct ReleaseDetailView: View {
     private func genres(_ release: Release) -> some View {
         let list = release.genreList
         if !list.isEmpty {
-            FlowRow(spacing: 4) {
-                ForEach(Array(list.enumerated()), id: \.offset) { index, genre in
+            // Beta 3 shows genres as outlined chips.
+            FlowRow(spacing: 8) {
+                ForEach(Array(list.enumerated()), id: \.offset) { _, genre in
                     NavigationLink {
                         GenreReleasesView(genres: [genre], viewer: viewer)
                     } label: {
-                        HStack(spacing: 0) {
-                            Text(genre).underline()
-                            if index < list.count - 1 { Text(",") }
-                        }
-                        .font(.ax(.subheadline)).foregroundStyle(.primary)
+                        Text(genre)
+                            .font(.ax(.body))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.35), lineWidth: 1.5))
                     }
                     .buttonStyle(.plain)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal)
-            .padding(.top, Theme.Spacing.section)
+            .padding(.top, Theme.Spacing.row)
         }
     }
 
@@ -880,10 +946,10 @@ struct ReleaseDetailView: View {
             .accessibilityLabel("Назад")
     }
 
-    @ViewBuilder private var collectionButton: some View {
-        if model?.release != nil, viewer == env.session.viewerKey {
-            Button { isShowingCollectionPicker = true } label: { barButtonLabel("rectangle.stack.badge.plus") }
-                .accessibilityLabel("Выбрать коллекцию")
+    /// Beta 3 moves the share/report menu to the top right, and «В коллекцию» to a tile.
+    @ViewBuilder private var menuButton: some View {
+        if let release = model?.release, viewer == env.session.viewerKey {
+            releaseMenu(release)
         }
     }
 

@@ -10,6 +10,14 @@ struct PosterTint: Equatable {
     var top: Color
     var bottom: Color
 
+    /// A light, readable version of the top color for text drawn over the tinted header:
+    /// hue kept, saturation held in a mid range, brightness raised.
+    var accent: Color {
+        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+        guard UIColor(top).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) else { return .secondary }
+        return Color(hue: Double(hue), saturation: Double(min(max(saturation, 0.3), 0.55)), brightness: 0.88)
+    }
+
     static let neutral = PosterTint(top: Color(white: 0.16), bottom: Color(white: 0.08))
 }
 

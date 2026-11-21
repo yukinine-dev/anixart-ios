@@ -82,33 +82,35 @@ struct ReleaseDetailHeader: View {
             }
 
             Button(action: onTitles) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Image(systemName: "info.circle").foregroundStyle(.secondary)
+                // Beta 3: the title block is centred, the age rating is an outlined
+                // chip beside the title, and the original name takes the poster's color.
+                VStack(spacing: 6) {
+                    HStack(alignment: .center, spacing: 10) {
                         Text(release.displayTitle)
-                            .font(.ax(.title2, .bold))
-                            .multilineTextAlignment(.leading)
+                            .font(.ax(.title, .bold))
+                            .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
-                    }
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        if let subtitle = release.displaySubtitle {
-                            Text(subtitle).font(.ax(.subheadline)).foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
                         if let age = release.ageRatingText {
                             Text(age)
-                                .font(.ax(.caption2, .medium))
-                                .foregroundStyle(palette.background.color)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(palette.text.color, in: RoundedRectangle(cornerRadius: 3))
+                                .font(.ax(.subheadline, .medium))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(Color.primary.opacity(0.7), lineWidth: 1.5))
                                 .fixedSize()
                                 .accessibilityLabel("Возрастное ограничение: \(age)")
                         }
                     }
-                    .padding(.leading, 32)
+                    if let subtitle = release.displaySubtitle {
+                        HStack(spacing: 6) {
+                            Text(subtitle).lineLimit(1)
+                            Image(systemName: "chevron.right").font(.ax(.caption, .semibold))
+                        }
+                        .font(.ax(.title3))
+                        .foregroundStyle(tint?.accent ?? Color.secondary)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
