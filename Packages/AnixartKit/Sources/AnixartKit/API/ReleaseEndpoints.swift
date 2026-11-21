@@ -96,4 +96,9 @@ public enum ReleaseVideoEndpoints {
     ) -> Endpoint<PageableResponse<ReleaseVideo>> {
         Endpoint(path: "video/release/\(releaseID)/category/\(categoryID)/\(page)", auth: .none)
     }
+
+    /// `release/{r_id}/badges/{page}` (ReleaseApi.badges, beta 3 APK): badges earned for this release.
+    public static func badges(releaseID: Int, page: Int) -> Endpoint<PageableResponse<Badge>> {
+        Endpoint(path: "release/\(releaseID)/badges/\(page)", auth: .optional)
+    }
 }

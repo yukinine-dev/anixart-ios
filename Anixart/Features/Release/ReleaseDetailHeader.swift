@@ -56,7 +56,7 @@ struct ReleaseDetailHeader: View {
                 }
                 .overlay {
                     if let tint {
-                        LinearGradient(colors: [tint.top.opacity(0.55), tint.bottom.opacity(0.3)],
+                        LinearGradient(colors: [tint.top.opacity(0.8), tint.bottom.opacity(0.4)],
                                        startPoint: .top, endPoint: .bottom)
                     }
                 }

@@ -219,8 +219,10 @@ struct ReleaseDetailView: View {
 
             factLines(release)
 
+            badgesCard(release)
+
             collectionLinks(release)
-                .padding(.top, Theme.Spacing.section)
+                .padding(.top, 4)
 
             if let recommended = release.recommendedReleases, !recommended.isEmpty {
                 recommendedCarousel(releases: recommended)
@@ -237,6 +239,7 @@ struct ReleaseDetailView: View {
             // Android hides the whole rating block for an announced (unreleased) title.
             if !release.isAnnouncement {
                 sectionRule
+                SectionHeader(title: "Оценки и списки").padding(.bottom, Theme.Spacing.row)
                 ratingSection(release, model: model)
             }
 
@@ -248,8 +251,7 @@ struct ReleaseDetailView: View {
                     plannedSection(planned)
                 }
             } else if release.listDistribution.contains(where: { $0.count > 0 }) {
-                sectionRule
-                listsSection(release)
+                listsSection(release).padding(.top, 4)
             }
     }
 
@@ -662,9 +664,8 @@ struct ReleaseDetailView: View {
     // MARK: - Rating
 
     private func ratingSection(_ release: Release, model: ReleaseDetailViewModel) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.row) {
-            SectionHeader(title: "Рейтинг")
-
+        // Beta 3 groups «Оценки и списки» as stacked rounded cards under one heading.
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .center, spacing: Theme.Spacing.section) {
                 VStack(alignment: .leading, spacing: 2) {
                     ratingNumber(release)
@@ -675,7 +676,9 @@ struct ReleaseDetailView: View {
 
                 VoteHistogram(distribution: release.voteDistribution)
             }
-            .padding(.horizontal)
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
 
             StarRatingRow(
                 avatarURL: env.session.profile?.avatarURL,
@@ -687,9 +690,12 @@ struct ReleaseDetailView: View {
                 onRemove: { Task { await model.removeVote() } }
             )
             .disabled(model.isPerformingAction)
-            .padding(.horizontal)
-            .padding(.top, 4)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
+        .padding(.horizontal)
     }
 
     /// «4.56»: the last digit is drawn smaller, as the Android page does.
@@ -712,7 +718,11 @@ struct ReleaseDetailView: View {
         let distribution = release.listDistribution
         let total = max(1, distribution.reduce(0) { $0 + $1.count })
         return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
-            SectionHeader(title: "В списках у людей")
+            HStack {
+                Text("В списках у людей").font(.ax(.title3, .semibold))
+                Spacer()
+                Text(Format.count(distribution.reduce(0) { $0 + $1.count })).font(.ax(.title3)).foregroundStyle(.secondary)
+            }
 
             GeometryReader { geometry in
                 HStack(spacing: 2) {
@@ -724,7 +734,6 @@ struct ReleaseDetailView: View {
                 .clipShape(Capsule())
             }
             .frame(height: 26)
-            .padding(.horizontal)
 
             // Android lays the legend out in two columns: watching, planned and
             // completed on the left; on hold and dropped on the right.
@@ -734,8 +743,11 @@ struct ReleaseDetailView: View {
                 GridRow { legendItem(.plan, counts); legendItem(.dropped, counts) }
                 GridRow { legendItem(.completed, counts); Color.clear.frame(width: 1, height: 1) }
             }
-            .padding(.horizontal)
         }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .padding(.horizontal)
     }
 
     /// «31 145 пользователей планируют смотреть этот релиз» with the ticking clock.
@@ -790,6 +802,7 @@ struct ReleaseDetailView: View {
     private func screenshots(_ release: Release) -> some View {
         let urls = release.screenshotURLs
         return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
+            countHeader("Кадры", count: urls.count)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(urls.enumerated()), id: \.offset) { index, url in
@@ -814,39 +827,103 @@ struct ReleaseDetailView: View {
         }
     }
 
+    /// «Франшиза N»: the first parts on a timeline inside one rounded card, with a
+    /// «Все N частей» row when the franchise is longer.
     private func relatedSection(_ release: Release, releases: [Release]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.row) {
-            SectionHeader(title: "Связанные релизы") {
+        let total = [release.relatedCount, release.related?.releaseCount].compactMap { $0 }.max() ?? releases.count
+        return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
+            countHeader("Франшиза", count: total)
+            VStack(spacing: 0) {
+                ForEach(releases) { item in
+                    HStack(spacing: 12) {
+                        Circle()
+                            .fill(item.id == release.id ? Theme.accent : Color.primary.opacity(0.45))
+                            .frame(width: 14, height: 14)
+                        if item.id == release.id {
+                            // Not a disabled link: that would dim the open release to grey.
+                            RelatedReleaseRow(release: item, isCurrent: true)
+                        } else {
+                            NavigationLink {
+                                ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
+                            } label: {
+                                RelatedReleaseRow(release: item, isCurrent: false)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                }
                 if release.hasMoreRelatedReleases, let related = release.related {
                     NavigationLink {
                         RelatedReleasesView(related: related, viewer: viewer, context: .release(release.id))
                     } label: {
-                        Text("Показать все")
-                            .font(.ax(.body, .medium))
-                            .foregroundStyle(palette.text.color)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 10)
-                            .background(palette.surface.color, in: Capsule())
+                        HStack {
+                            Text("Все \(total) частей").font(.ax(.title3, .semibold))
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                        }
+                        .padding(.leading, 26)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(.primary)
                 }
             }
-            VStack(spacing: 26) {
-                ForEach(releases) { item in
-                    if item.id == release.id {
-                        // Not a disabled link: that would dim the open release to grey.
-                        RelatedReleaseRow(release: item, isCurrent: true)
-                    } else {
-                        NavigationLink {
-                            ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
-                        } label: {
-                            RelatedReleaseRow(release: item, isCurrent: false)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .background(alignment: .leading) {
+                Rectangle().fill(Color.primary.opacity(0.18)).frame(width: 2)
+                    .padding(.leading, 27).padding(.vertical, 36)
             }
+            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .padding(.horizontal)
+        }
+    }
+
+    /// A section title with the item count in a small rounded chip.
+    private func countHeader(_ title: String, count: Int) -> some View {
+        HStack(spacing: 10) {
+            Text(title).font(.ax(.title2, .bold))
+            Text("\(count)")
+                .font(.ax(.subheadline, .medium)).foregroundStyle(.secondary).monospacedDigit()
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// «Значки N»: badges earned for the release, a preview of the first few icons.
+    @ViewBuilder
+    private func badgesCard(_ release: Release) -> some View {
+        if let count = release.badgeCount, count > 0, let viewer {
+            NavigationLink {
+                ReleaseBadgesView(releaseID: release.id, viewer: viewer)
+            } label: {
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Значки").font(.ax(.title3, .semibold))
+                        Text(count == 1 ? "1 значок" : "\(count) значков").font(.ax(.subheadline)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    ForEach((release.badgesPreview ?? []).prefix(3)) { badge in
+                        CachedAsyncImage(url: AnixartURL.image(badge.imageSmallUrl ?? badge.badgeUrl), maxPixelSize: 120) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: { Color.clear }
+                        .frame(width: 40, height: 40)
+                    }
+                    Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal)
+            .padding(.top, Theme.Spacing.row)
         }
     }
 
