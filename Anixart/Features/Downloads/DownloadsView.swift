@@ -33,7 +33,7 @@ struct DownloadsView: View {
                     }
                 }
             }
-            Section("Настройки") {
+            Section {
                 Picker("Качество", selection: $quality) {
                     Text("Наилучшее").tag(0)
                     Text("1080p").tag(1080)
@@ -41,6 +41,8 @@ struct DownloadsView: View {
                     Text("480p").tag(480)
                 }
                 Toggle("Только по Wi-Fi", isOn: $wifiOnly)
+            } header: {
+                Text("Настройки")
             } footer: {
                 Text("Смена параметра «Только по Wi-Fi» действует после перезапуска приложения. Серии хранятся в самом приложении.")
             }
