@@ -504,63 +504,84 @@ struct ReleaseDetailView: View {
         .disabled(viewer != env.session.viewerKey)
     }
 
-    // MARK: - Fact lines
+    // MARK: - Details
 
+    /// «Подробности»: one rounded card per fact, label left and value right.
     @ViewBuilder
     private func factLines(_ release: Release) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let line = release.countryAndSeasonLine {
-                factLine("globe", line, flag: release.countryFlag)
-            }
-            if let line = release.episodesAndDurationLine {
-                factLine("play.rectangle", line)
-            }
-            if let line = release.broadcastLine {
-                factLine("calendar", line)
-            }
-            if let source = release.sourceMaterialName {
-                if let destination = release.sourceMaterialSearch, let viewer {
-                    NavigationLink { SourceMaterialSearchView(source: destination, viewer: viewer) } label: {
-                        factLine("target", "Первоисточник \(source)", underlined: source)
+        VStack(alignment: .leading, spacing: Theme.Spacing.row) {
+            SectionHeader(title: "Подробности")
+            VStack(spacing: 4) {
+                if let country = release.country, !country.isEmpty {
+                    detailRow("Страна") {
+                        HStack(spacing: 8) {
+                            if let flag = release.countryFlag { Text(flag) }
+                            Text(country)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Первоисточник: \(source)")
-                } else {
-                    factLine("target", "Первоисточник \(source)", underlined: source)
-                        .accessibilityHint("Ссылка недоступна")
+                }
+                if let season = release.seasonAndYear {
+                    detailRow("Сезон") { Text(season) }
+                }
+                if let line = release.episodesAndDurationLine {
+                    detailRow("Эпизоды") { Text(line) }
+                }
+                if let line = release.broadcastLine {
+                    detailRow("Выход") { Text(line) }
+                }
+                ForEach(Self.detailCredits(for: release), id: \.value) { credit in
+                    detailRow(credit.rowTitle) {
+                        if let viewer {
+                            NavigationLink {
+                                SourceMaterialSearchView(query: credit.value, scope: credit.scope,
+                                                         title: "\(credit.title): \(credit.value)", viewer: viewer)
+                            } label: {
+                                Text(credit.value).underline(true, pattern: .dash)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text(credit.value)
+                        }
+                    }
+                }
+                if let source = release.sourceMaterialName {
+                    detailRow("Первоисточник") {
+                        if let destination = release.sourceMaterialSearch, let viewer {
+                            NavigationLink { SourceMaterialSearchView(source: destination, viewer: viewer) } label: {
+                                Text(source).underline(true, pattern: .dash)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Первоисточник: \(source)")
+                        } else {
+                            Text(source)
+                        }
+                    }
                 }
             }
-            ReleaseCreditsLine(release: release, viewer: viewer)
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
         .padding(.top, Theme.Spacing.section)
     }
 
-    private func factLine(_ systemImage: String, _ text: String, underlined: String? = nil, flag: String? = nil) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            Group {
-                if let flag { Text(flag).accessibilityHidden(true) }
-                else {
-                    Image(systemName: systemImage).resizable().scaledToFit()
-                        .frame(width: 21, height: 19).foregroundStyle(.secondary).accessibilityHidden(true)
-                }
-            }
-                .font(.ax(.title3))
-                .frame(width: 26, alignment: .center)
-            Text(attributed(text, underlining: underlined))
-                .font(.ax(.subheadline))
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
+    private func detailRow<Value: View>(_ title: String, @ViewBuilder value: () -> Value) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text(title).font(.ax(.title3)).foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            value().font(.ax(.title3)).multilineTextAlignment(.trailing)
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity)
+        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    /// Underlines one run inside a line, the way the Android page marks a link.
-    private func attributed(_ text: String, underlining: String?) -> AttributedString {
-        var string = AttributedString(text)
-        if let underlining, let range = string.range(of: underlining) {
-            string[range].underlineStyle = .single
+    /// Studio, director and original author, in the order the beta lists them.
+    private static func detailCredits(for release: Release) -> [(rowTitle: String, title: String, value: String, scope: SearchScope)] {
+        let entries = ReleaseCredit.entries(for: release)
+        let order: [(SearchScope, String)] = [(.studio, "Студия"), (.director, "Режиссёр"), (.author, "Автор оригинала")]
+        return order.compactMap { scope, rowTitle in
+            entries.first { $0.scope == scope }.map { (rowTitle, $0.title, $0.value, $0.scope) }
         }
-        return string
     }
 
     // MARK: - Genres and description
@@ -829,59 +850,46 @@ struct ReleaseDetailView: View {
         }
     }
 
-    private static let collectionRowHeight: CGFloat = 58
-
     private func collectionLinks(_ release: Release) -> some View {
-        VStack(spacing: 0) {
-            Divider().padding(.horizontal)
-            // Both rows have one fixed height with their content centred in it, so the
-            // count chip no longer makes the first row taller than the second.
+        // Beta 3: two rounded cards, «В коллекциях N коллекций» and «Добавить в свою коллекцию».
+        VStack(spacing: 4) {
             NavigationLink {
                 ReleaseCollectionsView(releaseID: release.id, title: release.displayTitle, viewer: viewer)
             } label: {
                 HStack {
-                    Text("Показать в коллекциях").font(.ax(.title3, .medium))
-                    if let count = release.collectionCount, count > 0 {
-                        Text(verbatim: String(count))
-                            .font(.ax(.subheadline))
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("В коллекциях").font(.ax(.title3, .semibold))
+                        if let count = release.collectionCount, count > 0 {
+                            Text(Plural.collections(count)).font(.ax(.subheadline)).foregroundStyle(.secondary)
+                        }
                     }
                     Spacer()
-                    // Both trailing icons share one fixed-width slot, so the chevron
-                    // and the plus sit on the same vertical axis.
                     Image(systemName: "chevron.right").foregroundStyle(.secondary)
-                        .frame(width: 30)
                 }
-                .padding(.horizontal)
-                .frame(minHeight: Self.collectionRowHeight)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-
-            Divider().padding(.horizontal)
 
             Button {
                 isShowingCollectionPicker = true
             } label: {
                 HStack {
-                    Text("Добавить к себе в коллекцию").font(.ax(.title3, .medium))
+                    Text("Добавить в свою коллекцию").font(.ax(.title3, .semibold))
                     Spacer()
-                    Image(systemName: "plus").font(.system(size: 22, weight: .light)).foregroundStyle(.secondary)
-                        .frame(width: 30)
+                    Image(systemName: "plus").font(.system(size: 22, weight: .regular))
                 }
-                .padding(.horizontal)
-                .frame(minHeight: Self.collectionRowHeight)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
-
-            Divider().padding(.horizontal)
         }
+        .padding(.horizontal)
     }
 
     private func carousel(_ title: String, releases: [Release]) -> some View {
