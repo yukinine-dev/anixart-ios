@@ -386,8 +386,10 @@ struct ReleaseDetailView: View {
     @ViewBuilder
     private func playBlock(_ release: Release) -> some View {
         // Beta 3 puts the licensing note in the panel under the play button.
-        let caption: String? = release.isDeleted == true ? nil
-            : (Self.plainNote(release) ?? release.lastEpisodeAddedLine ?? release.continueWatchingText)
+        let note = release.isDeleted == true ? nil : Self.plainNote(release)
+        // Without a note the panel shows the newest episode: «Новая  8 серия · AnimeVost (Kodik)».
+        let update = (release.isDeleted == true || note != nil) ? nil : Self.episodeUpdate(release)
+        let caption: String? = (release.isDeleted == true || update != nil) ? nil : (note ?? release.continueWatchingText)
         return VStack(spacing: 0) {
             VStack(spacing: 0) {
                 if release.isDeleted == true {
@@ -428,11 +430,44 @@ struct ReleaseDetailView: View {
                         .background(Color.primary.opacity(0.08),
                                     in: UnevenRoundedRectangle(bottomLeadingRadius: 28, bottomTrailingRadius: 28, style: .continuous))
                         .padding(.top, -24)
+                } else if let update {
+                    HStack(spacing: 10) {
+                        if update.isNew {
+                            Text("Новая")
+                                .font(.ax(.subheadline, .semibold))
+                                .foregroundStyle(palette.background.color)
+                                .padding(.horizontal, 10).padding(.vertical, 3)
+                                .background(palette.text.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                        Text(update.text).font(.ax(.body)).lineLimit(1).minimumScaleFactor(0.8)
+                    }
+                    .foregroundStyle(.primary.opacity(0.9))
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 34)
+                    .padding(.bottom, 14)
+                    .background(Color.primary.opacity(0.08),
+                                in: UnevenRoundedRectangle(bottomLeadingRadius: 28, bottomTrailingRadius: 28, style: .continuous))
+                    .padding(.top, -24)
                 }
             }
         }
         .padding(.horizontal)
         .padding(.top, Theme.Spacing.section)
+    }
+
+    /// «8 серия · AnimeVost (Kodik)». The «Новая» chip is shown for updates up to a week old;
+    /// that cutoff is a guess from one Android screenshot, the real rule is not in the decompile.
+    private static func episodeUpdate(_ release: Release) -> (text: String, isNew: Bool)? {
+        guard let update = release.episodeLastUpdate,
+              let episode = update.lastEpisodeUpdateName, !episode.isEmpty else { return nil }
+        var text = episode
+        if let type = update.lastEpisodeTypeUpdateName, !type.isEmpty {
+            text += " · " + type
+            if let source = update.lastEpisodeSourceUpdateName, !source.isEmpty { text += " (\(source))" }
+        }
+        let isNew = (update.lastEpisodeUpdateDate).map { Date().timeIntervalSince1970 - TimeInterval($0) < 7 * 86_400 } ?? false
+        return (text, isNew)
     }
 
     /// The release note without its HTML, or nil when there is none.
