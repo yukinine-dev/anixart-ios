@@ -298,16 +298,21 @@ struct CommentRow: View {
                     Text("Комментарий удалён").font(.ax(.subheadline)).foregroundStyle(.secondary)
                 } else if comment.containsSpoiler && !isSpoilerRevealed {
                     Button { revealSpoiler() } label: {
-                        // Android: two plain lines, the second one picked out, and no icon.
-                        VStack(alignment: .leading, spacing: 2) {
+                        // Android: a dark rounded panel, two centred lines (the second one
+                        // brighter), no icon and no accent color.
+                        VStack(spacing: 4) {
                             Text("Комментарий может содержать спойлер.")
-                                .font(.ax(.body))
+                                .font(.ax(.subheadline))
                                 .foregroundStyle(.secondary)
                             Text("Нажмите, чтобы прочитать")
-                                .font(.ax(.body, .medium))
-                                .foregroundStyle(Theme.accent)
+                                .font(.ax(.subheadline, .medium))
+                                .foregroundStyle(.primary.opacity(0.85))
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 14)
+                        .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .onKeyPress(.return) { revealSpoiler(fromKeyboard: true); return .handled }

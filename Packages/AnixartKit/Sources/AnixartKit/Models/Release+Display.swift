@@ -76,7 +76,12 @@ extension Release {
     /// as `?`. `nil` means the Android app hides the label entirely.
     /// The release payload carries the airing status as a nested `status` object;
     /// the flat `status_id` is only present on some endpoints.
-    public var resolvedStatusId: Int? { statusId ?? status?.id }
+    /// `status_id` is `0` in the full release payload (checked against a live response:
+    /// `status_id: 0`, `status: {id: 2}`), so a zero must not hide the nested status.
+    public var resolvedStatusId: Int? {
+        if let statusId, statusId > 0 { return statusId }
+        return status?.id
+    }
 
     /// An announcement by id, or by the status name when the id does not line up.
     public var isAnnouncement: Bool {

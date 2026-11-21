@@ -379,7 +379,8 @@ struct ReleaseDetailView: View {
     private func tileLabel(icon: String, title: String, color: Color?) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon).font(.ax(.title3))
-            Text(title).font(.ax(.subheadline, .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+            Text(title).font(.ax(.footnote, .semibold)).lineLimit(1).minimumScaleFactor(0.75)
+                .padding(.horizontal, 8)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
