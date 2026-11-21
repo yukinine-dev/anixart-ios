@@ -22,6 +22,45 @@ struct PosterTint: Equatable {
 }
 
 enum PosterColorExtractor {
+    /// The poster's most vivid hue, lightened, for text drawn on the dark header. Pixels are
+    /// bucketed by hue and weighted by saturation x brightness, so a pink-haired character
+    /// outweighs a grey background; the result is the average of the heaviest bucket.
+    static func dominantAccent(of image: UIImage) -> Color? {
+        guard let cgImage = image.cgImage else { return nil }
+        let side = 32
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: side, height: side, bitsPerComponent: 8,
+                                          bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        guard drawn else { return nil }
+
+        let buckets = 12
+        var weight = [Double](repeating: 0, count: buckets)
+        var hueSum = [Double](repeating: 0, count: buckets)
+        var saturationSum = [Double](repeating: 0, count: buckets)
+        var count = [Double](repeating: 0, count: buckets)
+        for index in 0..<(side * side) {
+            let color = UIColor(red: CGFloat(pixels[index * 4]) / 255, green: CGFloat(pixels[index * 4 + 1]) / 255,
+                                blue: CGFloat(pixels[index * 4 + 2]) / 255, alpha: 1)
+            var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+            guard color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha),
+                  saturation > 0.25, brightness > 0.2 else { continue }
+            let bucket = min(buckets - 1, Int(hue * CGFloat(buckets)))
+            weight[bucket] += Double(saturation * brightness)
+            hueSum[bucket] += Double(hue)
+            saturationSum[bucket] += Double(saturation)
+            count[bucket] += 1
+        }
+        guard let best = weight.indices.max(by: { weight[$0] < weight[$1] }), count[best] > 0 else { return nil }
+        let hue = hueSum[best] / count[best]
+        let saturation = min(max(saturationSum[best] / count[best], 0.4), 0.65)
+        return Color(hue: hue, saturation: saturation, brightness: 0.92)
+    }
+
     private static let context = CIContext(options: [.workingColorSpace: NSNull()])
     private static let log = Logger(subsystem: "app.anixart.client", category: "release-tint")
 

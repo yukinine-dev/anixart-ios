@@ -638,7 +638,7 @@ struct ReleaseDetailView: View {
             FlowRow(spacing: 8) {
                 ForEach(Array(list.enumerated()), id: \.offset) { _, genre in
                     NavigationLink {
-                        if let viewer { SourceMaterialSearchView(query: genre, scope: .all, title: genre, viewer: viewer) }
+                        GenreReleasesView(genres: [genre], viewer: viewer)
                     } label: {
                         Text(genre)
                             .font(.ax(.body))
@@ -714,10 +714,25 @@ struct ReleaseDetailView: View {
         Color.clear
             .aspectRatio(16.0 / 9.0, contentMode: .fit)
             .overlay {
-                CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
+                CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 900) { image in
                     image.resizable().scaledToFill()
                 } placeholder: { Rectangle().fill(.quaternary) }
-                .overlay(.black.opacity(0.4))
+                // A shade only along the bottom, where the label sits, so the picture
+                // itself stays bright as on Android.
+                .overlay(alignment: .bottom) {
+                    LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 70)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if banner.isNew == true {
+                    Text("Новое")
+                        .font(.ax(.subheadline, .semibold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 12).padding(.vertical, 5)
+                        .background(Color(white: 0.9), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .padding(10)
+                }
             }
             .overlay(alignment: .bottomLeading) {
                 HStack(spacing: 8) {

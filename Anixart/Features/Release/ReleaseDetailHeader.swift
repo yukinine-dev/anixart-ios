@@ -10,14 +10,14 @@ struct ReleaseDetailHeader: View {
     /// Opens the poster full screen, where it can be zoomed and saved.
     var onPoster: (() -> Void)?
     /// Only the original-name color comes from the poster; the backdrop is the poster itself.
-    @State private var tint: PosterTint?
+    @State private var accent: Color?
     @State private var ageBadge: UIImage?
     @Environment(\.displayScale) private var displayScale
 
     static let posterHeight: CGFloat = 372
     static let backdropHeight: CGFloat = 412
     /// How far the whole block is lifted so the poster starts right under the status bar.
-    static let topLift: CGFloat = 62
+    static let topLift: CGFloat = 0
     /// How far the backdrop reaches above the page, behind the bars.
     static let backdropExtension: CGFloat = 240
 
@@ -73,7 +73,7 @@ struct ReleaseDetailHeader: View {
             .task(id: release.posterURL) {
                 guard let url = release.posterURL,
                       let thumbnail = await ImageLoader.shared.image(for: url, pixelSize: 64) else { return }
-                tint = PosterColorExtractor.tint(of: thumbnail)
+                accent = PosterColorExtractor.dominantAccent(of: thumbnail)
             }
             .task(id: release.ageRatingText) { renderAgeBadge() }
 
@@ -93,7 +93,7 @@ struct ReleaseDetailHeader: View {
                             Image(systemName: "chevron.right").font(.ax(.caption, .semibold))
                         }
                         .font(.ax(.callout))
-                        .foregroundStyle(tint?.accent ?? Color.secondary)
+                        .foregroundStyle(accent ?? Color.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity)

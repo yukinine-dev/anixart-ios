@@ -389,10 +389,15 @@ struct GenreReleasesView: View {
     let genres: [String]
     @State private var viewer: ProfileViewerKey?
     @State private var paginator: Paginator<Release>?
+    /// Android shows the genre typed into the search field while the results are the genre
+    /// filter's, so the field starts as the genre name; a different query is a text search.
+    @State private var query: String
+    @State private var showsTextSearch = false
 
     init(genres: [String], viewer: ProfileViewerKey? = nil) {
         self.genres = genres
         _viewer = State(initialValue: viewer)
+        _query = State(initialValue: genres.joined(separator: ", "))
     }
 
     var body: some View {
@@ -409,9 +414,20 @@ struct GenreReleasesView: View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle(genres.joined(separator: ", ").capitalizedFirst)
+        .navigationTitle("Поиск")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Поиск аниме")
+        .onSubmit(of: .search) {
+            let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty, text.lowercased() != genres.joined(separator: ", ").lowercased() { showsTextSearch = true }
+        }
+        .navigationDestination(isPresented: $showsTextSearch) {
+            if let viewer {
+                SourceMaterialSearchView(query: query.trimmingCharacters(in: .whitespacesAndNewlines),
+                                         scope: .all, title: query, viewer: viewer)
+            }
+        }
         .refreshable { await paginator?.reload() }
         .task {
             if viewer == nil { viewer = env.session.viewerKey }
