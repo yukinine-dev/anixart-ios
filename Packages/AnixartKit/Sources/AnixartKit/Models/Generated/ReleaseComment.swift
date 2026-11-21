@@ -21,6 +21,9 @@ public struct ReleaseComment: Codable, Hashable, Sendable, Identifiable {
     public var isReply: Bool?
     public var isSpoiler: Bool?
     public var postedAtEpisode: Int?
+    /// The beta 3 APK maps this field to `posted_at_episode`; the release payload sends that
+    /// spelling, the profile endpoints the camelCase one above. Read both (`episodeAtPosting`).
+    public var postedAtEpisodeSnake: Int?
     public var release: Embedded<Release>?
 
     public enum CodingKeys: String, CodingKey {
@@ -40,6 +43,7 @@ public struct ReleaseComment: Codable, Hashable, Sendable, Identifiable {
         case isReply = "is_reply"
         case isSpoiler = "is_spoiler"
         case postedAtEpisode
+        case postedAtEpisodeSnake = "posted_at_episode"
         case release
     }
 }

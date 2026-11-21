@@ -298,12 +298,16 @@ struct CommentRow: View {
                     Text("Комментарий удалён").font(.ax(.subheadline)).foregroundStyle(.secondary)
                 } else if comment.containsSpoiler && !isSpoilerRevealed {
                     Button { revealSpoiler() } label: {
-                        Label("Содержит спойлер — нажмите, чтобы прочитать", systemImage: "eye.slash")
-                            .font(.ax(.caption))
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(8)
-                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                        // Android: two plain lines, the second one picked out, and no icon.
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Комментарий может содержать спойлер.")
+                                .font(.ax(.body))
+                                .foregroundStyle(.secondary)
+                            Text("Нажмите, чтобы прочитать")
+                                .font(.ax(.body, .medium))
+                                .foregroundStyle(Theme.accent)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.plain)
                     .onKeyPress(.return) { revealSpoiler(fromKeyboard: true); return .handled }
@@ -315,7 +319,7 @@ struct CommentRow: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                if let episode = comment.postedAtEpisode, episode > 0 {
+                if let episode = comment.episodeAtPosting, episode > 0 {
                     Text("На момент выхода \(episode) серии")
                         .font(.ax(.caption))
                         .foregroundStyle(.secondary)

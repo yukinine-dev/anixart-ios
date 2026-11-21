@@ -219,6 +219,8 @@ struct ReleaseDetailView: View {
 
             factLines(release)
 
+            Color.clear.frame(height: 20)
+
             badgesCard(release)
 
             collectionLinks(release)
@@ -268,9 +270,9 @@ struct ReleaseDetailView: View {
             HStack(spacing: 0) {
                 ForEach(Array(columns.enumerated()), id: \.offset) { index, column in
                     VStack(spacing: 4) {
-                        Text(column.value).font(.ax(.title2, .semibold)).monospacedDigit()
+                        Text(column.value).font(.ax(.title3, .semibold)).monospacedDigit()
                             .lineLimit(1).minimumScaleFactor(0.7)
-                        Text(column.caption).font(.ax(.subheadline)).foregroundStyle(.secondary)
+                        Text(column.caption).font(.ax(.footnote)).foregroundStyle(.secondary)
                             .lineLimit(1).minimumScaleFactor(0.7)
                     }
                     .frame(maxWidth: .infinity)
@@ -305,9 +307,14 @@ struct ReleaseDetailView: View {
         if let season = release.seasonAndYear {
             let caption = [release.categoryBadgeText, release.statusBadgeText]
                 .compactMap { $0?.lowercased() }.joined(separator: " · ")
-            columns.append((season, caption))
+            columns.append((Self.capitalizingFirst(season), caption))
         }
         return columns
+    }
+
+    /// «осень 2026» -> «Осень 2026».
+    private static func capitalizingFirst(_ text: String) -> String {
+        text.prefix(1).uppercased() + text.dropFirst()
     }
 
     // MARK: - Action tiles
@@ -326,9 +333,8 @@ struct ReleaseDetailView: View {
 
             Button { Task { await model.toggleFavorite() } } label: {
                 VStack(spacing: 8) {
-                    Image(systemName: isFavorite ? "bookmark.fill" : "bookmark")
-                        .font(.ax(.title3))
-                        .contentTransition(.symbolEffect(.replace))
+                    BookmarkIcon(isFilled: isFavorite)
+                        .frame(width: 22, height: 24)
                         // A quick squash, a pop past full size, then a bouncy settle.
                         .keyframeAnimator(initialValue: 1.0, trigger: isFavorite) { view, scale in
                             view.scaleEffect(scale)
@@ -431,21 +437,21 @@ struct ReleaseDetailView: View {
                                     in: UnevenRoundedRectangle(bottomLeadingRadius: 28, bottomTrailingRadius: 28, style: .continuous))
                         .padding(.top, -24)
                 } else if let update {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
                         if update.isNew {
                             Text("Новая")
-                                .font(.ax(.subheadline, .semibold))
+                                .font(.ax(.caption, .semibold))
                                 .foregroundStyle(palette.background.color)
-                                .padding(.horizontal, 10).padding(.vertical, 3)
-                                .background(palette.text.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(palette.text.color, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
-                        Text(update.text).font(.ax(.body)).lineLimit(1).minimumScaleFactor(0.8)
+                        Text(update.text).font(.ax(.footnote)).lineLimit(1).minimumScaleFactor(0.8)
                     }
-                    .foregroundStyle(.primary.opacity(0.9))
+                    .foregroundStyle(.primary.opacity(0.8))
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 16)
-                    .padding(.top, 34)
-                    .padding(.bottom, 14)
+                    .padding(.top, 30)
+                    .padding(.bottom, 8)
                     .background(Color.primary.opacity(0.08),
                                 in: UnevenRoundedRectangle(bottomLeadingRadius: 28, bottomTrailingRadius: 28, style: .continuous))
                     .padding(.top, -24)
@@ -583,8 +589,8 @@ struct ReleaseDetailView: View {
                 }
                 if let source = release.sourceMaterialName {
                     detailRow("Первоисточник") {
-                        if let destination = release.sourceMaterialSearch, let viewer {
-                            NavigationLink { SourceMaterialSearchView(source: destination, viewer: viewer) } label: {
+                        if let viewer {
+                            NavigationLink { SourceMaterialSearchView(query: source, scope: .sourceMaterial, title: source, viewer: viewer) } label: {
                                 Text(source).underline(true, pattern: .dash)
                             }
                             .buttonStyle(.plain)
@@ -631,7 +637,7 @@ struct ReleaseDetailView: View {
             FlowRow(spacing: 8) {
                 ForEach(Array(list.enumerated()), id: \.offset) { _, genre in
                     NavigationLink {
-                        GenreReleasesView(genres: [genre], viewer: viewer)
+                        if let viewer { SourceMaterialSearchView(query: genre, scope: .all, title: genre, viewer: viewer) }
                     } label: {
                         Text(genre)
                             .font(.ax(.body))
@@ -657,15 +663,27 @@ struct ReleaseDetailView: View {
     // MARK: - Video
 
     private func videoSection(_ release: Release, banners: [ReleaseVideoBanner]) -> some View {
+        // «Видео» with «Показать все», and the categories (trailers, previews, openings,
+        // endings) as a two-column grid of picture tiles.
         VStack(alignment: .leading, spacing: Theme.Spacing.row) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.row) {
-                    ForEach(Array(banners.enumerated()), id: \.offset) { _, banner in
-                        videoBanner(banner, release: release)
-                    }
+            HStack {
+                Text("Видео").font(.ax(.title2, .bold))
+                Spacer()
+                NavigationLink {
+                    ReleaseVideosView(release: release, viewer: viewer)
+                } label: {
+                    Text("Показать все").font(.ax(.body, .semibold))
                 }
-                .padding(.horizontal)
+                .buttonStyle(.plain)
             }
+            .padding(.horizontal)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(Array(banners.enumerated()), id: \.offset) { _, banner in
+                    videoBanner(banner, release: release)
+                }
+            }
+            .padding(.horizontal)
         }
     }
 
@@ -685,15 +703,24 @@ struct ReleaseDetailView: View {
     }
 
     private func videoBannerContent(_ banner: ReleaseVideoBanner) -> some View {
-        ZStack {
-            CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
-                image.resizable().scaledToFill()
-            } placeholder: { Rectangle().fill(.quaternary) }
-            .overlay(.black.opacity(0.35))
-            Text(banner.name ?? "Видео").font(.ax(.title2, .medium)).foregroundStyle(.white)
-        }
-        .frame(width: 260, height: 146)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        Color.clear
+            .aspectRatio(16.0 / 11.0, contentMode: .fit)
+            .overlay {
+                CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: { Rectangle().fill(.quaternary) }
+                .overlay(.black.opacity(0.4))
+            }
+            .overlay(alignment: .bottomLeading) {
+                HStack(spacing: 8) {
+                    Image(systemName: "play.fill").font(.ax(.subheadline))
+                    Text(banner.name ?? "Видео").font(.ax(.title3, .semibold)).lineLimit(1)
+                }
+                .foregroundStyle(.white)
+                .padding(14)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
     }
 
     // MARK: - Rating
@@ -759,14 +786,18 @@ struct ReleaseDetailView: View {
                 Text(Format.count(distribution.reduce(0) { $0 + $1.count })).font(.ax(.title3)).foregroundStyle(.secondary)
             }
 
+            // Every list with at least one person gets a visible segment, however small its
+            // share: «Брошено 427» of 88 000 would otherwise be under one point wide.
             GeometryReader { geometry in
-                HStack(spacing: 2) {
-                    ForEach(distribution, id: \.status) { slice in
-                        Theme.listColor(slice.status)
-                            .frame(width: max(0, geometry.size.width * CGFloat(slice.count) / CGFloat(total)))
+                let slices = distribution.filter { $0.count > 0 }
+                let widths = Self.segmentWidths(counts: slices.map(\.count), available: geometry.size.width, gap: 3, minWidth: 12)
+                HStack(spacing: 3) {
+                    ForEach(Array(slices.enumerated()), id: \.offset) { index, slice in
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .fill(Theme.listColor(slice.status))
+                            .frame(width: widths[index])
                     }
                 }
-                .clipShape(Capsule())
             }
             .frame(height: 26)
 
@@ -783,6 +814,24 @@ struct ReleaseDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .padding(.horizontal)
+    }
+
+    /// Proportional segment widths with a floor: segments under `minWidth` are raised to it
+    /// and the others give up the difference, so the bar still fills `available` exactly.
+    static func segmentWidths(counts: [Int], available: CGFloat, gap: CGFloat, minWidth: CGFloat) -> [CGFloat] {
+        guard !counts.isEmpty else { return [] }
+        let usable = max(0, available - gap * CGFloat(counts.count - 1))
+        let total = CGFloat(max(1, counts.reduce(0, +)))
+        var widths = counts.map { usable * CGFloat($0) / total }
+        let floored = widths.indices.filter { widths[$0] < minWidth }
+        guard !floored.isEmpty, floored.count < widths.count else { return widths }
+        let deficit = floored.reduce(CGFloat(0)) { $0 + (minWidth - widths[$1]) }
+        let donorTotal = widths.indices.filter { !floored.contains($0) }.reduce(CGFloat(0)) { $0 + widths[$1] }
+        for index in widths.indices {
+            if floored.contains(index) { widths[index] = minWidth }
+            else if donorTotal > 0 { widths[index] -= deficit * widths[index] / donorTotal }
+        }
+        return widths.map { max(0, $0) }
     }
 
     /// «31 145 пользователей планируют смотреть этот релиз» with the ticking clock.
@@ -821,7 +870,7 @@ struct ReleaseDetailView: View {
 
     @ViewBuilder
     private func legendItem(_ status: ProfileListStatus, _ counts: [ProfileListStatus: Int]) -> some View {
-        if let count = counts[status] {
+        if let count = counts[status], count > 0 {
             HStack(spacing: 8) {
                 Circle().fill(Theme.listColor(status)).frame(width: 13, height: 13)
                 Text(status.title).font(.ax(fixed: 14.5)).foregroundStyle(.secondary).lineLimit(1)
@@ -838,27 +887,34 @@ struct ReleaseDetailView: View {
         let urls = release.screenshotURLs
         return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             countHeader("Кадры", count: urls.count)
+            // Wide cards that snap one at a time, with the next one peeking in.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                LazyHStack(spacing: 8) {
                     ForEach(Array(urls.enumerated()), id: \.offset) { index, url in
                         Button {
                             guard let viewer, viewer == env.session.viewerKey else { return }
                             screenshotGallery = ReleaseScreenshotPresentation(urls: urls, initialIndex: index, viewer: viewer)
                         } label: {
-                            CachedAsyncImage(url: url, maxPixelSize: 520) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                Rectangle().fill(.quaternary)
-                            }
-                            .frame(width: 240, height: 135)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            Color.clear
+                                .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                                .overlay {
+                                    CachedAsyncImage(url: url, maxPixelSize: 900) { image in
+                                        image.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Rectangle().fill(.quaternary)
+                                    }
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                                .containerRelativeFrame(.horizontal) { width, _ in width * 0.63 }
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Открыть кадр \(index + 1) из \(urls.count)")
                     }
                 }
-                .padding(.horizontal)
+                .scrollTargetLayout()
             }
+            .scrollTargetBehavior(.viewAligned)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
         }
     }
 
@@ -958,7 +1014,7 @@ struct ReleaseDetailView: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal)
-            .padding(.top, Theme.Spacing.row)
+            .padding(.top, 4)
         }
     }
 
@@ -1042,6 +1098,13 @@ struct ReleaseDetailView: View {
                                     .lineLimit(2)
                                     .multilineTextAlignment(.leading)
                                     .frame(width: 118, alignment: .leading)
+                                // «★ 4,9 · Сериал», as under the cards on Android.
+                                let meta = [item.ratingText.map { "★ " + $0.replacingOccurrences(of: ".", with: ",") },
+                                            item.categoryBadgeText].compactMap { $0 }.joined(separator: " · ")
+                                if !meta.isEmpty {
+                                    Text(meta).font(.ax(.footnote)).foregroundStyle(.secondary)
+                                        .lineLimit(1).frame(width: 118, alignment: .leading)
+                                }
                             }
                         }
                         .buttonStyle(.plain)

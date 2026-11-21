@@ -55,7 +55,7 @@ public struct ProfileComment: Codable, Hashable, Sendable, Identifiable {
         isEdited = comment.isEdited
         isReply = comment.isReply
         isSpoiler = comment.isSpoiler
-        postedAtEpisode = comment.postedAtEpisode
+        postedAtEpisode = comment.episodeAtPosting
         release = comment.release
         collection = nil
         article = nil

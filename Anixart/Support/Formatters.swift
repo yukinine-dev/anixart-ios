@@ -38,6 +38,22 @@ enum Format {
     /// it is not this one -- how Android dates a comment.
     static func commentDate(_ date: Date?) -> String? {
         guard let date else { return nil }
+        // Fresh comments read «7 минут назад», as on the Android beta.
+        let age = Date().timeIntervalSince(date)
+        if age >= 0, age < 3600 {
+            let minutes = Int(age / 60)
+            if minutes == 0 { return "только что" }
+            let word: String
+            if (11...14).contains(minutes % 100) { word = "минут" }
+            else {
+                switch minutes % 10 {
+                case 1: word = "минуту"
+                case 2...4: word = "минуты"
+                default: word = "минут"
+                }
+            }
+            return "\(minutes) \(word) назад"
+        }
         let calendar = Calendar.current
         let time = commentTime.string(from: date)
         if calendar.isDateInToday(date) { return "сегодня в \(time)" }

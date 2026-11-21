@@ -142,7 +142,7 @@ struct ReleasePlaybackButton: View {
 
     private var title: String {
         if let resumeEpisode { return "Продолжить \(resumeEpisode) серию" }
-        return release.continueWatchingText == nil ? "Воспроизвести" : "Продолжить"
+        return release.continueWatchingText == nil ? "Смотреть" : "Продолжить"
     }
 
     var body: some View {

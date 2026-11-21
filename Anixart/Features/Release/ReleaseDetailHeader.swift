@@ -9,8 +9,10 @@ struct ReleaseDetailHeader: View {
     let onTitles: () -> Void
     /// Opens the poster full screen, where it can be zoomed and saved.
     var onPoster: (() -> Void)?
-    /// Beta 3 paints the top of the page in the poster's own colors.
+    /// Only the original-name color comes from the poster; the backdrop is the poster itself.
     @State private var tint: PosterTint?
+    @State private var ageBadge: UIImage?
+    @Environment(\.displayScale) private var displayScale
 
     static let posterHeight: CGFloat = 372
     static let backdropHeight: CGFloat = 412
@@ -51,16 +53,9 @@ struct ReleaseDetailHeader: View {
                 .clipped()
                 .overlay {
                     // Measured on a live Android screen: the backdrop is the poster itself,
-                    // sharp (no blur), dimmed to roughly 12-15% brightness.
-                    palette.background.color.opacity(0.9)
+                    // sharp (no blur), dimmed to roughly 21% of the poster's brightness (beta 3, a live capture).
+                    palette.background.color.opacity(0.78)
                 }
-                .overlay {
-                    if let tint {
-                        LinearGradient(colors: [tint.top.opacity(0.8), tint.bottom.opacity(0.4)],
-                                       startPoint: .top, endPoint: .bottom)
-                    }
-                }
-                .animation(.easeInOut(duration: 0.3), value: tint)
                 .overlay(alignment: .bottom) {
                     // Dissolves the tint into the page background so the title block
                     // below starts on a seamless surface, with no visible edge.
@@ -80,27 +75,18 @@ struct ReleaseDetailHeader: View {
                       let thumbnail = await ImageLoader.shared.image(for: url, pixelSize: 64) else { return }
                 tint = PosterColorExtractor.tint(of: thumbnail)
             }
+            .task(id: release.ageRatingText) { renderAgeBadge() }
 
             Button(action: onTitles) {
                 // Beta 3: the title block is centred, the age rating is an outlined
                 // chip beside the title, and the original name takes the poster's color.
                 VStack(spacing: 6) {
-                    HStack(alignment: .center, spacing: 10) {
-                        Text(release.displayTitle)
-                            .font(.ax(.title, .bold))
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let age = release.ageRatingText {
-                            Text(age)
-                                .font(.ax(.subheadline, .medium))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .strokeBorder(Color.primary.opacity(0.7), lineWidth: 1.5))
-                                .fixedSize()
-                                .accessibilityLabel("Возрастное ограничение: \(age)")
-                        }
-                    }
+                    // The age chip sits inline after the last word of the title, so a title that
+                    // wraps carries it on its last line (as on Android), not in a column of its own.
+                    titleWithBadge
+                        .font(.ax(.title, .bold))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                     if let subtitle = release.displaySubtitle {
                         HStack(spacing: 6) {
                             Text(subtitle).lineLimit(1)
@@ -124,6 +110,41 @@ struct ReleaseDetailHeader: View {
         // beside it; here the page starts below the nav bar, so lift the whole block
         // (measured: ~62pt lower than Android on a live comparison).
         .padding(.top, -Self.topLift)
+    }
+}
+
+extension ReleaseDetailHeader {
+    /// Title text with the age chip appended as an inline image; the bare title until the
+    /// chip has been rendered, or when the release has no rating.
+    fileprivate var titleWithBadge: Text {
+        var text = Text(release.displayTitle)
+        if let ageBadge {
+            text = text + Text(" ") + Text(Image(uiImage: ageBadge).renderingMode(.original)).baselineOffset(-5)
+        }
+        return text
+    }
+
+    fileprivate func renderAgeBadge() {
+        guard let age = release.ageRatingText else { ageBadge = nil; return }
+        let renderer = ImageRenderer(content: AgeRatingChip(text: age, color: palette.text.color))
+        renderer.scale = displayScale
+        ageBadge = renderer.uiImage
+    }
+}
+
+/// The outlined «16+» chip, drawn once to an image so it can sit inside a line of text.
+private struct AgeRatingChip: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 17, weight: .medium))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(color.opacity(0.75), lineWidth: 1.5))
+            .padding(1.5)
     }
 }
 
