@@ -322,7 +322,7 @@ struct ReleaseDetailView: View {
     /// «В список», bookmarks, comments and «В коллекцию» as four equal tiles.
     private func actionTiles(_ release: Release, model: ReleaseDetailViewModel) -> some View {
         let isFavorite = release.isFavorite ?? false
-        return HStack(spacing: 8) {
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
             Button { isShowingListPicker = true } label: {
                 tileLabel(icon: release.listStatus == nil ? "plus" : "checkmark",
                           title: release.listStatus?.title ?? "В список",
@@ -580,7 +580,7 @@ struct ReleaseDetailView: View {
                                 SourceMaterialSearchView(query: credit.value, scope: credit.scope,
                                                          title: "\(credit.title): \(credit.value)", viewer: viewer)
                             } label: {
-                                Text(credit.value).underline(true, pattern: .dash)
+                                Text(credit.value).dashedUnderline()
                             }
                             .buttonStyle(.plain)
                         } else {
@@ -592,7 +592,7 @@ struct ReleaseDetailView: View {
                     detailRow("Первоисточник") {
                         if let viewer {
                             NavigationLink { SourceMaterialSearchView(query: source, scope: .sourceMaterial, title: source, viewer: viewer) } label: {
-                                Text(source).underline(true, pattern: .dash)
+                                Text(source).dashedUnderline()
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Первоисточник: \(source)")
@@ -679,9 +679,16 @@ struct ReleaseDetailView: View {
             }
             .padding(.horizontal)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                ForEach(Array(banners.enumerated()), id: \.offset) { _, banner in
-                    videoBanner(banner, release: release)
+            // With an odd number of categories the first one (the trailer) takes the whole
+            // row and the rest pair up beneath it, as on Android.
+            let leading = banners.count % 2 == 1 ? 1 : 0
+            VStack(spacing: 10) {
+                if leading == 1 { videoBanner(banners[0], release: release) }
+                ForEach(Array(stride(from: leading, to: banners.count, by: 2)), id: \.self) { index in
+                    HStack(spacing: 10) {
+                        videoBanner(banners[index], release: release)
+                        if index + 1 < banners.count { videoBanner(banners[index + 1], release: release) }
+                    }
                 }
             }
             .padding(.horizontal)
@@ -705,7 +712,7 @@ struct ReleaseDetailView: View {
 
     private func videoBannerContent(_ banner: ReleaseVideoBanner) -> some View {
         Color.clear
-            .aspectRatio(16.0 / 11.0, contentMode: .fit)
+            .aspectRatio(16.0 / 9.0, contentMode: .fit)
             .overlay {
                 CachedAsyncImage(url: AnixartURL.image(banner.image), maxPixelSize: 520) { image in
                     image.resizable().scaledToFill()
@@ -791,14 +798,15 @@ struct ReleaseDetailView: View {
             // share: «Брошено 427» of 88 000 would otherwise be under one point wide.
             GeometryReader { geometry in
                 let slices = distribution.filter { $0.count > 0 }
-                let widths = Self.segmentWidths(counts: slices.map(\.count), available: geometry.size.width, gap: 3, minWidth: 12)
-                HStack(spacing: 3) {
+                let widths = Self.segmentWidths(counts: slices.map(\.count), available: geometry.size.width, gap: 2, minWidth: 4)
+                HStack(spacing: 2) {
                     ForEach(Array(slices.enumerated()), id: \.offset) { index, slice in
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        Rectangle()
                             .fill(Theme.listColor(slice.status))
                             .frame(width: widths[index])
                     }
                 }
+                .clipShape(Capsule())
             }
             .frame(height: 26)
 
@@ -875,7 +883,7 @@ struct ReleaseDetailView: View {
             HStack(spacing: 8) {
                 Circle().fill(Theme.listColor(status)).frame(width: 13, height: 13)
                 Text(status.title).font(.ax(fixed: 14.5)).foregroundStyle(.secondary).lineLimit(1)
-                Text(Format.exact(count)).font(.ax(fixed: 14.5, .semibold)).monospacedDigit().lineLimit(1)
+                Text(Format.count(count)).font(.ax(fixed: 14.5, .semibold)).monospacedDigit().lineLimit(1)
             }
         } else {
             Color.clear.frame(width: 1, height: 1)

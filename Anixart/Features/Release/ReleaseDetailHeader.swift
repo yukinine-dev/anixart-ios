@@ -84,7 +84,7 @@ struct ReleaseDetailHeader: View {
                     // The age chip sits inline after the last word of the title, so a title that
                     // wraps carries it on its last line (as on Android), not in a column of its own.
                     titleWithBadge
-                        .font(.ax(.title, .bold))
+                        .font(.ax(.title2, .bold))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                     if let subtitle = release.displaySubtitle {
@@ -92,7 +92,7 @@ struct ReleaseDetailHeader: View {
                             Text(subtitle).lineLimit(1)
                             Image(systemName: "chevron.right").font(.ax(.caption, .semibold))
                         }
-                        .font(.ax(.title3))
+                        .font(.ax(.callout))
                         .foregroundStyle(tint?.accent ?? Color.secondary)
                     }
                 }
@@ -139,7 +139,7 @@ private struct AgeRatingChip: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 17, weight: .medium))
+            .font(.system(size: 14, weight: .medium))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
