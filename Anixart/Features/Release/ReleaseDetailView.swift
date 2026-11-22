@@ -954,24 +954,26 @@ struct ReleaseDetailView: View {
         return VStack(alignment: .leading, spacing: Theme.Spacing.row) {
             countHeader("Франшиза", count: total)
             VStack(spacing: 0) {
-                ForEach(releases) { item in
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(item.id == release.id ? Theme.accent : Color.primary.opacity(0.45))
-                            .frame(width: 14, height: 14)
+                // Each card carries its own piece of the rail, as Android's TimelineRailView does:
+                // a line above unless it is the first, a line below unless it is the last, and
+                // a larger marker for the release that is open.
+                ForEach(Array(releases.enumerated()), id: \.element.id) { index, item in
+                    HStack(spacing: 8) {
+                        TimelineRail(hasTop: index > 0,
+                                     hasBottom: index < releases.count - 1 || release.hasMoreRelatedReleases,
+                                     isCurrent: item.id == release.id)
                         if item.id == release.id {
                             // Not a disabled link: that would dim the open release to grey.
-                            RelatedReleaseRow(release: item, isCurrent: true)
+                            RelatedReleaseRow(release: item, isCurrent: true).padding(.vertical, 12)
                         } else {
                             NavigationLink {
                                 ReleaseDetailView(releaseID: item.id, preloaded: item, viewer: viewer)
                             } label: {
-                                RelatedReleaseRow(release: item, isCurrent: false)
+                                RelatedReleaseRow(release: item, isCurrent: false).padding(.vertical, 12)
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.vertical, 12)
                 }
                 if release.hasMoreRelatedReleases, let related = release.related {
                     NavigationLink {
@@ -982,7 +984,7 @@ struct ReleaseDetailView: View {
                             Spacer()
                             Image(systemName: "chevron.right").foregroundStyle(.secondary)
                         }
-                        .padding(.leading, 26)
+                        .padding(.leading, 28)
                         .padding(.vertical, 12)
                         .contentShape(Rectangle())
                     }
@@ -992,10 +994,6 @@ struct ReleaseDetailView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
-            .background(alignment: .leading) {
-                Rectangle().fill(Color.primary.opacity(0.18)).frame(width: 2)
-                    .padding(.leading, 27).padding(.vertical, 36)
-            }
             .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .padding(.horizontal)
         }

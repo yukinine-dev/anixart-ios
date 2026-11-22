@@ -718,54 +718,90 @@ struct ProfileStatisticsSection: View {
         ProfileListStatus.allCases.map { ($0, profile.listCount(for: $0)) }
     }
 
+    /// Beta 3: «В списках» as a card with a bar and a two-column legend, then two number
+    /// cards and a card with the genre / audience / theme lines. Lists under 1% are not
+    /// drawn in the bar (they stay in the legend), as on Android.
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.section) {
-            HStack(alignment: .center, spacing: Theme.Spacing.row) {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(slices, id: \.status) { slice in
-                        NavigationLink {
-                            ProfileListView(profileID: profileID, status: slice.status, viewer: viewer)
-                        } label: {
-                            HStack(spacing: 10) {
-                                Circle()
-                                    .fill(Theme.listColor(slice.status))
-                                    .frame(width: 12, height: 12)
-                                Text(slice.status.title)
-                                    .font(.ax(.subheadline))
-                                    .foregroundStyle(.primary)
-                                Text("\(slice.count)")
-                                    .font(.ax(.subheadline, .medium))
-                                    .monospacedDigit()
-                            }
+        let total = max(1, slices.reduce(0) { $0 + $1.count })
+        VStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("В списках").font(.ax(.title3, .semibold))
+                    Spacer()
+                    Text(Format.count(slices.reduce(0) { $0 + $1.count })).font(.ax(.title3)).foregroundStyle(.secondary)
+                }
+                GeometryReader { geometry in
+                    let visible = slices.filter { $0.count * 100 >= total }
+                    let widths = ReleaseDetailView.segmentWidths(counts: visible.map(\.count), available: geometry.size.width, gap: 3, minWidth: 0)
+                    HStack(spacing: 3) {
+                        ForEach(Array(visible.enumerated()), id: \.offset) { index, slice in
+                            Rectangle().fill(Theme.listColor(slice.status)).frame(width: widths[index])
                         }
-                        .buttonStyle(.plain)
                     }
+                    .clipShape(Capsule())
                 }
-                Spacer(minLength: 0)
-                DonutChart(slices: slices.map { (color: Theme.listColor($0.status), value: $0.count) })
-                    .frame(width: 140, height: 140)
-            }
-            .padding(.horizontal)
-
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(ProfileStatisticsPreferences(profile: profile).rows) { row in
-                    statLine(row.title, row.value)
+                .frame(height: 14)
+                Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 12) {
+                    GridRow { legend(.watching); legend(.plan) }
+                    GridRow { legend(.completed); legend(.holdOn) }
+                    GridRow { legend(.dropped); Color.clear.frame(width: 1, height: 1) }
                 }
-                // Android prints this one in full, never abbreviated to "11 тыс.".
-                statLine("Просмотрено серий:", Format.exact(profile.watchedEpisodeCount))
-                statLine("Время просмотра:", watchedTimeText)
             }
-            .padding(.horizontal)
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
 
-            // Android's label here is "Показать списки", distinct from the
-            // "Узнать подробнее" under the dynamics chart below.
+            HStack(spacing: 8) {
+                numberCard(Format.exact(profile.watchedEpisodeCount), "серий просмотрено")
+                numberCard(watchedTimeText, "время просмотра")
+            }
+
+            let rows = ProfileStatisticsPreferences(profile: profile).rows
+            if !rows.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(rows) { row in statLine(row.title, row.value) }
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+
             Button("Показать списки") { isShowingHelp = true }
-                .font(.ax(.body, .semibold))
-                .foregroundStyle(.primary)
+                .font(.ax(.subheadline, .medium))
+                .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
         }
+        .padding(.horizontal)
         .sheet(isPresented: $isShowingHelp) { ProfileStatisticsHelpView() }
+    }
+
+    @ViewBuilder
+    private func legend(_ status: ProfileListStatus) -> some View {
+        if let slice = slices.first(where: { $0.status == status }), slice.count > 0 {
+            NavigationLink {
+                ProfileListView(profileID: profileID, status: status, viewer: viewer)
+            } label: {
+                HStack(spacing: 8) {
+                    Circle().fill(Theme.listColor(status)).frame(width: 13, height: 13)
+                    Text(status.title).font(.ax(.body)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(Format.count(slice.count)).font(.ax(.body, .semibold)).monospacedDigit().foregroundStyle(.primary).lineLimit(1)
+                }
+            }
+            .buttonStyle(.plain)
+        } else {
+            Color.clear.frame(width: 1, height: 1)
+        }
+    }
+
+    private func numberCard(_ value: String, _ caption: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value).font(.ax(.title, .semibold)).monospacedDigit().lineLimit(2).minimumScaleFactor(0.7)
+            Text(caption).font(.ax(.subheadline)).foregroundStyle(.secondary)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private func statLine(_ label: String, _ value: String) -> some View {

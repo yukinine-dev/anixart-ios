@@ -25,6 +25,7 @@ struct ProfileBadgeImage: View {
             }
         }
         .frame(width: size, height: size)
+        .clipped()
         .background {
             GeometryReader { geometry in
                 Color.clear.preference(key: ProfileBadgeImageVisibility.self,
@@ -103,6 +104,9 @@ struct ProfileBadgeLottieView: UIViewRepresentable {
     func makeUIView(context: Context) -> LottieAnimationView {
         let view = LottieAnimationView(animation: nil)
         view.contentMode = .scaleAspectFit
+        // A sticker can draw outside its canvas (the «Я вижу матрицу» X fills the whole screen
+        // otherwise); Android clips to the composition, so do the same.
+        view.clipsToBounds = true
         view.backgroundBehavior = .pause
         view.loopMode = .loop
         view.respectAnimationFrameRate = true
