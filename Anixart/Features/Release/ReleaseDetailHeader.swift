@@ -34,8 +34,6 @@ struct ReleaseDetailHeader: View {
                 }
                 .frame(height: Self.posterHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                // Android outlines the poster with a thin light line.
-                .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
                 .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .onTapGesture { onPoster?() }
@@ -48,16 +46,16 @@ struct ReleaseDetailHeader: View {
                 // Inside a scroll view the safe area does not reach above the content,
                 // so the backdrop is simply made taller upwards, under status and nav bars.
                 CachedAsyncImage(url: release.posterURL, maxPixelSize: 760) { image in
-                    image.resizable().scaledToFill()
+                    // Measured on Android (beta 3): the backdrop is strongly coloured, saturation
+                    // about 0.43 against 0.08 here when it was dimmed with the grey page color,
+                    // which washes a dark picture out. So it is saturated first and then dimmed
+                    // with plain black; that gives the red-left, blue-right wash of a poster.
+                    image.resizable().scaledToFill().saturation(1.7)
                 } placeholder: { Color.clear }
                 .frame(maxWidth: .infinity)
                 .frame(height: Self.backdropHeight + Self.backdropExtension)
                 .clipped()
-                .overlay {
-                    // Measured on a live Android screen: the backdrop is the poster itself,
-                    // sharp (no blur), dimmed to roughly 21% of the poster's brightness (beta 3, a live capture).
-                    palette.background.color.opacity(0.78)
-                }
+                .overlay { Color.black.opacity(0.78) }
                 .overlay(alignment: .bottom) {
                     // Dissolves the tint into the page background so the title block
                     // below starts on a seamless surface, with no visible edge.
@@ -90,12 +88,13 @@ struct ReleaseDetailHeader: View {
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                     if let subtitle = release.displaySubtitle {
-                        HStack(spacing: 6) {
-                            Text(subtitle).lineLimit(1)
-                            Image(systemName: "chevron.right").font(.ax(.caption, .semibold))
-                        }
-                        .font(.ax(.callout))
-                        .foregroundStyle(accent ?? Color.secondary)
+                        // The original name wraps to the width of the title block, with the
+                        // chevron at the end of its last line.
+                        (Text(subtitle) + Text(" ") + Text(Image(systemName: "chevron.right")).font(.ax(.caption, .semibold)))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .font(.ax(.callout))
+                            .foregroundStyle(accent ?? Color.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -207,7 +206,7 @@ struct ReleaseExpandableText: View {
                 Button(isExpanded ? "Скрыть" : "Подробнее…") {
                     if isExpanded { collapse() } else { expand(fromKeyboard: false) }
                 }
-                    .font(.ax(.headline, .semibold))
+                    .font(.ax(.subheadline, .semibold))
                     .foregroundStyle(Theme.accent)
                     .padding(.horizontal, 22)
                     .padding(.vertical, 8)

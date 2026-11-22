@@ -255,17 +255,32 @@ struct CommentRow: View {
     var isVoting = false
     var actionsEnabled = true
 
+    @Environment(AppEnvironment.self) private var env
     @State private var isSpoilerRevealed = false
+    @State private var showsActions = false
+    @State private var showsVoters = false
+    @State private var report: ProfileReportPresentation?
 
     private var motion: AppMotionPolicy { AppMotionPolicy(reduceMotion: reduceMotion, resourceSaving: resourceSaving) }
 
+    /// The author's profile, opened from the avatar or the name.
+    @ViewBuilder
+    private func profileLink<Label: View>(@ViewBuilder _ label: () -> Label) -> some View {
+        if let id = comment.profile?.id, id > 0 {
+            NavigationLink { ProfileView(profileID: id, viewer: env.session.viewerKey) } label: { label() }
+                .buttonStyle(.plain)
+        } else {
+            label()
+        }
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Avatar(url: comment.authorAvatarURL, size: 44)
+            profileLink { Avatar(url: comment.authorAvatarURL, size: 44) }
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(comment.authorLogin).font(.ax(.body, .medium)).lineLimit(1)
+                    profileLink { Text(comment.authorLogin).font(.ax(.body, .medium)).lineLimit(1) }
                     if comment.profile?.isVerified == true {
                         Image(systemName: "checkmark.seal.fill").font(.ax(.subheadline)).foregroundStyle(Theme.newBadge)
                     }
@@ -359,6 +374,24 @@ struct CommentRow: View {
             }
         }
         .padding(.vertical, 8)
+        // A tap on the empty part of a comment opens its menu, as on Android: who rated
+        // it, copy the text, report it. Buttons and links inside the row still win.
+        .contentShape(Rectangle())
+        .onTapGesture { if comment.isDeleted != true { showsActions = true } }
+        .confirmationDialog("Комментарий", isPresented: $showsActions, titleVisibility: .hidden) {
+            Button("Оценили") { showsVoters = true }
+            Button("Скопировать") { UIPasteboard.general.string = comment.message ?? "" }
+            Button("Пожаловаться") {
+                guard let account = env.session.accountKey else { env.session.promptSignIn(); return }
+                report = ProfileReportPresentation(kind: .comment(.releases), entityID: comment.id,
+                                                   title: comment.authorLogin, account: account)
+            }
+            Button("Отмена", role: .cancel) { }
+        }
+        .sheet(isPresented: $showsVoters) {
+            NavigationStack { ProfileVotersView(source: .comment(comment.id, .releases), viewer: env.session.viewerKey) }
+        }
+        .sheet(item: $report) { ProfileReportView(target: $0) }
         // A thread line leaves the avatar and curves into «Показать N ответов».
         .background(alignment: .topLeading) {
             if (comment.replyCount ?? 0) > 0 {

@@ -218,8 +218,8 @@ struct ProfileCommentDetailView: View {
                                     ProfileCommentRow(comment: reply, viewer: composer.viewer, onReply: { chooseReply(reply) },
                                                        onVote: { value in Task { await vote(reply, value) } },
                                                        isVoting: votingIDs.contains(reply.id), actionsEnabled: actionsEnabled,
-                                                       contextCategory: category)
-                                        .padding(.leading, 20)
+                                                       contextCategory: category, isReply: true)
+                                        .padding(.leading, 32)
                                 }
                             }
                         }
@@ -438,6 +438,8 @@ struct ProfileCommentRow: View {
     var isVoting = false
     var actionsEnabled = true
     var contextCategory: ProfileCommentCategory?
+    /// Replies on the «Ответы» screen are indented and carry a smaller avatar.
+    var isReply = false
     @State private var revealsSpoiler = false
     /// A NavigationLink inside a List row draws a disclosure chevron and splits the
     /// row into columns, so the profile is opened from buttons instead.
@@ -446,35 +448,41 @@ struct ProfileCommentRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             if let profile = comment.profile {
-                Button { openedProfileID = profile.id } label: { Avatar(url: AnixartURL.image(profile.avatar), size: 40) }
+                Button { openedProfileID = profile.id } label: { Avatar(url: AnixartURL.image(profile.avatar), size: isReply ? 36 : 44) }
                     .buttonStyle(.plain)
             }
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
+                // Name and date share a line, as in the Android thread.
+                HStack(spacing: 8) {
                     if let profile = comment.profile {
-                        Button(profile.login ?? "Пользователь") { openedProfileID = profile.id }.buttonStyle(.plain)
+                        Button(profile.login ?? "Пользователь") { openedProfileID = profile.id }
+                            .buttonStyle(.plain).font(.ax(.body, .medium)).lineLimit(1)
                         if let url = AnixartURL.image(profile.badgeUrl) {
                             CachedAsyncImage(url: url, maxPixelSize: 80) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
-                                .frame(width: 20, height: 20)
+                                .frame(width: 22, height: 22)
                         }
                         if profile.isSponsor == true { Image(systemName: "crown.fill").foregroundStyle(Theme.sponsorGold) }
-                    } else { Text("Пользователь") }
+                    } else { Text("Пользователь").font(.ax(.body, .medium)) }
+                    Text((Format.commentDate(comment.date) ?? ProfileDate.text(comment.timestamp)) + (comment.isEdited == true ? " • изменён" : ""))
+                        .font(.ax(.subheadline)).foregroundStyle(.secondary).lineLimit(1).fixedSize()
                     Spacer(minLength: 0)
                 }
-                .font(.ax(.subheadline, .medium))
-                Text((Format.commentDate(comment.date) ?? ProfileDate.text(comment.timestamp)) + (comment.isEdited == true ? " • изменён" : ""))
-                    .font(.ax(.caption)).foregroundStyle(.secondary)
                 if comment.isDeleted == true {
                     Text("Комментарий удалён").font(.ax(.subheadline)).foregroundStyle(.secondary)
                 } else if comment.isSpoiler == true, !revealsSpoiler {
                     Button { revealsSpoiler = true } label: {
-                        Label("Содержит спойлер — нажмите, чтобы прочитать", systemImage: "eye.slash")
-                            .font(.ax(.subheadline)).foregroundStyle(.secondary)
-                            .padding(10).background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                        VStack(spacing: 4) {
+                            Text("Комментарий может содержать спойлер.").font(.ax(.subheadline)).foregroundStyle(.secondary)
+                            Text("Нажмите, чтобы прочитать").font(.ax(.subheadline, .medium)).foregroundStyle(.primary.opacity(0.85))
+                        }
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 12).padding(.vertical, 14)
+                        .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Text(comment.message ?? "").font(.ax(.subheadline)).textSelection(.enabled)
+                    Text(comment.message ?? "").font(.ax(.body)).textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let episode = comment.postedAtEpisode, episode > 0 {

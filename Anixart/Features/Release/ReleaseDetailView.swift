@@ -67,6 +67,9 @@ struct ReleaseDetailView: View {
         .toolbar(.visible, for: .navigationBar)
         // The blurred poster runs under the bar, as on Android.
         .toolbarBackground(.hidden, for: .navigationBar)
+        // Keep the bar buttons white however light the poster behind them is; iOS would
+        // otherwise flip them to black over a bright strip of backdrop.
+        .toolbarColorScheme(.dark, for: .navigationBar)
         // iOS 26 adds a soft translucent strip under the bar buttons once the page
         // scrolls; Android has nothing there, so switch that edge effect off.
         .modifier(HideTopScrollEdgeEffect())
@@ -334,7 +337,7 @@ struct ReleaseDetailView: View {
             Button { Task { await model.toggleFavorite() } } label: {
                 VStack(spacing: 8) {
                     BookmarkIcon(isFilled: isFavorite)
-                        .frame(width: 22, height: 24)
+                        .frame(width: 22, height: 24).frame(height: 28)
                         // A quick squash, a pop past full size, then a bouncy settle.
                         .keyframeAnimator(initialValue: 1.0, trigger: isFavorite) { view, scale in
                             view.scaleEffect(scale)
@@ -350,7 +353,7 @@ struct ReleaseDetailView: View {
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
+                .frame(height: 88)
                 .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .foregroundStyle(isFavorite ? Theme.favoriteYellow : .primary)
                 .animation(.easeOut(duration: 0.25), value: isFavorite)
@@ -378,12 +381,12 @@ struct ReleaseDetailView: View {
 
     private func tileLabel(icon: String, title: String, color: Color?) -> some View {
         VStack(spacing: 8) {
-            Image(systemName: icon).font(.ax(.title3))
+            Image(systemName: icon).font(.ax(.title3)).frame(height: 28)
             Text(title).font(.ax(.footnote, .semibold)).lineLimit(1).minimumScaleFactor(0.75)
                 .padding(.horizontal, 8)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
+        .frame(height: 88)
         .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .foregroundStyle(color ?? .primary)
     }
@@ -609,9 +612,9 @@ struct ReleaseDetailView: View {
 
     private func detailRow<Value: View>(_ title: String, @ViewBuilder value: () -> Value) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            Text(title).font(.ax(.title3)).foregroundStyle(.secondary)
+            Text(title).font(.ax(.body)).foregroundStyle(.secondary)
             Spacer(minLength: 8)
-            value().font(.ax(.title3)).multilineTextAlignment(.trailing)
+            value().font(.ax(.body)).multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
@@ -1145,7 +1148,7 @@ struct ReleaseDetailView: View {
     private func barButtonLabel(_ systemImage: String) -> some View {
         Image(systemName: systemImage)
             .font(.system(size: 18, weight: .semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(Color.white)
             .frame(width: 44, height: 44)
             .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
